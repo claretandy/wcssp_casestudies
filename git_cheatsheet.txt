@@ -32,7 +32,7 @@ git push
 
 4.d. Go to the git website, find your branch, and issue a pull request for Andy to merge your code with the master
 
-5. Once you've done this, create a new branch and do something else!
+5. Once you've done this, you can delete the branch on github, then create a new branch and do something else!
 
 
 6. Setup conda environment
