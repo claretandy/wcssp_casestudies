@@ -10,6 +10,9 @@ git branch <name of a new branch>
 # The following makes the new branch active:
 git checkout <name of new branch>
 
+# Link the local branch to an upstream branch
+git push --set-upstream origin myfirstbranch
+
 # The following gives you a summary of what branch is being used:
 git status
 
@@ -21,10 +24,13 @@ If this is the first time, you will need to setup your conda environment - go to
 4.a. Add any new files that you have created
 git add <my new file>
 
-4.b. Link the local branch to an upstream branch
-git push --set-upstream origin myfirstbranch
+4.b. Commit the changes to the local repository
+git commit -a -m 'A simple description of the changes'
 
-4.c. Go to the git website, find your branch, and issue a pull request for Andy to merge your code with the master
+4.c. Push the local branch to an upstream branch
+git push
+
+4.d. Go to the git website, find your branch, and issue a pull request for Andy to merge your code with the master
 
 5. Once you've done this, create a new branch and do something else!
 
