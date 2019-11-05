@@ -11,7 +11,7 @@ import h5py
 import pdb
 #from readGPM_v2 import *
 #iris.FUTURE.netcdf_no_unlimited = True
-
+print("test")
 '''
 Downloads GPM data into an iris cube.
 
