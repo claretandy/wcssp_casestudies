@@ -1,0 +1,29 @@
+1. On the github webpage https://github.com/claretandy/wcssp_casestudies hit 'Clone or download', and copy the url
+
+2. In a terminal, cd to a directory that you want to store the code in (e.g. ~/github ), then type the follwoing code into the terminal
+
+git clone git@github.com:claretandy/wcssp_casestudies.git
+
+# The following creates a new branch:
+git branch <name of a new branch>
+
+# The following makes the new branch active:
+git checkout <name of new branch>
+
+# The following gives you a summary of what branch is being used:
+git status
+
+3. Write some code!
+
+4. Commit code to local repository
+
+4.a. Add any new files that you have created
+git add <my new file>
+
+4.b. Link the local branch to an upstream branch
+git push --set-upstream origin myfirstbranch
+
+4.c. Go to the git website, find your branch, and issue a pull request for Andy to merge your code with the master
+
+5. Once you've done this, create a new branch and do something else!
+
