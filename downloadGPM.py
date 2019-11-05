@@ -179,11 +179,15 @@ def calcQuality(rawdatafiles, ofileq, year, month, day, curVer, latency):
         print('Error creating quality flag: ' + curVer)
     
     
-def main(latency, days, end_date):
+def main(latency, days, end_date, outdir, agency):
     product = 'imerg' # This shouldn't change
-    server = {'production' : ['arthurhou.pps.eosdis.nasa.gov', 'andrewjhartley@gmail.com', '.HDF5'],
-                'NRTlate' : ['jsimpson.pps.eosdis.nasa.gov', 'andrew.hartley@metoffice.gov.uk', '.RT-H5'],
-                'NRTearly' : ['jsimpson.pps.eosdis.nasa.gov', 'andrew.hartley@metoffice.gov.uk', '.RT-H5']}
+    #change the accounts
+    username_lookup = {'ukmo':'andrew.hartley@metoffice.gov.uk',
+                       'pagasa':'username@pagasa.gov.ph',
+                       }
+    server = {'production' : ['arthurhou.pps.eosdis.nasa.gov', username_lookup[agency], '.HDF5'],
+                'NRTlate' : ['jsimpson.pps.eosdis.nasa.gov', username_lookup[agency], '.RT-H5'],
+                'NRTearly' : ['jsimpson.pps.eosdis.nasa.gov', username_lookup[agency], '.RT-H5']}
     var = 'precipitationCal'
 
     # Shouldn't need to change anything below here ..
@@ -202,8 +206,9 @@ def main(latency, days, end_date):
         sfilepath = {'production' : '/gpmdata/'+year+'/'+month+'/'+day+'/imerg/3B-HHR.MS.MRG.3IMERG.',
                         'NRTlate' : '/NRTPUB/imerg/late/'+year+month+'/3B-HHR-L.MS.MRG.3IMERG.'+year+month+day,
                         'NRTearly': '/NRTPUB/imerg/early/'+year+month+'/3B-HHR-E.MS.MRG.3IMERG.'+year+month+day} # +'.*.RT-H5'
-        rawdata_dir = '/project/earthobs/PRECIPITATION/GPM/rawdata/'+product+'/'+latency+'/'+year+'/'+month+'/'+day
-        netcdf_dir = '/project/earthobs/PRECIPITATION/GPM/netcdf/'+product+'/'+latency+'/'+year+'/'
+        # change '/project/earthobs/PRECIPITATION/GPM/rawdata/
+        rawdata_dir = outdir+'/rawdata/'+product+'/'+latency+'/'+year+'/'+month+'/'+day
+        netcdf_dir = outdir+'/netcdf/'+product+'/'+latency+'/'+year+'/'
         ofile_test = netcdf_dir + '/gpm_'+product+'_'+latency+'_*_'+year+month+day+'.nc'
         ofile_part_test = netcdf_dir + '/gpm_'+product+'_'+latency+'_*_'+year+month+day+'_part.nc'
         ofileq_test = netcdf_dir + '/gpm_'+product+'_'+latency+'_*_'+year+month+day+'_quality.nc'
@@ -224,7 +229,12 @@ def main(latency, days, end_date):
                 os.chdir(rawdata_dir)
                 print('    Downloading files from FTP ...')
                 #pdb.set_trace()
-                os.system('export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency])
+                downloadstring = {
+                        'ukmo':'export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency],
+                        'pagasa':'ftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency]'
+                        }
+                
+                os.system(downloadstring[agency])
                 os.chdir(thiswd)
 
             rawdatafiles = glob.glob(rawdata_dir + '/3B-HHR*' + server[latency][2])
@@ -280,8 +290,11 @@ def main(latency, days, end_date):
 if __name__ == '__main__':
     latency = sys.argv[1] # Can be either 'production', 'NRTlate' or 'NRTearly'
     days = sys.argv[2] # How many days before today to process
+    outdir = sys.argv[3] # Local directory
+    agency = sys.argv[4] # ukmo or pagasa or bmkg or mmd
+    
     try:
         end_date = datetime.datetime.strptime(sys.argv[3], "%Y%m%d").date() # Needs to be formatted YYYYMMDD
     except IndexError:
         end_date = date.today()
-    main(latency, int(days), end_date)
+    main(latency, int(days), end_date, outdir, agency)
