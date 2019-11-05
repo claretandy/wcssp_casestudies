@@ -27,6 +27,7 @@ from pathlib import Path
 import re
 import pdb
 
+print ('Hello World-------')
 '''
 Usage: python plot_timelagged.py 201810110000 201810130000 '96, -2, 108, 10' '120.5, 16.1, 122.1, 18.1'
 This script takes as input a start date, an end date, an aggregation period and two bounding boxes.
