@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>GPM Precipitation | South East Asia</title>
+        <link rel="stylesheet" type="text/css" href="style_gpm.css">
+        <script language="javascript">
+//********* SET UP THESE VARIABLES - MUST BE CORRECT!!!********************* 
+first_image=0;
+last_image=;
+animation_height=;
+animation_width=;
+animation_startimg=;
+//************************************************************************** 
+ 
+//************************************************************************** 
+ 
+ 
+ 
+//=== THE CODE STARTS HERE - no need to change anything below === 
+ 
+//=== global variables ==== 
+ 
+theImages = new Array(); 
+ 
+normal_delay = mydelay;   
+ 
+delay = normal_delay;  //delay between frames in 1/100 seconds 
+ 
+delay_step = 100; 
+ 
+delay_max = 4000; 
+ 
+delay_min = 10;  
+ 
+current_image = first_image;     //number of the current image 
+ 
+timeID = null; 
+ 
+status = 0;            // 0-stopped, 1-playing 
+ 
+play_mode = 0;         // 0-continuous, 1-normal,  2-swing 
+ 
+size_valid = 0; 
+  
+ 
+ 
+//===> preload the images - gets executed first, while downloading the page 
+
+insert_imgdata_here
+
+
+
+// theImages[num] = new Image();
+// theImages[num].src = "http://www-hc/~hadhy/seasia_4k/gpm/date_range/archive/filename";
+//===> displays image depending on the play mode in forward direction 
+ 
+function animate_fwd()  
+ 
+{ 
+ 
+   current_image++; 
+ 
+   if(current_image > last_image) 
+ 
+   {  
+ 
+      if (play_mode == 1)  
+ 
+      { 
+ 
+         current_image = last_image;  
+ 
+         status=0;   
+ 
+         return; 
+ 
+      };                           //NORMAL 
+ 
+      if (play_mode == 0)  
+ 
+      { 
+ 
+         current_image = first_image; //LOOP 
+ 
+      }; 
+ 
+      if (play_mode == 2)  
+ 
+      { 
+ 
+         current_image = last_image;  
+ 
+         animate_rev(); 
+ 
+         return;  
+ 
+      }; 
+ 
+   };                              
+ 
+   document.animation.src = theImages[current_image].src; 
+ 
+   document.control_form.frame_nr.value = current_image; 
+ 
+   timeID = setTimeout("animate_fwd()", delay); 
+ 
+} 
+ 
+ 
+ 
+//===> displays image depending on the play mode in reverse direction 
+ 
+function animate_rev()  
+ 
+{ 
+ 
+   current_image--; 
+ 
+   if(current_image < first_image) 
+ 
+   {  
+ 
+      if (play_mode == 1)  
+ 
+      { 
+ 
+         current_image = first_image;  
+ 
+         status=0; 
+ 
+         return; 
+ 
+      };                           //NORMAL 
+ 
+      if (play_mode == 0)  
+ 
+      { 
+ 
+         current_image = last_image; //LOOP 
+ 
+      }; 
+ 
+      if (play_mode == 2)  
+ 
+      { 
+ 
+         current_image = first_image;  
+ 
+         animate_fwd(); 
+ 
+         return;  
+ 
+      }; 
+ 
+   };                              
+ 
+   document.animation.src = theImages[current_image].src; 
+ 
+   document.control_form.frame_nr.value = current_image; 
+ 
+   timeID = setTimeout("animate_rev()", delay); 
+ 
+} 
+ 
+ 
+ 
+//===> changes playing speed by adding to or substracting from the delay between frames 
+ 
+function change_speed(dv)  
+ 
+{ 
+ 
+   delay+=dv; 
+ 
+   if(delay > delay_max) delay = delay_max; 
+ 
+   if(delay < delay_min) delay = delay_min; 
+ 
+} 
+ 
+ 
+ 
+//===> stop the movie 
+ 
+function stop()  
+ 
+{ 
+ 
+   if (status == 1) clearTimeout (timeID); 
+ 
+   status = 0; 
+ 
+} 
+ 
+ 
+ 
+//===> "play forward" 
+ 
+function fwd()  
+ 
+{ 
+ 
+   stop(); 
+ 
+   status = 1; 
+ 
+   animate_fwd(); 
+ 
+} 
+ 
+ 
+ 
+//===> jumps to a given image number 
+ 
+function go2image(number) 
+ 
+{ 
+ 
+   stop(); 
+ 
+   if (number > last_image) number = last_image; 
+ 
+   if (number < first_image) number = first_image; 
+ 
+   current_image = number; 
+ 
+   document.animation.src = theImages[current_image].src; 
+ 
+   document.control_form.frame_nr.value = current_image; 
+ 
+} 
+ 
+ 
+ 
+//===> "play reverse" 
+ 
+function rev()  
+ 
+{ 
+ 
+   stop(); 
+ 
+   status = 1; 
+ 
+   animate_rev(); 
+ 
+} 
+ 
+ 
+ 
+//===> changes play mode (normal, continuous, swing) 
+ 
+function change_mode(mode)  
+ 
+{ 
+ 
+   play_mode = mode; 
+ 
+} 
+ 
+ 
+ 
+//===> sets everything once the whole page and the images are loaded (onLoad handler in <body>) 
+ 
+function launch()  
+ 
+{ 
+ 
+   stop(); 
+   current_image = first_image; 
+ 
+   document.animation.src = theImages[current_image].src; 
+ 
+   document.control_form.frame_nr.value = current_image; 
+ 
+   // this is trying to set the text (Value property) on the START and END buttons  
+ 
+   // to S(first_image number), E(last_image number). It's supposed (according to  
+ 
+   // JavaScript Authoring Guide) to be a read only value but for some reason 
+ 
+   // it works on win3.11 (on IRIX it doesn't). 
+ 
+   // document.control_form.start_but.value = " FIRST(" + first_image + ") "; 
+ 
+   // document.control_form.end_but.value = " LAST(" + last_image + ") "; 
+ 
+   // this needs to be done to set the right mode when the page is manualy reloaded 
+ 
+   change_mode (document.control_form.play_mode_selection.selectedIndex); 
+
+   fwd();
+
+} 
+ 
+ 
+ 
+//===> writes the interface into the code where you want it 
+ 
+function animation() 
+ 
+{ 
+ 
+   document.write(" <P><IMG NAME=\"animation\" SRC=\"",animation_startimg,"\" HEIGHT=",animation_height, " WIDTH=", animation_width, "\" ALT=\"[jsMoviePlayer]\">");
+ 
+   document.write(" <FORM Method=POST Name=\"control_form\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Name=\"start_but\" Value=\"  FIRST  \" onClick=\"go2image(first_image)\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Value=\" -1 \" onClick=\"go2image(--current_image)\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Value=\"BACKWARD\" onClick=\"rev()\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Value=\" STOP \" onClick=\"stop()\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Value=\"FORWARD\" onClick=\"fwd()\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Value=\" +1 \" onClick=\"go2image(++current_image)\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"button\" Name=\"end_but\" Value=\"   LAST   \" onClick=\"go2image(last_image)\"> "); 
+ 
+   document.write(" <BR> "); 
+ 
+   document.write("    OPTIONS:<SELECT NAME=\"play_mode_selection\" onChange=\"change_mode(this.selectedIndex)\"> "); 
+ 
+    
+document.write("       <OPTION SELECTED VALUE=0>continuous "); 
+ 
+   document.write("       <OPTION VALUE=1>loop once "); 
+   document.write("       <OPTION VALUE=2>swing "); 
+ 
+   document.write("    </SELECT> "); 
+ 
+   document.write("    IMAGE #:<INPUT TYPE=\"text\" NAME=\"frame_nr\" VALUE=\"0\" SIZE=\"5\" "); 
+ 
+   document.write("     onFocus=\"this.select()\" onChange=\"go2image(this.value)\"> "); 
+ 
+   document.write("    &nbsp;SPEED:<INPUT TYPE=\"button\" Value=\"  -  \" onClick=\"change_speed(delay_step)\"> "); 
+ 
+   document.write("    <INPUT TYPE=\"submit\" Value=\"  +  \" onClick=\"change_speed(-delay_step)\;return false\"> "); 
+ 
+   document.write(" </FORM> "); 
+ 
+   document.write(" </P> "); 
+ 
+};
+
+ts_img_height = 1800;
+ts_img_width = 1500;
+
+theTSImages = new Array();
+theTSImages[0] = new Image();
+theTSImages[0].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_00Z_tplus1day_current.png";
+theTSImages[1] = new Image();
+theTSImages[1].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_00Z_tplus2day_current.png";
+theTSImages[2] = new Image();
+theTSImages[2].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_00Z_tplus3day_current.png";
+theTSImages[3] = new Image();
+theTSImages[3].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_00Z_tplus4day_current.png";
+theTSImages[4] = new Image();
+theTSImages[4].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_00Z_tplus5day_current.png";
+theTSImages[5] = new Image();
+theTSImages[5].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_12Z_tplus1day_current.png";
+theTSImages[6] = new Image();
+theTSImages[6].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_12Z_tplus2day_current.png";
+theTSImages[7] = new Image();
+theTSImages[7].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_12Z_tplus3day_current.png";
+theTSImages[8] = new Image();
+theTSImages[8].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_12Z_tplus4day_current.png";
+theTSImages[9] = new Image();
+theTSImages[9].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_12Z_tplus5day_current.png";
+theTSImages[10] = new Image();
+theTSImages[10].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_allZ_tplus1day_current.png";
+theTSImages[11] = new Image();
+theTSImages[11].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_allZ_tplus2day_current.png";
+theTSImages[12] = new Image();
+theTSImages[12].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_allZ_tplus3day_current.png";
+theTSImages[13] = new Image();
+theTSImages[13].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_allZ_tplus4day_current.png";
+theTSImages[14] = new Image();
+theTSImages[14].src = "http://www-hc/~hadhy/seasia_4k/gpm/timeseries_area-max_km4p4_new_allZ_tplus5day_current.png";
+
+ts_current_image = theTSImages[0].src
+
+function put_image()
+{
+
+document.write(" <P><IMG NAME=\"timeseries\" SRC=\"",ts_current_image,"\" HEIGHT=",ts_img_height, " WIDTH=", ts_img_width, "\" ALT=\"image not available\">");
+}
+
+function changeImage(imgnum)
+{
+    ts_current_image = theTSImages[imgnum].src ;
+    document.timeseries.src = ts_current_image;
+}
+
+ 
+</script> 
+ 
+
+    </head> 
+
+    <body onLoad="launch()" MARGINWIDTH=0 MARGINHEIGHT=0 LEFTMARGIN=0 TOPMARGIN=0>
+        <header id="header">
+            <div id="menu_bar">
+                <ul>
+                    <li><a href="gpm_30mins_current.html">30 min</a></li>
+                    <li><a href="gpm_3hr_current.html">3 Hour</a></li>
+                    <li><a href="gpm_6hr_current.html">6 Hour</a></li>
+                    <li><a href="gpm_12hr_current.html">12 Hour</a></li>
+                    <li><a href="gpm_24hr_current.html">24 Hour</a></li>
+                </ul>
+            </div>
+        </header>
+
+        <div id="content">
+            <p>Images from start_date to end_date</p>
+            <table width=100% BORDER=0 CELLPADDING=0 CELLSPACING=0>
+            <tr>
+                <td align=center>
+                    <script type="text/javascript">
+                        animation();
+                    </script>
+                </td>
+            </tr>
+            <tr>
+                <td align=center><BR>
+                This animation shows the GPM 18-hour latency product for SE Asia. desc_txt
+                </td>
+            </tr>
+            <tr>
+                <td align=center><BR>
+                Timeseries plots are available for <a href="http://www-hc/~hadhy/seasia_4k/gpm/timeseries_viewer_v3.html">Manila, Jakarta and Kuala Lumpu</a>
+                </td>
+            </tr>
+            
+<!--            <tr>
+                <td align=center>
+                    <script type="text/javascript">
+                        put_image();
+                    </script>
+                </td>
+            </tr>-->
+            </table>
+        </div>
+        <footer id="footer">
+            <div class="innertube">
+                <p>Processed at: proctime    by <a href="mailto:andrew.hartley@metoffice.gov.uk" target="_top">andrew.hartley@metoffice.gov.uk</a></p>
+            </div>
+        </footer>
+    </body>
+</html>
