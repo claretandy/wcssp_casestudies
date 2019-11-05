@@ -2,7 +2,7 @@
 
 2. In a terminal, cd to a directory that you want to store the code in (e.g. ~/github ), then type the follwoing code into the terminal
 
-git clone git@github.com:claretandy/wcssp_casestudies.git
+git clone <URL copied from step 1>
 
 # The following creates a new branch:
 git branch <name of a new branch>
@@ -14,6 +14,7 @@ git checkout <name of new branch>
 git status
 
 3. Write some code!
+If this is the first time, you will need to setup your conda environment - go to step 6!
 
 4. Commit code to local repository
 
@@ -26,4 +27,14 @@ git push --set-upstream origin myfirstbranch
 4.c. Go to the git website, find your branch, and issue a pull request for Andy to merge your code with the master
 
 5. Once you've done this, create a new branch and do something else!
+
+
+6. Setup conda environment
+- Download miniconda from hre - http://conda.pydata.org/miniconda.html
+- Create a new conda environment ...
+conda create --name wcssp --python=3.6
+- Activate that environment
+conda activate wcssp
+- Now install iris and other packages (-c option specifies the 'channel'; -n option specifies the environment to install it in) ...
+conda install -n wcssp -c conda-forge iris
 
