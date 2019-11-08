@@ -183,7 +183,7 @@ def main(latency, days, end_date, outdir, agency):
     product = 'imerg' # This shouldn't change
     #change the accounts
     username_lookup = {'ukmo':'andrew.hartley@metoffice.gov.uk',
-                       'pagasa':'username@pagasa.gov.ph',
+                       'pagasa':'gab.miro@yahoo.com',
                        }
     server = {'production' : ['arthurhou.pps.eosdis.nasa.gov', username_lookup[agency], '.HDF5'],
                 'NRTlate' : ['jsimpson.pps.eosdis.nasa.gov', username_lookup[agency], '.RT-H5'],
@@ -191,8 +191,8 @@ def main(latency, days, end_date, outdir, agency):
     var = 'precipitationCal'
 
     # Shouldn't need to change anything below here ..
-    first_date = date(2000, 6, 1)
-    #end_date = date.today()
+    first_date = datetime.datetime(2000, 6, 1)
+    end_date = datetime.datetime.strptime(end_date, '%Y%m%d')
     start_date = end_date - timedelta(days)
     if start_date < first_date:
         start_date = first_date
@@ -231,9 +231,8 @@ def main(latency, days, end_date, outdir, agency):
                 #pdb.set_trace()
                 downloadstring = {
                         'ukmo':'export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency],
-                        'pagasa':'ftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency]'
+                        'pagasa':'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1], server[latency][1], server[latency][0], sfilepath[latency] + '*.RT-H5')
                         }
-                
                 os.system(downloadstring[agency])
                 os.chdir(thiswd)
 
