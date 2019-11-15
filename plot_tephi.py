@@ -6,7 +6,7 @@ Created on Tue Nov 12 15:39:30 2019
 import sys
 sys.path.append('./tephi_module')
 from tephi_module import tephi
-from datetime import datetime
+import datetime as dt
 import matplotlib.pyplot as plt
 
 def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
@@ -22,7 +22,7 @@ def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
         keys:   data type
         values: dictionary {'c':, 'ls':}
     """
-    date = datetime.strptime(date, '%Y%m%d_%H%M')
+    date = dt.datetime.strptime(date, '%Y%m%d_%H%M')
     
     fig,ax = plt.subplots(figsize=(10,20))
     plt.axis('off')

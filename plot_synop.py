@@ -6,6 +6,7 @@ Created on Tue Nov 12 11:36:54 2019
 @author: hmiguel
 """
 import sys, os
+from location_config import load_location_settings
 import pandas as pd
 import numpy as np
 import glob
@@ -16,43 +17,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-def load_location_settings(site):
-    '''
-    This loads data depending on the NMS that we're in
-    # Points to the SYNOP data
-    '''
-    if site == 'PAGASA':
-        site_details = {
-            'synop_path'     : '/home/hmiguel/WCSSP/synop/',
-            'file_wildcard'  : '*.json',
-            'plot_dir'       : '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'BMKG':
-        site_details = {
-            'synop_path'     : '/home/hmiguel/WCSSP/synop/',
-            'file_wildcard'  : '*.json',
-            'plot_dir'       : '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'MMD':
-        site_details = {
-            'synop_path': '/home/hmiguel/WCSSP/synop/',
-            'file_wildcard': '*.json',
-            'plot_dir': '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'Andy-MacBook':
-        site_details = {
-            'synop_path': '/Users/andy/Work/WCSSP_SEA/PAGASA/synop/',
-            'file_wildcard': '*.json',
-            'plot_dir': '/Users/andy/Work/WCSSP_SEA/PAGASA/plots/'
-        }
-    else:
-        site_details = {
-            'synop_path': './Data/PAGASA/synop/',
-            'file_wildcard': '*.json',
-            'plot_dir': './plots/'
-        }
-
-    return site_details
 
 def formatValue(k, v):
     '''
@@ -109,8 +73,9 @@ def getData(start_dt, end_dt, settings, station_id=None):
     '''
     
     # Get the paths to the data
-    path = settings['synop_path']
-    file_wildcard = settings['file_wildcard']
+    path          = settings['synop_path']
+    file_wildcard = settings['synop_wildcard']
+    freq          = settings['synop_frequency']
     
     thisdate = start_dt
     outdf = {}
@@ -167,8 +132,8 @@ def getData(start_dt, end_dt, settings, station_id=None):
                 outdf = outdf.append(pd.DataFrame(this_dict), sort=False)
 
         # Move onto the next datetime
-        # TODO: Check that the frequency of observations is the same for each country
-        thisdate = thisdate + dt.timedelta(hours=3)
+        # Note that the frequency of observations is set in the location_config.py file
+        thisdate = thisdate + dt.timedelta(hours=freq)
 
     # TODO: Once we have the final output, let's add in a column for local times too
 

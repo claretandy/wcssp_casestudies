@@ -1,5 +1,6 @@
-import os
-from datetime import datetime
+import sys, os
+from location_config import load_location_settings
+import datetime as dt
 from netCDF4 import Dataset
 from math import radians, sin, cos, atan2, sqrt, log, fabs, degrees, atan
 import numpy as np
@@ -169,16 +170,36 @@ def get_sounding_wind(wind, lat0, lon0, radius=20):
     
     return np.vstack((wind['pres'], u_pt, v_pt, wspd, wdir)).T
     
+def main(organisation, dtime):
 
-dtime = datetime(2019,11,1,12)
+    settings = load_location_settings(organisation)
+    ddir = settings['sounding_path']
 
-ddir = './data/um'
+    temp, wind = get_variables(ddir, dtime)
 
-temp, wind = get_variables(ddir, dtime)
+    lat0 = 14.5812
+    lon0 = 121.3693
 
-lat0 = 14.5812
-lon0 = 121.3693
+    tanay_temp = get_sounding_temp(temp, lat0, lon0)
+    tanay_wind = get_sounding_wind(wind, lat0, lon0)
 
-tanay_temp = get_sounding_temp(temp, lat0, lon0)
-tanay_wind = get_sounding_wind(wind, lat0, lon0)
+if __name__ == '__main__':
 
+    '''
+    Inputs:
+    organisation : string of org name. Can be 'PAGASA', 'BMKG', 'MMD', 'UKMO', or 'Andy-MacBook'
+    dtime        : string with datetime in. Needs to be formatted '%Y%m%dT%H%MZ'
+    '''
+
+    try:
+        organisation = sys.argv[1]
+    except:
+        organisation = 'Andy-MacBook'
+
+    try:
+        dtime = sys.argv[2]
+    except:
+        # If no datetime specified, try to take the 12Z sounding from yesterday
+        dtime = dt.datetime.utcnow().replace(microsecond=0, second=0, minute=0, hour=0) - dt.timedelta(hours=12)
+
+    main(organisation, dtime)
