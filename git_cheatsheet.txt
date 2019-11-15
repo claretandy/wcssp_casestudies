@@ -1,3 +1,5 @@
+Hello from Efan
+
 1. On the github webpage https://github.com/claretandy/wcssp_casestudies hit 'Clone or download', and copy the url
 
 2. In a terminal, cd to a directory that you want to store the code in (e.g. ~/github ), then type the follwoing code into the terminal
