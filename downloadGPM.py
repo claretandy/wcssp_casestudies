@@ -289,8 +289,8 @@ def main(latency, days, end_date, outdir, agency):
 if __name__ == '__main__':
     latency = sys.argv[1] # Can be either 'production', 'NRTlate' or 'NRTearly'
     days = sys.argv[2] # How many days before today to process
-    outdir = sys.argv[3] # Local directory
-    agency = sys.argv[4] # ukmo or pagasa or bmkg or mmd
+    outdir = sys.argv[4] # Local directory
+    agency = sys.argv[5] # ukmo or pagasa or bmkg or mmd
     
     try:
         end_date = datetime.datetime.strptime(sys.argv[3], "%Y%m%d").date() # Needs to be formatted YYYYMMDD
