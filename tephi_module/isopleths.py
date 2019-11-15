@@ -28,9 +28,8 @@ from matplotlib.path import Path
 import numpy as np
 from scipy.interpolate import interp1d
 
-from _constants import CONST_CP, CONST_L, CONST_KELVIN, CONST_RD, CONST_RV
-import transforms
-
+from tephi_module._constants import CONST_CP, CONST_L, CONST_KELVIN, CONST_RD, CONST_RV
+from tephi_module import transforms
 
 # Wind barb speed (knots) ranges used since 1 January 1955.
 _BARB_BINS = np.arange(20) * 5 + 3

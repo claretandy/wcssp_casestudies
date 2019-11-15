@@ -19,12 +19,10 @@ Tephigram transform support.
 
 """
 
-import matplotlib as mpl
 from matplotlib.transforms import Transform
 import numpy as np
-import types
 
-from _constants import CONST_K, CONST_KELVIN, CONST_L, CONST_MA, CONST_RV
+from tephi_module._constants import CONST_K, CONST_KELVIN, CONST_L, CONST_MA, CONST_RV
 
 
 #

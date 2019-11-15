@@ -3,8 +3,9 @@ Created on Tue Nov 12 15:39:30 2019
 
 @author: nms6
 """
-
-import tephi
+import sys
+sys.path.append('./tephi_module')
+from tephi_module import tephi
 from datetime import datetime
 import matplotlib.pyplot as plt
 

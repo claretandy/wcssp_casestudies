@@ -33,9 +33,7 @@ import numbers
 import numpy as np
 import os.path
 
-import isopleths
-import transforms
-
+from tephi_module import isopleths, transforms
 
 __version__ = '0.1.0'
 
@@ -91,9 +89,7 @@ def loadtxt(*filenames, **kwargs):
 
     For example:
 
-    >>> import os.path
-    >>> import tephi
-
+    >>> from tephi_module import tephi    >>> import os.path
     >>> winds = os.path.join(tephi.DATA_DIR, 'barbs.txt')
     >>> columns = ('pressure', 'dewpoint', 'wind_speed', 'wind_direction')
     >>> data = tephi.loadtxt(winds, column_titles=columns)
@@ -225,7 +221,7 @@ class Locator(object):
 
         For example:
 
-            >>> from tephi import Locator
+            >>> from tephi_module.tephi import Locator
             >>> locator = Locator(10)
             >>> locator(-45, 23)
             (array([-50, -40, -30, -20, -10,   0,  10,  20]), 8, 1)
