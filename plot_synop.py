@@ -59,7 +59,7 @@ def formatValue(k, v):
 
     if 'time' in k:
         try:
-            h,m,s = [int(t) for t in tmp.split(':')]
+            h,m,s = [int(t) for t in v.split(':')]
             return [dt.time(h, m, s)]
         except:
             return [v]
@@ -178,14 +178,14 @@ def plotStationData(df, plotsettings):
     #sns.relplot(x=outdf['dateTimeUTC'], y=outdf['pressure'], data=outdf, ax=ax2)
     #sns.relplot(x=outdf['dateTimeUTC'], y=outdf['drybulb'], data=outdf, ax=ax3)
 
-def bokeh_plot(df, settings):
-    # Possible bokeh implementation ...
-    output_file = ofile.replace('png', 'html'), title=title)
-    TOOLS = 'save,pan,box_zoom,reset,wheel_zoom,hover'
-    fig = figure(title=title, y_axis_type="linear", plot_height=1200,
-               tools=TOOLS, plot_width=1700)
-    fig.xaxis.axis_label = 'Time'
-    fig.line()
+# def bokeh_plot(df, settings):
+#     # Possible bokeh implementation ...
+#     output_file = ofile.replace('png', 'html'), title=title)
+#     TOOLS = 'save,pan,box_zoom,reset,wheel_zoom,hover'
+#     fig = figure(title=title, y_axis_type="linear", plot_height=1200,
+#                tools=TOOLS, plot_width=1700)
+#     fig.xaxis.axis_label = 'Time'
+#     fig.line()
 
 def main(organisation, start_dt, end_dt, station_id):
     '''
@@ -211,7 +211,7 @@ def main(organisation, start_dt, end_dt, station_id):
         # Get the model data
 
         # Make the obs only plots
-        plotsettings = {'plotdir': settings['plot_dir'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
+        plotsettings = {'plotdir': settings['synop_path'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
         plotStationData(df, plotsettings)
 
         # Make the model vs obs plots

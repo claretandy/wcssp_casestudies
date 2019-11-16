@@ -1,35 +1,23 @@
 import os, sys
 import matplotlib
 ####
-# Use this for running on SPICE ...
+# Use this for running on SPICE in UKMO ...
 hname = os.uname()[1]
 if not hname.startswith('eld') and not hname.startswith('els'):
     matplotlib.use('Agg')
 ####
+from location_config import load_location_settings
 import iris
 import iris.coord_categorisation
-import iris.plot as iplt
-import iris.quickplot as qplt
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import numpy as np
 import os.path
-import numpy.ma as ma
-import iris.analysis as ia
 from datetime import timedelta, date, datetime
 import datetime as dt
-import glob
-from iris.coord_categorisation import add_categorised_coord
 import re
 from PIL import Image
-import itertools
 import shutil
-sys.path.append('/net/home/h02/hadhy/Repository/hadhy_scripts/WCSSP/functions')
 import std_functions as sf
 import nrt_plots_v3 as nrtplt
 import plot_timelagged as pt
-import pdb
 
 '''
 Make quick near real time plots for a specfified time period.
@@ -198,12 +186,14 @@ def addTimeCats(cube):
     return cube
 
 
-def main(dt_startdt, dt_enddt, plotdomain, eventname):
+def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation):
 
     # Set some things at the start ...
-    rootdir = '/data/users/hadhy/CaseStudies/'
-    region_name = sf.getDomain_bybox(plotdomain).lower()
-    template_file = '/home/h02/hadhy/Repository/hadhy_scripts/WCSSP/functions/gpm_template.html'
+    settings = load_location_settings(organisation)
+    rootdir = settings['plot_dir']
+
+    # region_name = sf.getDomain_bybox(plotdomain).lower()
+    template_file = 'gpm_template.html'
     outdir = rootdir + region_name + '/' + eventname + '/gpm/'
     local_dir = outdir
     #local_dir = os.environ['HOME'] + '/public_html/' + region_name + '/gpm_casestudies/'
@@ -247,7 +237,7 @@ if __name__ == '__main__':
         dt_start = dt.datetime.strptime(sys.argv[1], "%Y%m%d") # Needs to be formatted %Y%m%d
         dt_end   = dt.datetime.strptime(sys.argv[2], "%Y%m%d") # Needs to be formatted %Y%m%d
     except IndexError:
-        nrst3hour = myround(dt.datetime.now().hour, base=3)
+        nrst3hour = sf.myround(dt.datetime.now().hour, base=3)
         dt_end = dt.datetime.now().replace(hour=nrst3hour, minute=0, second=0, microsecond=0) - dt.timedelta(hours=6)
         dt_start = dt_end - dt.timedelta(hours=3)
 
@@ -260,6 +250,13 @@ if __name__ == '__main__':
     try:
         eventname = sys.argv[4]
     except:
-        eventname = dt_start.strftime('%Y%m%d')
+        eventname = 'noname/' + dt_start.strftime('%Y%m%d') + '_noname'
+
+    region_name, eventname = eventname.split('/')
+
+    try:
+        organisation = sys.argv[5]
+    except:
+        organisation = 'Andy-MacBook'
     
-    main(dt_start, dt_end, plotdomain, eventname=eventname)
+    main(dt_start, dt_end, plotdomain, region_name, eventname, organisation)

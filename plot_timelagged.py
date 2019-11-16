@@ -8,23 +8,15 @@ if not hname.startswith('eld') and not hname.startswith('els') and not hname.sta
     matplotlib.use('Agg')
 ####
 import iris
+from location_config import load_location_settings
 import iris.plot as iplt
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.ma as ma
 import datetime as dt
-import glob
-import re
-import statistics
-import subprocess
-import cartopy.crs as ccrs
 import matplotlib.colors as colors
-sys.path.append('/net/home/h02/hadhy/Repository/hadhy_scripts/WCSSP/functions')
+from make_html import create_summary_html
 import std_functions as sf
-import shutil
-from pathlib import Path
-import re
 import pdb
 
 '''
@@ -67,6 +59,7 @@ def plotOneModel(gpmdict, modelcubes, model2plot, timeagg, plotdomain, odir):
         
     postage = {1 : gpmdict['gpm_prod_data'] if gpmdict['gpm_prod_data'] is not None else gpmdict['gpm_late_data'],
                2 : gpmdict['gpm_prod_qual'] if gpmdict['gpm_prod_qual'] is not None else gpmdict['gpm_late_qual'],
+               # TODO : Replace the next 2 lines with different observations either from satellite or radar
                3 : gpmdict['gpm_late_data'] if gpmdict['gpm_prod_data'] is not None else gpmdict['gpm_early_data'],
                4 : gpmdict['gpm_late_qual'] if gpmdict['gpm_prod_qual'] is not None else gpmdict['gpm_early_qual'],
                5 : modelcubes[model2plot][9],
@@ -275,99 +268,15 @@ def makeHTML_fromimages_indir(dt_start, dt_end, domain, pngfilelist, indir, even
 
     return(outhtml)
 
-def nice_names(name):
-
-    nndict = {'seasia'  : 'SE Asia',
-              'tafrica' : 'Tropical Africa'}
-
-    try:
-        return nndict[name]
-    except:
-        return name
-
-
-def create_summary_html(indir):
-
-    summarypage = Path(indir).as_posix() + '/index.html'
-    htmlfiles = glob.glob(Path(indir).as_posix() + '/*/*/*.html')
-    gpmfiles = glob.glob(os.path.dirname(summarypage) + '/*/*/gpm/gpm_30mins_current.html')
-    htmlfiles.extend(gpmfiles)
-    regions = [hf.replace(Path(indir).as_posix(), '').split('/')[1] for hf in htmlfiles]
-    regions = sorted(list(set(regions)))
-    eventlist = []
-
-    # Create a summary html page on which to add reference to this page
-
-    htmlpage = open(summarypage, 'w')
-    htmlpage.write('<!DOCTYPE html>\n')
-    htmlpage.write('<html>\n')
-    htmlpage.write('<head>\n')
-    htmlpage.write('<style>\n')
-    htmlpage.write('table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; }\n')
-    htmlpage.write('td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }\n')
-    htmlpage.write('tr:nth-child(even) { background-color: #dddddd; }\n')
-    htmlpage.write('</style>\n')
-    htmlpage.write('</head>\n')
-    htmlpage.write('<body>\n')
-
-    htmlpage.write('<h1>List of Case Study web pages available</h1>\n')
-
-    for reg in regions:
-        htmlpage.write('<h2>'+nice_names(reg)+'</h2>\n')
-        htmlpage.write('<a id="'+reg+'"></a>\n')
-
-        reghtmlfiles = glob.glob(Path(summarypage).with_name(reg).as_posix() + '/**/*.html')
-        gpmfiles = glob.glob(os.path.dirname(summarypage) + '/' + reg + '/*/gpm/gpm_30mins_current.html')
-        reghtmlfiles.extend(gpmfiles)
-        regbase = [x.replace(os.path.dirname(summarypage) + '/' + reg + '/', '') for x in reghtmlfiles]
-
-        regcases = sorted(list(set([x.split('/')[0] for x in regbase])), reverse=True)
-
-        htmlpage.write('<table>\n')
-        htmlpage.write('<tr><th>Case Study Name</th><th>GPM</th><th>Models@3hrs</th><th>Models@6hrs</th><th>Models@12hrs</th><th>Models@24hrs</th></tr>\n')
-
-        for rc in regcases:
-
-            # get all the html files in this Region/Case combination
-            allhtml = [rh for rh in reghtmlfiles if '/'+rc+'/' in rh]
-            try:
-                timeaggs = [os.path.basename(x).split('.')[0].split('timeagg')[1] for x in allhtml if not 'gpm' in x]
-            except:
-                pdb.set_trace()
-
-            newline = '<tr><td>'+rc+'</td><td>GPM</td><td>3hrs</td><td>6hrs</td><td>12hrs</td><td>24hrs</td></tr>\n'
-            # newline = '<p>' + rc + ': GPM 3hrs 6hrs 12hrs 24hrs </p>\n'
-
-            for ta, html in zip(timeaggs, allhtml):
-                insert = ' <a href="' + reg + '/' + rc + '/' + os.path.basename(html) + '">' + ta + '</a> '
-                newline = newline.replace(ta, insert)
-
-            # Get all the 30min GPM html file for this reg/case if it exists
-            gpmhtmlfile = os.path.dirname(summarypage) + '/' + reg + '/' + rc + '/gpm/gpm_30mins_current.html'
-            if os.path.isfile(gpmhtmlfile):
-                insert = ' <a href="' + reg + '/' + rc + '/gpm/gpm_30mins_current.html' + '">GPM</a> '
-                newline = newline.replace('GPM', insert)
-
-            # Replace all cells with no data with a '-'
-            newline = re.sub('<td>(GPM|[0-9]{1,}hrs)</td>', '<td>-</td>', newline)
-            htmlpage.write(newline)
-
-        htmlpage.write('</table>\n')
-
-    htmlpage.write('</body>\n')
-    htmlpage.write('</html>\n')
-    htmlpage.close()
-
-
 
 def plotAllData(gpmlist, modelcubes, models2plot, timeagg, odir):
     # Plot all the models and all the GPM data
     print('hello')
     
-def main(dt_start, dt_end, timeagg, plotdomain, statdomain, searchlist=None, eventname=None, overwrite=False):
-    # control the program
+def main(dt_start, dt_end, timeagg, plotdomain, statdomain, organisation, region_name, eventname, searchlist=None, overwrite=False):
 
-    print(timeagg)
+    print('Time aggregation: ',timeagg)
+    settings = load_location_settings(organisation)
     domain = sf.getDomain_bybox(plotdomain)
     datadir = '/data/users/hadhy/CaseStudies/'
     odir = datadir + domain.lower() + '/'
@@ -441,12 +350,12 @@ def main(dt_start, dt_end, timeagg, plotdomain, statdomain, searchlist=None, eve
 
     outhtml = makeHTML_fromimages_indir(dt_start, dt_end, domain, pngfilelist, html_odir, eventname, 'timeagg'+str(timeagg)+'hrs')
 
-    create_summary_html(datadir)
+    # create_summary_html(datadir)
 
 if __name__ == '__main__':
     '''
     Usage:
-    python plot_timelagged.py <start_dt> <end_dt> <aggregation_hrs> <plotdomain> <eventname> overwrite 
+    python plot_timelagged.py <start_dt> <end_dt> <plotdomain> <eventname> organisation 
     '''
 
     try:
@@ -458,36 +367,29 @@ if __name__ == '__main__':
         dt_start = dt_end - dt.timedelta(hours=3)
 
     try:
-        timeagg = int(sys.argv[3])
-    except:
-        timeagg = 3
-
-    try:
-        plotdomain = [float(x) for x in sys.argv[4].split(',')] # xmin, ymin, xmax, ymax
+        plotdomain = [float(x) for x in sys.argv[3].split(',')] # xmin, ymin, xmax, ymax
         #statdomain = [float(x) for x in sys.argv[5].split(', ')] # xmin, ymin, xmax, ymax
     except:
-        # Assume a big SEAsia domain
-        # latitude=(-10,20), longitude=(91, 120)
-        # North  Vietnam: [102, 17, 108, 23]
-        # Vietnam = [101, 4.5, 120, 24.5] # Vietnam
+        # Random box over the Philippines
         plotdomain = [102, 17, 108, 23]
 
     try:
-        searchlist = sys.argv[5]
+        eventname = sys.argv[4]
     except:
-        searchlist = 'ga6,km4p4'
+        eventname = 'noname/' + dt_start.strftime('%Y%m%d') + '_noname'
+
+    region_name, eventname = eventname.split('/')
 
     try:
-        eventname = sys.argv[6]
+        organisation = sys.argv[5]
     except:
-        eventname = dt_start.strftime('%Y%m%d')
+        organisation = 'UKMO'
 
-    try:
-        overwrite = True if sys.argv[7] == 'overwrite' else False
-    except:
-        overwrite = False
+    statdomain = plotdomain # Could be smaller more focused on the area
+    timeagg = [3, 12, 24]
+    searchlist = 'ga7,km4p4'
+    overwrite = False
 
-
-    statdomain = plotdomain # [91, -10, 120, 20]
-        
-    main(dt_start, dt_end, timeagg, plotdomain, statdomain, searchlist=searchlist, eventname=eventname, overwrite=overwrite)
+    for ta in timeagg:
+        main(dt_start, dt_end, ta, plotdomain, statdomain, organisation, region_name, eventname, searchlist=searchlist,
+             overwrite=overwrite)
