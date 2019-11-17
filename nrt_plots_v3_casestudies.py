@@ -234,8 +234,8 @@ def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation)
 if __name__ == '__main__':
 
     try:
-        dt_start = dt.datetime.strptime(sys.argv[1], "%Y%m%d") # Needs to be formatted %Y%m%d
-        dt_end   = dt.datetime.strptime(sys.argv[2], "%Y%m%d") # Needs to be formatted %Y%m%d
+        dt_start = dt.datetime.strptime(sys.argv[1], "%Y%m%d%H%M") # Needs to be formatted %Y%m%d
+        dt_end   = dt.datetime.strptime(sys.argv[2], "%Y%m%d%H%M") # Needs to be formatted %Y%m%d
     except IndexError:
         nrst3hour = sf.myround(dt.datetime.now().hour, base=3)
         dt_end = dt.datetime.now().replace(hour=nrst3hour, minute=0, second=0, microsecond=0) - dt.timedelta(hours=6)

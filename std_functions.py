@@ -1299,6 +1299,9 @@ def getGPMCube(start, end, latency, plotdomain, aggregate=True):
     containing the data and quality flag
     plotdomain = xmin, ymin, xmax, ymax
     '''
+    gpm_path
+    from location_config import load_location_settings
+    load_location_settings()
     inpath = '/project/earthobs/PRECIPITATION/GPM/netcdf/imerg/'+latency+'/'
 
     if start > end:

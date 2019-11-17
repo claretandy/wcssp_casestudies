@@ -6,68 +6,48 @@ import os
 
 def load_location_settings(site):
     '''
-    This loads data depending on the NMS that we're in
-    # Points to the SYNOP data
+    This loads settings depending on the NMS that we're in
     '''
 
-    if site == 'PAGASA':
-        site_details = {
-            'datadir'         : '/home/hmiguel/WCSSP/PAGASA/',
-            'synop_wildcard'  : '*.json',
-            'synop_frequency' : 3,
-            'plot_dir'        : '/home/hmiguel/WCSSP/plots/',
-            'gpm_username'    : 'gab.miro@yahoo.com'
-        }
-    elif site == 'BMKG':
-        site_details = {
-            'datadir'     : '/path/to/folder/',
-            'synop_wildcard'  : '*.csv',
-            'synop_frequency': 3,
-            'plot_dir'       : '/path/to/folder/plots/',
-            'gpm_username'   : 'somebody@bmkg.go.id'
-        }
-    elif site == 'MMD':
-        site_details = {
-            'datadir': '/path/to/folder/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': '/path/to/folder/plots/',
-            'gpm_username': 'somebody@metmalaysia.my'
-        }
-    elif site == 'Andy-MacBook':
-        site_details = {
-            'datadir': '/Users/andy/Work/WCSSP_SEA/Data/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': '/Users/andy/Work/WCSSP_SEA/Plots/',
-            'gpm_username' : 'andrew.hartley@metoffice.gov.uk'
-        }
-    elif site == 'UKMO':
-        site_details = {
-            'datadir': '/data/users/hadhy/CaseStudies/Data/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': '/data/users/hadhy/CaseStudies/Plots/',
-            'gpm_username' : 'andrew.hartley@metoffice.gov.uk'
-        }
-    else:
-        site_details = {
-            'datadir': './Data/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': './Plots/',
-            'gpm_username': 'andrew.hartley@metoffice.gov.uk'
-        }
+    # Test if we have this site in the config file, if not, then use general settings (which may not work)
+    orgs = []
+    with open('.config', 'r') as f:
+        data = f.readlines()
+        for line in data:
+            try:
+                val = line.split('=')[1].replace('\n', '')
+            except:
+                continue
+            if 'organisation' in line:
+                orgs.append(val)
+
+    print(site)
+    site = site if site in orgs else 'generic'
+    print(site)
+
+    settings = {}
+    with open('.config', 'r') as f:
+        data = f.readlines()
+        for line in data:
+            try:
+                var = line.split('=')[0]
+                val = line.split('=')[1].replace('\n', '')
+                if var == 'organisation' and val == site:
+                    org = val
+                if org == site:
+                    settings[var] = val
+            except:
+                continue
 
     # Add the synop path to the datadir ... we could do more things like this if we all agree a directory structure!
-    site_details['synop_path'] = site_details['datadir'] + 'synop/'
-    site_details['sounding_path'] = site_details['datadir'] + 'upper-air/'
-    site_details['gpm_path'] = site_details['datadir'] + 'gpm/'
+    settings['synop_path'] = settings['datadir'] + 'synop/'
+    settings['sounding_path'] = settings['datadir'] + 'upper-air/'
+    settings['gpm_path'] = settings['datadir'] + 'gpm/'
 
     # Make sure all the directory paths exist ...
-    for k in site_details.keys():
+    for k in settings.keys():
         if ('path' in k) or ('dir' in k):
-            if not os.path.isdir(site_details[k]):
-                os.makedirs(site_details[k])
+            if not os.path.isdir(settings[k]):
+                os.makedirs(settings[k])
 
-    return site_details
+    return settings
