@@ -8,7 +8,7 @@ import errno
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 import h5py
-from location_config import load_location_settings
+import location_config as config
 
 import pdb
 #from readGPM_v2 import *
@@ -184,7 +184,7 @@ def calcQuality(rawdatafiles, ofileq, year, month, day, curVer, latency):
 def main(latency, start_date, end_date, agency):
     product = 'imerg' # This shouldn't change
     #change the accounts
-    settings = load_location_settings(agency)
+    settings = config.load_location_settings(agency)
     outdir = settings['gpm_path']
 
     server = {'production' : ['arthurhou.pps.eosdis.nasa.gov', settings['gpm_username'], '.HDF5'],

@@ -6,7 +6,7 @@ Created on Tue Nov 12 11:36:54 2019
 @author: hmiguel
 """
 import sys, os
-from location_config import load_location_settings
+import location_config as config
 import pandas as pd
 import numpy as np
 import glob
@@ -201,7 +201,7 @@ def main(organisation, start_dt, end_dt, station_id):
     '''
 
     # Set some location-specific defaults
-    settings = load_location_settings(organisation)
+    settings = config.load_location_settings(organisation)
 
     # Get the obs data
     for st_id in station_id:

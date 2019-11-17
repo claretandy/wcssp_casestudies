@@ -8,7 +8,7 @@ if not hname.startswith('eld') and not hname.startswith('els') and not hname.sta
     matplotlib.use('Agg')
 ####
 import iris
-from location_config import load_location_settings
+import location_config as config
 import iris.plot as iplt
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
@@ -276,7 +276,7 @@ def plotAllData(gpmlist, modelcubes, models2plot, timeagg, odir):
 def main(dt_start, dt_end, timeagg, plotdomain, statdomain, organisation, region_name, eventname, searchlist=None, overwrite=False):
 
     print('Time aggregation: ',timeagg)
-    settings = load_location_settings(organisation)
+    settings = config.load_location_settings(organisation)
     domain = sf.getDomain_bybox(plotdomain)
     datadir = '/data/users/hadhy/CaseStudies/'
     odir = datadir + domain.lower() + '/'

@@ -1,7 +1,7 @@
 import os
 import glob
 from pathlib import Path
-from location_config import load_location_settings
+import location_config as config
 
 def nice_names(name):
 
@@ -18,7 +18,7 @@ def nice_names(name):
 
 def create_summary_html(organisation):
 
-    settings = load_location_settings(organisation)
+    settings = config.load_location_settings(organisation)
     indir = settings['plot_dir']
     summarypage = Path(indir).as_posix() + '/index.html'
 
@@ -91,6 +91,8 @@ def create_summary_html(organisation):
     htmlpage.write('</body>\n')
     htmlpage.write('</html>\n')
     htmlpage.close()
+
+    return summarypage
 
 def main(organisation):
 

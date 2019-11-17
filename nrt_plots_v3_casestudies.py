@@ -6,11 +6,11 @@ hname = os.uname()[1]
 if not hname.startswith('eld') and not hname.startswith('els'):
     matplotlib.use('Agg')
 ####
-from location_config import load_location_settings
+import location_config as config
 import iris
 import iris.coord_categorisation
 import os.path
-from datetime import timedelta, date, datetime
+# from datetime import timedelta, date, datetime
 import datetime as dt
 import re
 from PIL import Image
@@ -57,8 +57,8 @@ def move2web(filelist, local_dir):
 
 def getStartEnd(date_range, fmt):
     start_txt, end_txt = date_range.split('-')
-    start = datetime.strptime(start_txt, '%Y%m%d').strftime(fmt)
-    end   = datetime.strptime(end_txt, '%Y%m%d').strftime(fmt)
+    start = dt.datetime.strptime(start_txt, '%Y%m%d').strftime(fmt)
+    end   = dt.datetime.strptime(end_txt, '%Y%m%d').strftime(fmt)
     return(start, end)
 
     
@@ -94,12 +94,12 @@ def writeHTML(ifiles, local_dir, template_file, out_html_file, dt_startdt, dt_en
                    '24hr'  : 'Each timestep shows the accumulated precipitation for the 24 hours preceeding the time shown.'
                    }
 
-    proc_dt = datetime.utcnow()
+    proc_dt = dt.datetime.utcnow()
     proctime = proc_dt.strftime("%H:%M %d/%m/%Y UTC")
     #start_date, end_date = getStartEnd(date_range, "%d/%m/%Y")
 
     # last image date
-    lidt = datetime.strptime(os.path.basename(ifiles[-1]).split('_')[2].split('.')[0], "%Y%m%dT%H%MZ")
+    lidt = dt.datetime.strptime(os.path.basename(ifiles[-1]).split('_')[2].split('.')[0], "%Y%m%dT%H%MZ")
     
     with open(template_file, 'r') as input_file, open(out_html_file, 'w') as output_file:
         for line in input_file:
@@ -189,7 +189,7 @@ def addTimeCats(cube):
 def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation):
 
     # Set some things at the start ...
-    settings = load_location_settings(organisation)
+    settings = config.load_location_settings(organisation)
     rootdir = settings['plot_dir']
 
     # region_name = sf.getDomain_bybox(plotdomain).lower()
