@@ -9,6 +9,7 @@ import pathlib
 import cf_units
 import glob
 from shapely.geometry import Polygon
+from collections import Counter
 import pdb
 
 def getDomain_bybox(plotdomain):
@@ -30,9 +31,6 @@ def getDomain_bybox(plotdomain):
     return domain
 
 def getModels_bybox(plotdomain):
-
-    from shapely.geometry import Polygon
-    from collections import Counter
 
     xmin, ymin, xmax, ymax = plotdomain
     p1 = Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
@@ -1301,6 +1299,9 @@ def getGPMCube(start, end, latency, plotdomain, aggregate=True):
     containing the data and quality flag
     plotdomain = xmin, ymin, xmax, ymax
     '''
+    gpm_path
+    from location_config import load_location_settings
+    load_location_settings()
     inpath = '/project/earthobs/PRECIPITATION/GPM/netcdf/imerg/'+latency+'/'
 
     if start > end:

@@ -2,51 +2,40 @@
 Some basic paths and details that are location specific
 '''
 
+import os
 
 def load_location_settings(site):
     '''
-    This loads data depending on the NMS that we're in
-    # Points to the SYNOP data
+    This loads settings depending on the NMS that we're in
     '''
 
-    if site == 'PAGASA':
-        site_details = {
-            'datadir'         : '/home/hmiguel/WCSSP/PAGASA/',
-            'synop_wildcard'  : '*.json',
-            'synop_frequency' : 3,
-            'plot_dir'        : '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'BMKG':
-        site_details = {
-            'datadir'     : '/path/to/folder/',
-            'synop_wildcard'  : '*.csv',
-            'synop_frequency': 3,
-            'plot_dir'       : '/path/to/folder/plots/'
-        }
-    elif site == 'MMD':
-        site_details = {
-            'datadir': '/path/to/folder/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': '/path/to/folder/plots/'
-        }
-    elif site == 'Andy-MacBook':
-        site_details = {
-            'datadir': '/Users/andy/Work/WCSSP_SEA/PAGASA/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': '/Users/andy/Work/WCSSP_SEA/plots/'
-        }
-    else:
-        site_details = {
-            'datadir': './Data/PAGASA/synop/',
-            'synop_wildcard': '*.json',
-            'synop_frequency': 3,
-            'plot_dir': './plots/'
-        }
+    settings = {}
+    # Assume that the org is generic unless the site variable is in the config file
+    org = 'generic'
+
+    with open('.config', 'r') as f:
+        data = f.readlines()
+        for line in data:
+            try:
+                var = line.split('=')[0]
+                val = line.split('=')[1].replace('\n', '')
+                if var == 'organisation':
+                    org = val
+                if org == site:
+                    settings[var] = val
+
+            except:
+                continue
 
     # Add the synop path to the datadir ... we could do more things like this if we all agree a directory structure!
-    site_details['synop_path'] = site_details['datadir'] + 'synop/'
-    site_details['sounding_path'] = site_details['datadir'] + 'upper-air/'
+    settings['synop_path'] = settings['datadir'] + 'synop/'
+    settings['sounding_path'] = settings['datadir'] + 'upper-air/'
+    settings['gpm_path'] = settings['datadir'] + 'gpm/'
 
-    return site_details
+    # Make sure all the directory paths exist ...
+    for k in settings.keys():
+        if ('path' in k) or ('dir' in k):
+            if not os.path.isdir(settings[k]):
+                os.makedirs(settings[k])
+
+    return settings
