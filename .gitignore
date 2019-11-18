@@ -1,2 +1,8 @@
 
 someting.txt
+.config
+*.xml
+*.iml
+*.RT-H5
+*.pyc
+*.nc

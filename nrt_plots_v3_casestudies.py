@@ -2,9 +2,9 @@ import os, sys
 import matplotlib
 ####
 # Use this for running on SPICE in UKMO ...
-hname = os.uname()[1]
-if not hname.startswith('eld') and not hname.startswith('els'):
-    matplotlib.use('Agg')
+#hname = os.uname()[1]
+#if not hname.startswith('eld') and not hname.startswith('els'):
+#    matplotlib.use('Agg')
 ####
 import location_config as config
 import iris
