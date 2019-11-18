@@ -96,6 +96,7 @@ def create_summary_html(organisation):
 
 def main(organisation):
 
+
     url = create_summary_html(organisation)
 
     print('Created: ', url)
