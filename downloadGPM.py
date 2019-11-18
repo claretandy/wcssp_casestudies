@@ -31,8 +31,8 @@ def getTimeCoord(file):
 
     return(timecoord)
 
-def mergeGPM(ifiles, ofile, year, month, day, var, version, latency):
 
+def mergeGPM(ifiles, ofile, year, month, day, var, version, latency):
     try:
         f00 = h5py.File(ifiles[0], 'r')
     except:
