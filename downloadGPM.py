@@ -5,9 +5,11 @@ import numpy as np
 import numpy.ma as ma
 import os, sys
 import errno
-from datetime import timedelta, date, datetime
-import datetime
+import datetime as dt
+from dateutil.relativedelta import relativedelta
 import h5py
+import location_config as config
+
 import pdb
 #from readGPM_v2 import *
 #iris.FUTURE.netcdf_no_unlimited = True
@@ -23,8 +25,8 @@ def getTimeCoord(file):
 
     dtstrings = os.path.basename(file).split('.')[4]
 
-    start_dt = datetime.datetime.strptime(dtstrings.split('-')[0] + '-' + dtstrings.split('-')[1], '%Y%m%d-S%H%M%S')
-    end_dt = datetime.datetime.strptime(dtstrings.split('-')[0] + '-' + dtstrings.split('-')[2], '%Y%m%d-E%H%M%S')
+    start_dt = dt.datetime.strptime(dtstrings.split('-')[0] + '-' + dtstrings.split('-')[1], '%Y%m%d-S%H%M%S')
+    end_dt = dt.datetime.strptime(dtstrings.split('-')[0] + '-' + dtstrings.split('-')[2], '%Y%m%d-E%H%M%S')
     id_pt = start_dt + ((end_dt - start_dt)/2)
 
     timecoord = iris.coords.DimCoord([timeunit.date2num(id_pt)], bounds=[(timeunit.date2num(start_dt), timeunit.date2num(end_dt))], standard_name='time', units=timeunit)
@@ -134,7 +136,7 @@ def getGenericField(ifiles, var, year, month, day):
 
 def daterange(start_date, end_date):
     for n in range(int ((end_date - start_date).days) + 1):
-        yield start_date + timedelta(n)
+        yield start_date + dt.timedelta(n)
 
 
 def mkdir_p(path):
@@ -179,21 +181,22 @@ def calcQuality(rawdatafiles, ofileq, year, month, day, curVer, latency):
         print('Error creating quality flag: ' + curVer)
     
     
-def main(latency, days, end_date, outdir, agency):
+def main(latency, start_date, end_date, agency):
     product = 'imerg' # This shouldn't change
     #change the accounts
-    username_lookup = {'ukmo':'andrew.hartley@metoffice.gov.uk',
-                       'pagasa':'gab.miro@yahoo.com',
-                       }
-    server = {'production' : ['arthurhou.pps.eosdis.nasa.gov', username_lookup[agency], '.HDF5'],
-                'NRTlate' : ['jsimpson.pps.eosdis.nasa.gov', username_lookup[agency], '.RT-H5'],
-                'NRTearly' : ['jsimpson.pps.eosdis.nasa.gov', username_lookup[agency], '.RT-H5']}
+    settings = config.load_location_settings(agency)
+    outdir = settings['gpm_path']
+
+    server = {'production' : ['arthurhou.pps.eosdis.nasa.gov', settings['gpm_username'], '.HDF5'],
+                'NRTlate'  : ['jsimpson.pps.eosdis.nasa.gov', settings['gpm_username'], '.RT-H5'],
+                'NRTearly' : ['jsimpson.pps.eosdis.nasa.gov', settings['gpm_username'], '.RT-H5']
+              }
     var = 'precipitationCal'
 
     # Shouldn't need to change anything below here ..
-    first_date = datetime.datetime(2000, 6, 1)
-    end_date = datetime.datetime.strptime(end_date, '%Y%m%d')
-    start_date = end_date - timedelta(days)
+    first_date = dt.datetime(2000, 6, 1)
+    # end_date = dt.datetime.strptime(end_date, '%Y%m%d')
+    # start_date = end_date - dt.timedelta(days)
     if start_date < first_date:
         start_date = first_date
 
@@ -206,7 +209,7 @@ def main(latency, days, end_date, outdir, agency):
         sfilepath = {'production' : '/gpmdata/'+year+'/'+month+'/'+day+'/imerg/3B-HHR.MS.MRG.3IMERG.',
                         'NRTlate' : '/NRTPUB/imerg/late/'+year+month+'/3B-HHR-L.MS.MRG.3IMERG.'+year+month+day,
                         'NRTearly': '/NRTPUB/imerg/early/'+year+month+'/3B-HHR-E.MS.MRG.3IMERG.'+year+month+day} # +'.*.RT-H5'
-        # change '/project/earthobs/PRECIPITATION/GPM/rawdata/
+
         rawdata_dir = outdir+'/rawdata/'+product+'/'+latency+'/'+year+'/'+month+'/'+day
         netcdf_dir = outdir+'/netcdf/'+product+'/'+latency+'/'+year+'/'
         ofile_test = netcdf_dir + '/gpm_'+product+'_'+latency+'_*_'+year+month+day+'.nc'
@@ -230,8 +233,11 @@ def main(latency, days, end_date, outdir, agency):
                 print('    Downloading files from FTP ...')
                 #pdb.set_trace()
                 downloadstring = {
-                        'ukmo':'export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency],
-                        'pagasa':'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1], server[latency][1], server[latency][0], sfilepath[latency] + '*.RT-H5')
+                        'UKMO'  : 'export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host '+server[latency][0] +' -user '+server[latency][1]+' -pass '+server[latency][1]+' -mget '+sfilepath[latency],
+                        'PAGASA': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1], server[latency][1], server[latency][0], sfilepath[latency] + '*' + server[latency][2]),
+                        'BMKG'  : 'try similar to PAGASA',
+                        'MMD'   : 'try similar to PAGASA',
+                        'Andy-MacBook' : 'wget -q --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1], server[latency][1], server[latency][0], sfilepath[latency] + '*' + server[latency][2])
                         }
                 os.system(downloadstring[agency])
                 os.chdir(thiswd)
@@ -287,13 +293,48 @@ def main(latency, days, end_date, outdir, agency):
 
 
 if __name__ == '__main__':
-    latency = sys.argv[1] # Can be either 'production', 'NRTlate' or 'NRTearly'
-    days = sys.argv[2] # How many days before today to process
-    outdir = sys.argv[3] # Local directory
-    agency = sys.argv[4] # ukmo or pagasa or bmkg or mmd
-    
+
+    '''
+    Usage:
+    python downloadGPM.py 
+                [production|NRTlate|NRTearly|auto|all]
+                start_date   # Formatted as YYYYMMDD
+                end_date     # Formatted as YYYYMMDD
+                [PAGASA|BMKG|MMD|UKMO|Andy-MacBook]
+                 
+     Example:
+     python downloadGPM.py auto 20191103 20191105 Andy-MacBook
+    '''
+    now = dt.datetime.utcnow()
+
+    # NB: 'auto' latency means that the most scientifically robust dataset is chosen
+    latency = sys.argv[1] # Can be either 'production', 'NRTlate' or 'NRTearly' or 'all' or 'auto'
+
+    auto_latency = {'NRTearly'  : now - dt.timedelta(hours=3),
+                    'NRTlate'   : now - dt.timedelta(hours=18),
+                    'production': now - relativedelta(months=4)
+                    }
     try:
-        end_date = datetime.datetime.strptime(sys.argv[3], "%Y%m%d").date() # Needs to be formatted YYYYMMDD
+        start_date = dt.datetime.strptime(sys.argv[2][:8], "%Y%m%d") # Needs to be formatted YYYYMMDD
     except IndexError:
-        end_date = date.today()
-    main(latency, int(days), end_date, outdir, agency)
+        start_date = now.date() - dt.timedelta(days=7)
+
+    try:
+        end_date = dt.datetime.strptime(sys.argv[3][:8], "%Y%m%d") # Needs to be formatted YYYYMMDD
+    except IndexError:
+        end_date = now.date()
+
+    agency = sys.argv[4] # UKMO or PAGASA or BMKG or MMD or Andy-MacBook
+
+    # Decide which latency to run the program with
+    if latency == 'all':
+        for l in ['production', 'NRTlate', 'NRTearly']:
+            main(l, start_date, end_date, agency)
+    elif latency == 'auto':
+        best_latency = 'NRT_early'
+        for l in auto_latency.keys():
+            if end_date <= auto_latency[l]:
+                best_latency = l
+        main(best_latency, start_date, end_date, agency)
+    else:
+        main(latency, start_date, end_date, agency)

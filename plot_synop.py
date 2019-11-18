@@ -6,6 +6,7 @@ Created on Tue Nov 12 11:36:54 2019
 @author: hmiguel
 """
 import sys, os
+import location_config as config
 import pandas as pd
 import numpy as np
 import glob
@@ -16,43 +17,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-def load_location_settings(site):
-    '''
-    This loads data depending on the NMS that we're in
-    # Points to the SYNOP data
-    '''
-    if site == 'PAGASA':
-        site_details = {
-            'synop_path'     : '/home/hmiguel/WCSSP/synop/',
-            'file_wildcard'  : '*.json',
-            'plot_dir'       : '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'BMKG':
-        site_details = {
-            'synop_path'     : '/home/hmiguel/WCSSP/synop/',
-            'file_wildcard'  : '*.json',
-            'plot_dir'       : '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'MMD':
-        site_details = {
-            'synop_path': '/home/hmiguel/WCSSP/synop/',
-            'file_wildcard': '*.json',
-            'plot_dir': '/home/hmiguel/WCSSP/plots/'
-        }
-    elif site == 'Andy-MacBook':
-        site_details = {
-            'synop_path': '/Users/andy/Work/WCSSP_SEA/PAGASA/synop/',
-            'file_wildcard': '*.json',
-            'plot_dir': '/Users/andy/Work/WCSSP_SEA/PAGASA/plots/'
-        }
-    else:
-        site_details = {
-            'synop_path': './Data/PAGASA/synop/',
-            'file_wildcard': '*.json',
-            'plot_dir': './plots/'
-        }
-
-    return site_details
 
 def formatValue(k, v):
     '''
@@ -95,7 +59,7 @@ def formatValue(k, v):
 
     if 'time' in k:
         try:
-            h,m,s = [int(t) for t in tmp.split(':')]
+            h,m,s = [int(t) for t in v.split(':')]
             return [dt.time(h, m, s)]
         except:
             return [v]
@@ -109,8 +73,9 @@ def getData(start_dt, end_dt, settings, station_id=None):
     '''
     
     # Get the paths to the data
-    path = settings['synop_path']
-    file_wildcard = settings['file_wildcard']
+    path          = settings['synop_path']
+    file_wildcard = settings['synop_wildcard']
+    freq          = settings['synop_frequency']
     
     thisdate = start_dt
     outdf = {}
@@ -167,8 +132,8 @@ def getData(start_dt, end_dt, settings, station_id=None):
                 outdf = outdf.append(pd.DataFrame(this_dict), sort=False)
 
         # Move onto the next datetime
-        # TODO: Check that the frequency of observations is the same for each country
-        thisdate = thisdate + dt.timedelta(hours=3)
+        # Note that the frequency of observations is set in the location_config.py file
+        thisdate = thisdate + dt.timedelta(hours=freq)
 
     # TODO: Once we have the final output, let's add in a column for local times too
 
@@ -213,16 +178,16 @@ def plotStationData(df, plotsettings):
     #sns.relplot(x=outdf['dateTimeUTC'], y=outdf['pressure'], data=outdf, ax=ax2)
     #sns.relplot(x=outdf['dateTimeUTC'], y=outdf['drybulb'], data=outdf, ax=ax3)
 
-def bokeh_plot():
-    # Possible bokeh implementation ...
-    output_file(ofile.replace('png', 'html'), title=title)
-    TOOLS = 'save,pan,box_zoom,reset,wheel_zoom,hover'
-    fig = figure(title=title, y_axis_type="linear", plot_height=1200,
-               tools=TOOLS, plot_width=1700)
-    fig.xaxis.axis_label = 'Time'
-    fig.line()
+# def bokeh_plot(df, settings):
+#     # Possible bokeh implementation ...
+#     output_file = ofile.replace('png', 'html'), title=title)
+#     TOOLS = 'save,pan,box_zoom,reset,wheel_zoom,hover'
+#     fig = figure(title=title, y_axis_type="linear", plot_height=1200,
+#                tools=TOOLS, plot_width=1700)
+#     fig.xaxis.axis_label = 'Time'
+#     fig.line()
 
-def main(start_dt, end_dt, station_id, organisation):
+def main(organisation, start_dt, end_dt, station_id):
     '''
     This controls all the functions that we have written. It should be generic (i.e. works for all NMSs)
     :param start_dt: datetime object specifying the start of the period
@@ -236,7 +201,7 @@ def main(start_dt, end_dt, station_id, organisation):
     '''
 
     # Set some location-specific defaults
-    settings = load_location_settings(organisation)
+    settings = config.load_location_settings(organisation)
 
     # Get the obs data
     for st_id in station_id:
@@ -246,7 +211,7 @@ def main(start_dt, end_dt, station_id, organisation):
         # Get the model data
 
         # Make the obs only plots
-        plotsettings = {'plotdir': settings['plot_dir'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
+        plotsettings = {'plotdir': settings['synop_path'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
         plotStationData(df, plotsettings)
 
         # Make the model vs obs plots
@@ -264,13 +229,13 @@ if __name__ == '__main__':
 
     now = dt.datetime.utcnow()
     try:
-        start_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%dT%H%MZ')
+        start_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
         start_dt = dt.datetime(2019, 11, 3, 0)
         # start_dt = now - dt.timedelta(days=7)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[3], '%Y%m%dT%H%MZ')
+        end_dt = dt.datetime.strptime(sys.argv[3], '%Y%m%d%H%M')
     except:
         # end_dt = now
         end_dt = dt.datetime(2019, 11, 6, 0)
@@ -286,4 +251,4 @@ if __name__ == '__main__':
         # TODO: Write a function that returns some common station IDs (e.g. Metro Manila, Cebu, etc)
         station_id = [98851, 98222]
 
-    main(start_dt, end_dt, station_id, organisation)
+    main(organisation, start_dt, end_dt, station_id)
