@@ -9,6 +9,7 @@ from tephi_module import tephi
 import datetime as dt
 import matplotlib.pyplot as plt
 import location_config as config
+import pandas as pd
 import glob
 
 def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
@@ -37,12 +38,6 @@ def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
     tephi.MAX_WET_ADIABAT = 60
     tephi.MIXING_RATIO_LINE.update({'linestyle': '--'})
 
-    input_dict = {
-        barbs : [(spd, dir, press), (spd1, dir1, press1)],
-        temp : []
-    }
-    columns=('ID','StationNumber','StationName','Latitude','Longitude','Date','Pressure','temp','dewpt','wind_dir','wind_spd')
-
     for key,data in input_dict.items():
         
         if style_dict is None:
@@ -55,16 +50,16 @@ def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
     plt.savefig(plot_fname, bbox_inches='tight')
 
 
-def getData(start_dt, end_dt, settings, station_id=None):
+def getData(start_dt, end_dt, settings, station_id):
     organisation = settings['organisation']
     if organisation == 'BMKG':
-        data = getData_BMKG(start_dt, end_dt, settings, station_id=None)
+        data = getData_BMKG(start_dt, end_dt, settings, station_id)
     elif organisation == 'PAGASA':
-        data = getData_PAGASA(start_dt, end_dt, settings, station_id=None)
+        data = getData_PAGASA(start_dt, end_dt, settings, station_id)
     elif organisation == 'MMD':
-        data = getData_MMD(start_dt, end_dt, settings, station_id=None)
+        data = getData_MMD(start_dt, end_dt, settings, station_id)
     elif organisation == 'UKMO':
-        data = getData_UKMO(start_dt, end_dt, settings, station_id=None)
+        data = getData_UKMO(start_dt, end_dt, settings, station_id)
     else:
         print("Can\'t find the function to read the data")
 
@@ -73,7 +68,8 @@ def getData(start_dt, end_dt, settings, station_id=None):
     except:
         return
 
-def getData_BMKG(start_dt, end_dt, settings, station_id=None):
+def getData_BMKG(start_dt, end_dt, settings, st_id):
+
     '''
     This script connects to the internal FTP or file system and returns a dictionary of sounding data
 
@@ -86,36 +82,31 @@ def getData_BMKG(start_dt, end_dt, settings, station_id=None):
     # e.g.
     # function_to_send_url_request(start_dt, end_dt, station_id)
     infile = 'Data/upper-air/sample_upper_revised_bmkg.csv'
+    df = pd.read_csv(infile)
+    column_names = ['ID', 'StationNumber', 'StationName', 'Latitude', 'Longitude', 'Date',
+                    'Pressure', 'temp', 'dewpt_temp', 'wind_dir', 'wind_speed']
+    df.columns = column_names
 
-    with open(infile) as csvfile:
-        readCSV = csv.reader(csvfile, delimiter=',')
-        for row in readCSV:
+    if st_id:
+        df_subset = df.loc[df['StationNumber'] == st_id]
+    else:
+        df_subset = df
 
-    # Get the paths to the data
-    path = settings['datadir']
-    file_wildcard = settings['upper_wildcard']
-    freq = settings['upper_frequency']
-    thisdate = start_dt
-    outdf = {}
-
-    while thisdate <= end_dt:
-
-        thisfile, = glob.glob(path + '*' + thisdate.strftime('%Y%m%d%H%M') + file_wildcard)
-
-        df = pd.DataFrame(pd.read_json(thisfile))
-        df_subset = df.loc[df['stationNumber'] == station_id]
-
-        if not df_subset.empty:
-            this_dict = {}
-
-        #  Move onto the next datetime
-        #  Note that the frequency of observations is set in the location_config.py file
-        thisdate = thisdate + dt.timedelta(hours=freq)
+    # Assume that we have one date?
+    dates = list(set(df_subset['Date']))
 
     #  TODO: Once we have the final output, let's add in a column for local times too
 
+    # Create an output dictionary
+    out_dict = {
+        'pressure': df_subset['Pressure'].to_list(),
+        'temperature': df_subset['temp'].to_list(),
+        'dew_point': df_subset['dewpt_temp'].to_list(),
+        'wind_dir': df_subset['wind_dir'].to_list(),
+        'wind_speed': df_subset['wind_speed'].to_list()
+    }
     # Return a pandas dataframe of the requested data
-    return outdf
+    return out_dict, dates
 
 def main(organisation, start_dt, end_dt, station_id):
     # Set some location-specific defaults
@@ -123,8 +114,10 @@ def main(organisation, start_dt, end_dt, station_id):
 
     # Get the obs data
     for st_id in station_id:
-        getData(start_dt, end_dt, settings, st_id)
-        tephi_plot(st_id, date, barbs, tephi, style_dict=None)
+        input_dict, dates = getData(start_dt, end_dt, settings, st_id)
+        for thisdt in dates:
+            plot_fname = settings['plot_dir'] + '/upper-air/' + thisdt + '_' + str(st_id) + '.png'
+            tephi_plot(st_id, thisdt, input_dict, plot_fname, style_dict=None)
 ######################################################################################
 #def tephi_plot(station, date, barbs, TEPHI, style_dict=None):
 
