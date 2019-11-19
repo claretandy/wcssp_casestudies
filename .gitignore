@@ -1,2 +1,6 @@
 
 someting.txt
+.config
+*.xml
+*.iml
+*.pyc
