@@ -4,3 +4,4 @@ someting.txt
 *.iml
 *.pyc
 .config
+.DS_Store
