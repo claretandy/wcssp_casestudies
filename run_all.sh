@@ -42,7 +42,7 @@ python plot_timelagged.py ${start} ${end} ${event_domain} ${eventname} ${organis
 python plot_synop.py ${organisation} ${start} ${end} ${station_id} # Note: station_id is optional
 
 # Plot Upper Air soundings for each organisation vs models
-python plot_tephi.py
+python plot_tephi.py ${organisation} ${start} ${end} ${station_id}
 
 # Make an html page summarising all of the output plots
 python make_html.py ${organisation} # TODO use code from plot_timelagged to auto-generate a summary html page
