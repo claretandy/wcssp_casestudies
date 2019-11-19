@@ -13,13 +13,13 @@ conda activate scitools
 
 ######################################################################################################################
 # Change things in here for each case study
-organisation='Andy-MacBook' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
+organisation='BMKG' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
 start='201911030000' # Format YYYYMMDDHHMM
 end='201911040000' # Format YYYYMMDDHHMM
 station_id=98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
-event_domain='102,17,108,23' # xmin, ymin, xmax, ymax
-event_location_name='Quezon-City' # A short name to decribe the location of the event
-event_region_name='Luzon' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
+event_domain='105,-7,108,-5' # xmin, ymin, xmax, ymax
+event_location_name='Jakarta' # A short name to decribe the location of the event
+event_region_name='Java' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
 ######################################################################################################################
 
 # Set the eventname automatically so it is a standard format of region/date_eventlocation
