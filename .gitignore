@@ -1,2 +1,5 @@
 
 someting.txt
+*.xml
+*.iml
+*.pyc
