@@ -2,7 +2,6 @@ import os
 import sys
 from datetime import datetime, timedelta
 import location_config as config
-
 import requests
 
 '''
@@ -15,11 +14,13 @@ def daterange(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + dt.timedelta(n)
 
+
 def getYMD(indate):
     year = indate.strftime("%Y")
     month = indate.strftime("%m")
     day = indate.strftime("%d")
     return (year, month, day)
+
 
 def main(start_date, end_date, obstype, agency):
     settings = config.load_location_settings(agency)
@@ -57,12 +58,12 @@ if __name__ == '__main__':
     obstype = sys.argv[3] # synop, temp
     agency = sys.argv[4] # BMKG
 
-    if len(date) < 8:
+    if len(start_date) < 8 or len(end_date)<8 :
         print("Date should be in YYYYMMDD format")
         quit()
-    if date_start > date_end:
+    if start_date > end_date:
         print("Start time must be less than end time")
         quit()
 
-    main(date_start, date_end, obstype, agency)
+    main(start_date, end_date, obstype, agency)
     print("Finished at " + str(datetime.now()))
