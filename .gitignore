@@ -1,6 +1,7 @@
-
-someting.txt
 .config
 *.xml
 *.iml
 *.pyc
+*.RT-H5
+*.pyc
+*.nc

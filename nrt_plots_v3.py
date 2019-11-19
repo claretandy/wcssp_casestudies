@@ -11,9 +11,9 @@ import os, sys
 ####
 # Use this for running on SPICE ...
 import matplotlib
-hname = os.uname()[1]
-if not hname.startswith('eld') and not hname.startswith('els') and not hname.startswith('vld'):
-    matplotlib.use('Agg')
+#hname = os.uname()[1]
+#if not hname.startswith('eld') and not hname.startswith('els') and not hname.startswith('vld'):
+#    matplotlib.use('Agg')
 ####
 import iris
 import iris.coord_categorisation
@@ -33,7 +33,7 @@ from datetime import timedelta, date, datetime
 import glob
 from iris.coord_categorisation import add_categorised_coord
 import re
-from PIL import Image
+#from PIL import Image
 import itertools
 import pdb
 
