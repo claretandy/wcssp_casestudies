@@ -13,7 +13,7 @@ import os.path
 # from datetime import timedelta, date, datetime
 import datetime as dt
 import re
-from PIL import Image
+#from PIL import Image
 import shutil
 import std_functions as sf
 import nrt_plots_v3 as nrtplt

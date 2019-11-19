@@ -30,7 +30,8 @@ set event_region_name=Java
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 :: Set the eventname automatically so it is a standard format of region/date_eventlocation
-set eventname=%event_location_name%
+set eventname=Java/20191119_Jakarta
+::%event_location_name%
 ::'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_'${event_location_name}
 
 :: Run scripts to plot case study data
