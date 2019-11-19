@@ -3,3 +3,4 @@ someting.txt
 *.xml
 *.iml
 *.pyc
+.config
