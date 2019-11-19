@@ -10,7 +10,6 @@ import location_config as config
 import iris
 import iris.coord_categorisation
 import os.path
-# from datetime import timedelta, date, datetime
 import datetime as dt
 import re
 from PIL import Image
@@ -212,9 +211,9 @@ def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation)
     mkOutDirs(dt_startdt, dt_enddt, outdir)
 
     try:
-        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'production', plotdomain, aggregate=False)
+        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'production', plotdomain, settings, aggregate=False)
     except:
-        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'NRTlate', plotdomain, aggregate=False)
+        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'NRTlate', plotdomain, settings, aggregate=False)
 
     cube_dom = addTimeCats(cube_dom[0])
     accums = ['30mins', '3hr', '6hr', '12hr', '24hr'] #['12hr', '24hr']#
