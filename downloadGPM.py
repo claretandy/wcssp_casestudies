@@ -217,12 +217,12 @@ def main(latency, start_date, end_date, agency):
                      'NRTlate': '/NRTPUB/imerg/late/' + year + month + '/3B-HHR-L.MS.MRG.3IMERG.' + year + month + day,
                      'NRTearly': '/NRTPUB/imerg/early/' + year + month + '/3B-HHR-E.MS.MRG.3IMERG.' + year + month + day}  # +'.*.RT-H5'
 
-        rawdata_dir = outdir.rstrip('/) + '/rawdata/' + product + '/' + latency + '/' + year + '/' + month + '/' + day
-        netcdf_dir = outdir.rstrip('/) + '/netcdf/' + product + '/' + latency + '/' + year + '/'
-        ofile_test = netcdf_dir.rstrip('/) + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '.nc'
-        ofile_part_test = netcdf_dir.rstrip('/) + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_part.nc'
-        ofileq_test = netcdf_dir.rstrip('/) + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality.nc'
-        ofileq_part_test = netcdf_dir.rstrip('/) + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality_part.nc'
+        rawdata_dir = outdir.rstrip('/') + '/rawdata/' + product + '/' + latency + '/' + year + '/' + month + '/' + day
+        netcdf_dir = outdir.rstrip('/') + '/netcdf/' + product + '/' + latency + '/' + year + '/'
+        ofile_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '.nc'
+        ofile_part_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_part.nc'
+        ofileq_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality.nc'
+        ofileq_part_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality_part.nc'
 
         if not os.path.isdir(rawdata_dir):
             mkdir_p(rawdata_dir)
