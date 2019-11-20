@@ -12,7 +12,7 @@ import iris.coord_categorisation
 import os.path
 import datetime as dt
 import re
-#from PIL import Image
+from PIL import Image
 import shutil
 import std_functions as sf
 import nrt_plots_v3 as nrtplt
@@ -111,9 +111,9 @@ def writeHTML(ifiles, local_dir, template_file, out_html_file, dt_startdt, dt_en
                 output_file.write('animation_width='+str(img_wd)+';\n')
             elif line.strip() == 'animation_startimg=;':
                 output_file.write('animation_startimg="' + all_urls[0] +'";\n')
-            elif re.search('insert-period', line.strip()):
-                oline = line.replace('insert-period', date_range)
-                output_file.write(oline)
+            # elif re.search('insert-period', line.strip()):
+            #     oline = line.replace('insert-period', date_range)
+            #     output_file.write(oline)
             elif re.search('time-period', line.strip()):
                 oline = line.replace('time-period', timeperiod)
                 output_file.write(oline)
@@ -260,5 +260,3 @@ if __name__ == '__main__':
         organisation = 'Andy-MacBook'
     
     main(dt_start, dt_end, plotdomain, region_name, eventname, organisation)
-
-Hello Efan
