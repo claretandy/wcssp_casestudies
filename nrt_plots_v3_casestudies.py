@@ -10,7 +10,6 @@ import location_config as config
 import iris
 import iris.coord_categorisation
 import os.path
-# from datetime import timedelta, date, datetime
 import datetime as dt
 import re
 #from PIL import Image
@@ -18,6 +17,7 @@ import shutil
 import std_functions as sf
 import nrt_plots_v3 as nrtplt
 import plot_timelagged as pt
+import pdb
 
 '''
 Make quick near real time plots for a specfified time period.
@@ -67,12 +67,12 @@ def daterange(start_date, end_date):
         yield start_date + dt.timedelta(n)
 
 
-def writeHTML(ifiles, local_dir, template_file, out_html_file, dt_startdt, dt_enddt, timeperiod, region_name):
+def writeHTML(ifiles, local_dir, template_file, out_html_file, dt_startdt, dt_enddt, timeperiod, region_name, settings):
     
     # url_base = "http://www-hc/~hadhy/seasia_4k/gpm_casestudies/"
-    url_base = "http://www-hc/~hadhy/CaseStudies/"
-    # all_urls = [f.replace(local_dir, url_base) for f in ifiles]
-    all_urls = [url_base + f.split('CaseStudies/')[1] for f in ifiles]
+    all_urls = [f.replace(settings['plot_dir'], settings['url_base']) for f in ifiles]
+
+    # all_urls = [url_base + f.split('CaseStudies/')[1] for f in ifiles]
     
     inline1='theImages[num] = new Image();\n'
     inline2='theImages[num].src = "url";\n'
@@ -151,7 +151,7 @@ def writeHTML(ifiles, local_dir, template_file, out_html_file, dt_startdt, dt_en
     os.chmod(out_html_file, 0o777)
     
     # Copy the css file for the page style
-    shutil.copyfile('/home/h02/hadhy/Repository/hadhy_scripts/WCSSP/functions/style_gpm.css', local_dir + 'style_gpm.css')
+    shutil.copyfile('style_gpm.css', local_dir + 'style_gpm.css')
 
     # Make the symlink point to the most recently processed period
     olink = local_dir + 'gpm_' + timeperiod + '_current.html'
@@ -212,9 +212,9 @@ def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation)
     mkOutDirs(dt_startdt, dt_enddt, outdir)
 
     try:
-        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'production', plotdomain, aggregate=False)
+        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'production', plotdomain, settings, aggregate=False)
     except:
-        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'NRTlate', plotdomain, aggregate=False)
+        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'NRTlate', plotdomain, settings, aggregate=False)
 
     cube_dom = addTimeCats(cube_dom[0])
     accums = ['30mins', '3hr', '6hr', '12hr', '24hr'] #['12hr', '24hr']#
@@ -227,9 +227,9 @@ def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation)
 
         out_html_file = outdir + dt_outhtml.strftime("%Y") +'/'+ dt_outhtml.strftime("%m") +'/'+ 'gpm_'+accum+'_'+dt_outhtml.strftime("%Y%m%dT%H%MZ")+'.html'
 
-        writeHTML(filelist, local_dir, template_file, out_html_file, dt_startdt, dt_enddt, accum, eventname)
+        writeHTML(filelist, local_dir, template_file, out_html_file, dt_startdt, dt_enddt, accum, eventname, settings)
 
-    pt.create_summary_html(rootdir)
+    pt.create_summary_html(settings)
 
 if __name__ == '__main__':
 

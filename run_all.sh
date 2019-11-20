@@ -10,6 +10,7 @@ conda activate scitools
 # If you haven't already, you might need to install the following packages
 #conda install -c conda-forge h5py
 #conda install -c conda-forge wget
+#conda install -c conda-forge PIL
 
 ######################################################################################################################
 # Change things in here for each case study

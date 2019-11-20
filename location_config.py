@@ -14,7 +14,7 @@ def load_location_settings(site):
     # Assume that the org is generic unless the site variable is in the config file
     org = 'generic'
 
-    with open('.config', 'r') as f:
+    with open('../.config', 'r') as f:
         data = f.readlines()
         for line in data:
             try:

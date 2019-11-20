@@ -1293,16 +1293,14 @@ def getPrecipStash(model_id, lbproc=None, type='long'):
         return(outstash)
 
 
-def getGPMCube(start, end, latency, plotdomain, aggregate=True):
+def getGPMCube(start, end, latency, plotdomain, settings, aggregate=True):
     '''
     Creates a mean rainfall rate for the period defined by start and end, clips to a domain, and outputs a cubelist
     containing the data and quality flag
     plotdomain = xmin, ymin, xmax, ymax
     '''
-    gpm_path
-    from location_config import load_location_settings
-    load_location_settings()
-    inpath = '/project/earthobs/PRECIPITATION/GPM/netcdf/imerg/'+latency+'/'
+
+    inpath = settings['gpm_path'] + 'netcdf/imerg/'+latency+'/'
 
     if start > end:
         raise ValueError('You provided a start_date that comes after the end_date.')
