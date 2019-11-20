@@ -3,6 +3,7 @@ import sys
 from datetime import datetime, timedelta
 import location_config as config
 import requests
+import pandas as pd
 
 '''
 This script will collect synop observation data from BMKG CIPS, basically I want this script runs daily to collect all
@@ -19,7 +20,7 @@ def getYMD(indate):
     year = indate.strftime("%Y")
     month = indate.strftime("%m")
     day = indate.strftime("%d")
-    return (year, month, day)
+    return year, month, day
 
 
 def mkdir_p(path):
@@ -30,6 +31,19 @@ def mkdir_p(path):
             pass
         else:
             raise
+
+
+def mergedata(file, obstype):
+    df_station = pd.read_csv("E:/DataSynop/Master.csv", sep=",", header=0)  # ,index_col="Station Number")
+
+    if obstype == "synop":
+        df_syn = pd.read_csv(file, header=0, sep=";", skiprows=[1], decimal=",")
+        df_new = pd.merge(df_station, df_syn, 'inner', left_on="Station Number", right_on="#id")
+        pd.DataFrame.to_csv(df_new, file, sep=",", mode="w")
+    if obstype == "temp":
+        df_temp = pd.read_csv(file, header=0, sep=";", skiprows=[1], decimal=",")
+        df_new = pd.merge(df_station, df_temp, 'inner', left_on="Station Number", right_on="#id")
+        pd.DataFrame.to_csv(df_new, file, sep=",", mode="w")
 
 
 def main(start_date, end_date, obstype, agency):
@@ -56,12 +70,16 @@ def main(start_date, end_date, obstype, agency):
             for time in syn_times:
                 url = settings['db_link'] + 'user=' + settings['db_uname'] + '&mode=web&dateRef=' + year + month + day + time + '0000&timeDepth=1H&obsType=SYNOP&param=TH-PMER-TD-T-N-WIND-HU-TEND-WW_symb-VISI-CL_symb-CM_symb-CH_symb-RAF1-RAF2-TN12-TX12-TMIN10&level=0GRND&format=csv&output=binary&domain=Indonesia'
                 r = requests.get(url)
-                open(syn_dir + "/SYNOP" + year + month + day + time + ".csv", 'wb').write(r.content)
+                file_write = syn_dir + "/SYNOP" + year + month + day + time + ".csv"
+                open(file_write, 'wb').write(r.content)
+                mergedata(file_write, obstype)
         if obstype == 'temp':
             for time in temp_times:
                 url = settings['db_link'] + 'user=' + settings['db_uname'] + '&mode=web&dateRef=' + year + month + day + time + '0000&timeDepth=1H&obsType=TEMP&param=TH-T-TD-HU-Z-WIND-TURBUL&level=1050HPA-1000HPA-950HPA-900HPA-850HPA-800HPA-700HPA-600HPA-500HPA-400HPA-300HPA-250HPA-200HPA-150HPA-100HPA-70HPA-50HPA&format=csv&output=binary&domain=Indonesia'
                 r = requests.get(url)
-                open(temp_dir + "/TEMP" + year + month + day + time + ".csv", 'wb').write(r.content)
+                file_write = temp_dir + "/TEMP" + year + month + day + time + ".csv"
+                open(file_write, 'wb').write(r.content)
+                mergedata(file_write, obstype)
 
 
 if __name__ == '__main__':
