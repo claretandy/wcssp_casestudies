@@ -28,7 +28,7 @@ eventname=${event_region_name}'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_
 
 # Run scripts to plot case study data
 # Download GPM IMERG data
-#python downloadGPM.py auto ${start} ${end} ${organisation}
+python downloadGPM.py auto ${start} ${end} ${organisation}
 
 # Plot GPM animation for different time aggregations
 python nrt_plots_v3_casestudies.py ${start} ${end} ${event_domain} ${eventname} # TODO : make this script work in this environment
