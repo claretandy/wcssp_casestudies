@@ -214,9 +214,6 @@ def main(organisation, start_dt, end_dt, station_id):
         plotsettings = {'plotdir': settings['synop_path'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
         plotStationData(df, plotsettings)
 
-        # Make the model vs obs plots
-
-
 if __name__ == '__main__':
 
     # organisation, start_dt, end_dt, station_id

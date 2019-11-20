@@ -2,9 +2,9 @@ import os, sys
 import matplotlib
 ####
 # Use this for running on SPICE in UKMO ...
-hname = os.uname()[1]
-if not hname.startswith('eld') and not hname.startswith('els'):
-    matplotlib.use('Agg')
+#hname = os.uname()[1]
+#if not hname.startswith('eld') and not hname.startswith('els'):
+#    matplotlib.use('Agg')
 ####
 import location_config as config
 import iris
@@ -12,7 +12,7 @@ import iris.coord_categorisation
 import os.path
 import datetime as dt
 import re
-from PIL import Image
+#from PIL import Image
 import shutil
 import std_functions as sf
 import nrt_plots_v3 as nrtplt
@@ -260,3 +260,5 @@ if __name__ == '__main__':
         organisation = 'Andy-MacBook'
     
     main(dt_start, dt_end, plotdomain, region_name, eventname, organisation)
+
+Hello Efan

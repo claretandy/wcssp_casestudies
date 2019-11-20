@@ -3,6 +3,7 @@ Some basic paths and details that are location specific
 '''
 
 import os
+import pdb
 
 def load_location_settings(site):
     '''

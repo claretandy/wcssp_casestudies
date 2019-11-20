@@ -1,7 +1,7 @@
-
-someting.txt
 *.xml
 *.iml
 *.pyc
 .config
 .DS_Store
+*.RT-H5
+*.pyc

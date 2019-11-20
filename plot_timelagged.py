@@ -3,9 +3,9 @@ import datetime as dt
 import matplotlib
 ####
 # Use this for running on SPICE ...
-hname = os.uname()[1]
-if not hname.startswith('eld') and not hname.startswith('els') and not hname.startswith('vld'):
-    matplotlib.use('Agg')
+#hname = os.uname()[1]
+#if not hname.startswith('eld') and not hname.startswith('els') and not hname.startswith('vld'):
+#    matplotlib.use('Agg')
 ####
 import iris
 import location_config as config
