@@ -82,7 +82,7 @@ def getData_BMKG(start_dt, end_dt, settings, st_id):
     # For testing though, use the following sample file ...
     # e.g.
     # function_to_send_url_request(start_dt, end_dt, station_id)
-    infile = 'Data/upper-air/sample_upper_revised_bmkg.csv'
+    infile = 'SampleData/upper-air/sample_upper_revised_bmkg.csv'
     df = pd.read_csv(infile)
     column_names = ['ID', 'StationNumber', 'StationName', 'Latitude', 'Longitude', 'Date',
                     'Pressure', 'temp', 'dewpt_temp', 'wind_dir', 'wind_speed']
