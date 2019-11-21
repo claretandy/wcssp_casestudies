@@ -28,10 +28,10 @@ eventname=${event_region_name}'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_
 
 # Run scripts to plot case study data
 # Download GPM IMERG data
-python downloadGPM.py auto ${start} ${end} ${organisation}
+python downloadGPM.py NRTearly ${start} ${end} ${organisation}
 
 # Plot GPM animation for different time aggregations
-#python nrt_plots_v3_casestudies.py ${start} ${end} ${event_domain} ${eventname} # TODO : make this script work in this environment
+python nrt_plots_v3_casestudies.py auto ${start} ${end} ${event_domain} ${eventname} # TODO : make this script work in this environment
 
 # Get UM model data from FTP
 #python downloadUM.py ${organisation} # TODO : Either download from UKMO ftp site, or find files locally
@@ -46,4 +46,4 @@ python downloadGPM.py auto ${start} ${end} ${organisation}
 #python plot_tephi.py ${organisation} ${start} ${end} ${station_id}
 
 # Make an html page summarising all of the output plots
-#python make_html.py ${organisation} # TODO use code from plot_timelagged to auto-generate a summary html page
+python make_html.py ${organisation} # TODO use code from plot_timelagged to auto-generate a summary html page
