@@ -1,15 +1,7 @@
-
-<<<<<<< Updated upstream
-someting.txt
-.config
 *.xml
 *.iml
-*.RT-H5
-=======
-*.RT-H5
-.config
-*.xml
-*.iml
->>>>>>> Stashed changes
 *.pyc
-*.nc
+.config
+.DS_Store
+*.RT-H5
+

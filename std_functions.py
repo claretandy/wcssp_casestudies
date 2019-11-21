@@ -10,6 +10,7 @@ import cf_units
 import glob
 from shapely.geometry import Polygon
 from collections import Counter
+from dateutil.relativedelta import relativedelta
 import pdb
 
 def getDomain_bybox(plotdomain):
@@ -1293,23 +1294,45 @@ def getPrecipStash(model_id, lbproc=None, type='long'):
         return(outstash)
 
 
-def getGPMCube(start, end, latency, plotdomain, aggregate=True):
+def gpmLatencyDecider(inlatency, end_date):
+
+    # Decide which latency to run the program with
+    now = dt.datetime.utcnow()
+    auto_latency = {'NRTearly': now - dt.timedelta(hours=3),
+                    'NRTlate': now - dt.timedelta(hours=18),
+                    'production': now - relativedelta(months=4)
+                    }
+
+    if inlatency == 'all':
+        out_latency = ['production', 'NRTlate', 'NRTearly']
+    elif inlatency == 'auto':
+        best_latency = 'NRT_early'
+        for l in auto_latency.keys():
+            if end_date <= auto_latency[l]:
+                best_latency = l
+        out_latency = best_latency
+    else:
+        out_latency = inlatency
+
+    return out_latency
+
+
+def getGPMCube(start, end, latency, plotdomain, settings, aggregate=True):
     '''
     Creates a mean rainfall rate for the period defined by start and end, clips to a domain, and outputs a cubelist
     containing the data and quality flag
     plotdomain = xmin, ymin, xmax, ymax
     '''
-    gpm_path
-    from location_config import load_location_settings
-    load_location_settings()
-    inpath = '/project/earthobs/PRECIPITATION/GPM/netcdf/imerg/'+latency+'/'
+
+    inpath = settings['gpm_path'] + 'netcdf/imerg/'+latency+'/'
 
     if start > end:
         raise ValueError('You provided a start_date that comes after the end_date.')
 
     # Gets all the filenames that are needed
-    datafilelist = [(start + dt.timedelta(days=x)).strftime(inpath + '%Y/gpm_imerg_' + latency + '_*_%Y%m%d.nc') for x in range(0, 1 + (end - start).days)]
-    qualfilelist = [(start + dt.timedelta(days=x)).strftime(inpath + '%Y/gpm_imerg_' + latency + '_*_%Y%m%d_quality.nc') for x in range(0, 1 + (end - start).days)]
+    alldatafilelist = [glob.glob((start + dt.timedelta(days=x)).strftime(inpath + '%Y/gpm_imerg_' + latency + '_*_%Y%m%d*.nc')) for x in range(0, 1 + (end - start).days)]
+    datafilelist = [item for sublist in alldatafilelist for item in sublist if not 'quality' in item]
+    qualfilelist = [item for sublist in alldatafilelist for item in sublist if 'quality' in item]
 
     # Load the files as cubes
     datacubelist = iris.load(datafilelist)

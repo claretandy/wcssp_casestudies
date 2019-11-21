@@ -217,12 +217,12 @@ def main(latency, start_date, end_date, agency):
                      'NRTlate': '/NRTPUB/imerg/late/' + year + month + '/3B-HHR-L.MS.MRG.3IMERG.' + year + month + day,
                      'NRTearly': '/NRTPUB/imerg/early/' + year + month + '/3B-HHR-E.MS.MRG.3IMERG.' + year + month + day}  # +'.*.RT-H5'
 
-        rawdata_dir = outdir + '/rawdata/' + product + '/' + latency + '/' + year + '/' + month + '/' + day
-        netcdf_dir = outdir + '/netcdf/' + product + '/' + latency + '/' + year + '/'
-        ofile_test = netcdf_dir + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '.nc'
-        ofile_part_test = netcdf_dir + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_part.nc'
-        ofileq_test = netcdf_dir + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality.nc'
-        ofileq_part_test = netcdf_dir + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality_part.nc'
+        rawdata_dir = outdir.rstrip('/') + '/rawdata/' + product + '/' + latency + '/' + year + '/' + month + '/' + day
+        netcdf_dir = outdir.rstrip('/') + '/netcdf/' + product + '/' + latency + '/' + year + '/'
+        ofile_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '.nc'
+        ofile_part_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_part.nc'
+        ofileq_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality.nc'
+        ofileq_part_test = netcdf_dir.rstrip('/') + '/gpm_' + product + '_' + latency + '_*_' + year + month + day + '_quality_part.nc'
 
         if not os.path.isdir(rawdata_dir):
             mkdir_p(rawdata_dir)
@@ -290,9 +290,9 @@ def main(latency, start_date, end_date, agency):
 
 
 def downloadftp(rawdata_dir, server, serverpath, settings):
-    print(rawdata_dir, server, serverpath, settings)
+    # print(rawdata_dir, server, serverpath, settings)
     org = settings["organisation"]
-    if org == 'BMKG':
+    try:
         ftp = FTP(server[0], settings["gpm_username"], settings["gpm_username"])
         path_on_ftp = serverpath.split('3B-HHR')[0]
         file_string = serverpath.replace(path_on_ftp, '')
@@ -304,35 +304,25 @@ def downloadftp(rawdata_dir, server, serverpath, settings):
         for file in files:
             file_to_write = rawdata_dir + "/" + file
             if not os.path.isfile(file_to_write):
+                print('Downloading: ', file_to_write)
                 localfile = open(file_to_write, 'wb')
                 ftp.retrbinary('RETR ' + file, localfile.write)
                 localfile.close()
         ftp.quit()
 
-    else:
+    except:
         thiswd = os.getcwd()
         os.chdir(rawdata_dir)
         print('    Downloading files from FTP ...')
-        # pdb.set_trace()
 
         downloadstring = {
             'UKMO': 'export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host ' +
-                    server[latency][0] + ' -user ' + server[latency][1] + ' -pass ' + server[latency][1] + ' -mget ' +
-                    sfilepath[latency],
-            'PAGASA': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1], server[latency][1],
-                                                                            server[latency][0],
-                                                                            sfilepath[latency] + '*' + server[latency][
-                                                                                2]),
-            'BMKG': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1], server[latency][1],
-                                                                          server[latency][0],
-                                                                          sfilepath[latency] + '*' + server[latency][
-                                                                              2]),
-            'MMD': 'try similar to PAGASA',
-            'Andy-MacBook': 'wget -q --user={:s} --password={:s} {:s}:"{:s}"'.format(server[latency][1],
-                                                                                     server[latency][1],
-                                                                                     server[latency][0],
-                                                                                     sfilepath[latency] + '*' +
-                                                                                     server[latency][2])
+                    server[0] + ' -user ' + server[1] + ' -pass ' + server[1] + ' -mget ' +
+                    serverpath,
+            'PAGASA': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2]),
+            'BMKG': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2]),
+            'MMD': 'wget -q --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2]),
+            'Andy-MacBook': 'wget -q --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2])
         }
         os.system(downloadstring[agency])
         os.chdir(thiswd)
