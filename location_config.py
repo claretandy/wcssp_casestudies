@@ -29,9 +29,10 @@ def load_location_settings(site):
                 continue
 
     # Add the synop path to the datadir ... we could do more things like this if we all agree a directory structure!
-    settings['synop_path'] = settings['datadir'] + 'synop/'
-    settings['sounding_path'] = settings['datadir'] + 'upper-air/'
-    settings['gpm_path'] = settings['datadir'] + 'gpm/'
+    settings['synop_path'] = settings['datadir'].rstrip('/') + '/synop/'
+    settings['sounding_path'] = settings['datadir'].rstrip('/') + '/upper-air/'
+    settings['gpm_path'] = settings['datadir'].rstrip('/') + '/gpm/'
+    settings['um_path'] = settings['datadir'].rstrip('/') + '/UM/'
 
     # Make sure all the directory paths exist ...
     for k in settings.keys():
