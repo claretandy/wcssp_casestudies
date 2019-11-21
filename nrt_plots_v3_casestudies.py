@@ -260,5 +260,3 @@ if __name__ == '__main__':
         organisation = 'Andy-MacBook'
     
     main(dt_start, dt_end, plotdomain, region_name, eventname, organisation)
-
-Hello Efan
