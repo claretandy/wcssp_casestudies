@@ -186,7 +186,7 @@ def addTimeCats(cube):
     return cube
 
 
-def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation):
+def main(latency, dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation):
 
     # Set some things at the start ...
     settings = config.load_location_settings(organisation)
@@ -211,11 +211,7 @@ def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation)
     # Make Output dirs
     mkOutDirs(dt_startdt, dt_enddt, outdir)
 
-    try:
-        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'production', plotdomain, settings, aggregate=False)
-    except:
-        cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, 'NRTlate', plotdomain, settings, aggregate=False)
-
+    cube_dom = sf.getGPMCube(dt_startdt, dt_enddt, latency, plotdomain, settings, aggregate=False)
     cube_dom = addTimeCats(cube_dom[0])
     accums = ['30mins', '3hr', '6hr', '12hr', '24hr'] #['12hr', '24hr']#
     
@@ -234,29 +230,39 @@ def main(dt_startdt, dt_enddt, plotdomain, region_name, eventname, organisation)
 if __name__ == '__main__':
 
     try:
-        dt_start = dt.datetime.strptime(sys.argv[1], "%Y%m%d%H%M") # Needs to be formatted %Y%m%d
-        dt_end   = dt.datetime.strptime(sys.argv[2], "%Y%m%d%H%M") # Needs to be formatted %Y%m%d
+        latency = sys.argv[1]
+    except:
+        latency = 'NRTearly' # TODO could change this to the same datetime chooser in downloadGPM.py
+
+    try:
+        dt_start = dt.datetime.strptime(sys.argv[2], "%Y%m%d%H%M") # Needs to be formatted %Y%m%d
+        dt_end   = dt.datetime.strptime(sys.argv[3], "%Y%m%d%H%M") # Needs to be formatted %Y%m%d
     except IndexError:
         nrst3hour = sf.myround(dt.datetime.now().hour, base=3)
         dt_end = dt.datetime.now().replace(hour=nrst3hour, minute=0, second=0, microsecond=0) - dt.timedelta(hours=6)
         dt_start = dt_end - dt.timedelta(hours=3)
 
     try:
-        plotdomain = [float(x) for x in sys.argv[3].split(',')] # xmin,ymin,xmax,ymax
+        plotdomain = [float(x) for x in sys.argv[4].split(',')] # xmin,ymin,xmax,ymax
     except:
         # Assume a big SEAsia domain
         plotdomain = [91, -10, 120, 25]
 
     try:
-        eventname = sys.argv[4]
+        eventname = sys.argv[5]
     except:
         eventname = 'noname/' + dt_start.strftime('%Y%m%d') + '_noname'
 
     region_name, eventname = eventname.split('/')
 
     try:
-        organisation = sys.argv[5]
+        organisation = sys.argv[6]
     except:
         organisation = 'Andy-MacBook'
-    
-    main(dt_start, dt_end, plotdomain, region_name, eventname, organisation)
+
+    this_latency = sf.gpmLatencyDecider(latency, dt_end)
+    if isinstance(this_latency, list):
+        for laty in this_latency:
+            main(laty, dt_start, dt_end, plotdomain, region_name, eventname, organisation)
+    else:
+        main(this_latency, dt_start, dt_end, plotdomain, region_name, eventname, organisation)

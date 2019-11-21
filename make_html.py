@@ -97,8 +97,8 @@ def create_summary_html(settings):
 
 def main(organisation):
 
-
-    url = create_summary_html(organisation)
+    settings = config.load_location_settings(organisation)
+    url = create_summary_html(settings)
 
     print('Created: ', url)
 

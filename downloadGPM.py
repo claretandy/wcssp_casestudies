@@ -292,7 +292,7 @@ def main(latency, start_date, end_date, agency):
 def downloadftp(rawdata_dir, server, serverpath, settings):
     # print(rawdata_dir, server, serverpath, settings)
     org = settings["organisation"]
-    if org == 'BMKG':
+    try:
         ftp = FTP(server[0], settings["gpm_username"], settings["gpm_username"])
         path_on_ftp = serverpath.split('3B-HHR')[0]
         file_string = serverpath.replace(path_on_ftp, '')
@@ -304,12 +304,13 @@ def downloadftp(rawdata_dir, server, serverpath, settings):
         for file in files:
             file_to_write = rawdata_dir + "/" + file
             if not os.path.isfile(file_to_write):
+                print('Downloading: ', file_to_write)
                 localfile = open(file_to_write, 'wb')
                 ftp.retrbinary('RETR ' + file, localfile.write)
                 localfile.close()
         ftp.quit()
 
-    else:
+    except:
         thiswd = os.getcwd()
         os.chdir(rawdata_dir)
         print('    Downloading files from FTP ...')
