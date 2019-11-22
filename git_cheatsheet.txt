@@ -9,6 +9,7 @@ Some more notes on using github within this project ...
         git pull --rebase origin master
 2. Now that your local master is updated, you can create a new branch ..
         - In pycharm, go to 'VCS -> Git -> Branches' then select '+ New branch'
+        - Double check that your local master is the same as online!
         - On the command line ...
         git branch <name-of-new-branch>
 3. Checkout that branch ...
@@ -17,6 +18,9 @@ Some more notes on using github within this project ...
         git checkout <name-of-new-branch>
 3.a. On the command line you will also need to point the new local branch at a location on the remote ...
         git push --set-upstream origin <name-of-branch>
+3.b. In Pycharm, if your starting code is not the same as the remote master (on the web), you may also need to go to
+        VCS -> Git -> Pull / Then under 'branches to merge', select origin/master
+        This will force your branch to match exactly the master
 4. Write some code
 5. Commit back to local repository
         - In pycharm 'VCS -> Commit'
