@@ -58,8 +58,8 @@ def main(start_date, end_date, obstype, agency):
     for single_date in daterange(start_date, end_date):
         year, month, day = getYMD(single_date)
 
-        syn_dir = outdir + "/synop/" + year + month + day
-        temp_dir = outdir + "/temp/" + year + month + day
+        syn_dir = outdir + "/synop/" + year +"/"+ month +"/"+ day
+        temp_dir = outdir + "/temp/" + year +"/"+ month +"/"+ day
 
         if not os.path.isdir(syn_dir):
             mkdir_p(syn_dir)
