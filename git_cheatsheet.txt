@@ -1,3 +1,12 @@
+Some more notes on using github within this project ...
+
+- To start a new branch ...
+1. You need to pull from the remote (i.e. github) the most recent version of the remote master
+        - this refreshes your local master with the current state of the code, and therefore brings in all the changes made by others
+        - In pycharm, you can do this by changing the branch to 'master', and clicking VCS -> Git -> Pull
+2. Now that your local master is updated, you can create a new branch
+
+
 1. On the github webpage https://github.com/claretandy/wcssp_casestudies hit 'Clone or download', and copy the url
 
 2. In a terminal, cd to a directory that you want to store the code in (e.g. ~/github ), then type the follwoing code into the terminal
