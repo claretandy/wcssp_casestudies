@@ -367,7 +367,7 @@ if __name__ == '__main__':
         for l in ['production', 'NRTlate', 'NRTearly']:
             main(l, start_date, end_date, agency)
     elif latency == 'auto':
-        best_latency = 'NRT_early'
+        best_latency = 'NRTearly'
         for l in auto_latency.keys():
             if end_date <= auto_latency[l]:
                 best_latency = l
