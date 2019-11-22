@@ -15,9 +15,9 @@ conda activate scitools
 ######################################################################################################################
 # Change things in here for each case study
 organisation='MMD' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
-start='201911190000' # Format YYYYMMDDHHMM
-end='201911220000' # Format YYYYMMDDHHMM
-station_id=98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
+start='201901190000' # Format YYYYMMDDHHMM
+end='201901220000' # Format YYYYMMDDHHMM
+station_id=48650 #98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
 event_domain='99,0.5,106,7.5' # xmin, ymin, xmax, ymax
 event_location_name='Johor' # A short name to decribe the location of the event
 event_region_name='PeninsulaMalaysia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
@@ -40,7 +40,7 @@ python nrt_plots_v3_casestudies.py ${start} ${end} ${event_domain} ${eventname} 
 #python plot_timelagged.py ${start} ${end} ${event_domain} ${eventname} ${organisation} # TODO : make this script work in this environment - could also be adapted for other satellite obs / analysis
 #
 ## Plot SYNOP data from each organisation vs models
-#python plot_synop.py ${organisation} ${start} ${end} ${station_id} # Note: station_id is optional
+python plot_synop.py ${organisation} ${start} ${end} ${station_id} # Note: station_id is optional
 #
 ## Plot Upper Air soundings for each organisation vs models
 #python plot_tephi.py ${organisation} ${start} ${end} ${station_id}
