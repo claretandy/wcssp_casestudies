@@ -65,8 +65,47 @@ def formatValue(k, v):
             return [v]
 
     return [v]
-    
-def getData(start_dt, end_dt, settings, station_id=None):
+
+def getData(start_dt, end_dt, settings, st_id):
+
+    org = settings['organisation']
+    if org == 'MMD':
+        outdf = getData_MMD(start_dt, end_dt, settings, st_id)
+    elif org == 'PAGASA':
+        outdf = getData_PAGASA(start_dt, end_dt, settings, st_id)
+    else:
+        print('Need to write some more reader functions')
+
+    return outdf
+
+def getData_MMD(start_dt, end_dt, settings, station_id=None):
+    '''
+    Function to read MMD's csv files into a pandas dataframe
+    :param start_dt: datetime object
+    :param end_dt: datetime object
+    :param settings: normal settings from location_config
+    :param station_id: Normally, give 1 ID, but might be a good idea to allow multiple inputs (as a list)
+    :return: pandas dataframe with the following column names:
+    ['dateTimeUTC','wetbulb', 'drybulb', 'pressure-mslp', 'wind-speed', 'wind-direction', 'wind-gust',
+        'rainfall-observed', 'cloud-oktas']
+    '''
+    # Get the paths to the data
+    path = settings['synop_path']
+    file_wildcard = settings['synop_wildcard']
+    freq = settings['synop_frequency']
+
+    thisdate = start_dt
+    outdf = {}
+
+    while thisdate <= end_dt:
+
+        # Do some processing
+
+        thisdate = thisdate + dt.timedelta(hours=freq)
+
+    return outdf
+
+def getData_PAGASA(start_dt, end_dt, settings, station_id=None):
     '''
     start_dt and end_dt are datetime objects
     station_id is optional, but if given, selects just one station

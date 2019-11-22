@@ -2,28 +2,31 @@ import os, sys
 import location_config as config
 from ftplib import FTP
 import datetime as dt
+import std_functions as sf
 
-def getUM(start, end, dataname, settings):
+def getUM(start, end, model_id, var, settings, returnCube=False):
+
+    sf.getInitTimes(start, end, domain, model_id=model_id)
+    # Build a filename
 
     # Check local
 
 def checkLocal():
 
+
 def main(start, end, organisation):
     # Do some downloading
     settings = config.load_location_settings(organisation)
-    umdir = settings['datadir'].rstrip('/') + '/UM/'
-    if not os.path.isdir(umdir):
-        os.makedirs(umdir)
+    umdir = settings['um_path']
 
-    datalist = ['analysis', 'ga7', 'km4p4', 'km1p5']
-    for dataname in datalist:
+    model_list = ['analysis', 'ga7', 'km4p4', 'km1p5']
+    for model_id in model_list:
 
-        local_datadir = umdir.rstrip('/') + dataname
+        local_datadir = umdir.rstrip('/') + model_id
         if not os.path.isdir(local_datadir):
             os.makedirs(local_datadir)
 
-        cubelist = getUM(start, end, dataname, settings)
+        cubelist = getUM(start, end, model_id, var, settings, returnCube=False)
 
 
 
