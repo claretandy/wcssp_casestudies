@@ -228,6 +228,7 @@ def main(latency, start_date, end_date, agency):
             mkdir_p(rawdata_dir)
         if not os.path.isdir(netcdf_dir):
             mkdir_p(netcdf_dir)
+
         rawdatafiles = glob.glob(rawdata_dir + '/3B-HHR*' + server[latency][2])
 
         if ((len(glob.glob(ofile_test)) == 1) or (len(glob.glob(ofile_part_test)) == 2)) & (

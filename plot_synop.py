@@ -14,7 +14,8 @@ import datetime as dt
 import pdb
 import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
+from downloadGPM import daterange
+# import seaborn as sns
 
 
 
@@ -78,6 +79,7 @@ def getData(start_dt, end_dt, settings, st_id):
 
     return outdf
 
+
 def getData_MMD(start_dt, end_dt, settings, station_id=None):
     '''
     Function to read MMD's csv files into a pandas dataframe
@@ -89,21 +91,69 @@ def getData_MMD(start_dt, end_dt, settings, station_id=None):
     ['dateTimeUTC','wetbulb', 'drybulb', 'pressure-mslp', 'wind-speed', 'wind-direction', 'wind-gust',
         'rainfall-observed', 'cloud-oktas']
     '''
+
+    def read_MMD_csv(start_dt, end_dt, flist):
+        column_names = ['ID', 'WMOINDEX', 'YEAR', 'MTH', 'DAY', 'HOUR', 'SLP', 'pressure-mslp', 'drybulb', 'wetbulb',
+                        'DEWPT', 'RH', 'VIS', 'VISCODE', 'WX', 'wind-direction', 'wind-speed', 'DUR',
+                        'rainfall-observed',
+                        'SUN', 'cloud-oktas', 'AMT1', 'TYPE1', 'HEIGHT1', 'AMT2', 'TYPE2', 'HEIGHT2', 'AMT3', 'TYPE3',
+                        'HEIGHT3', 'AMT4', 'TYPE4', 'HEIGHT4', 'AMT5', 'TYPE5', 'HEIGHT5', 'AMT6', 'TYPE6', 'HEIGHT6',
+                        'SOLAR', 'empty']
+        data = []
+        for f in flist:
+            csvd = pd.read_csv(f, na_values='None')
+            csvd.columns = column_names
+            if isinstance(data, list):
+                data = csvd
+            else:
+                data.append(csvd)
+        return (data)
+
+    def filelist(start_dt, end_dt, settings):
+        outlist = []
+        for single_date in daterange(start_dt, end_dt):
+            fn = settings['synop_path'] + 'synop_' + single_date.strftime("%Y%m") + '.csv'
+            outlist.append(fn)
+        return list(set(outlist))
+
     # Get the paths to the data
     path = settings['synop_path']
     file_wildcard = settings['synop_wildcard']
     freq = settings['synop_frequency']
 
-    thisdate = start_dt
-    outdf = {}
+    flist=filelist(start_dt, end_dt, settings)
 
-    while thisdate <= end_dt:
+    if not station_id:
+        station_id=['all']
+    elif station_id == 'all':
+        # TODO: Make it plot all station ids
+        # df = read_MMD_csv(start_dt, end_dt, flist)
+        # station_id = list(set(df['WMOINDEX'].to_list))
+        print('Currently not working for all stations')
+        return
+    elif not isinstance(station_id, list):
+        station_id=[int(station_id)]
+    else:
+        station_id=[int(stid) for stid in station_id]
 
-        # Do some processing
+    data = read_MMD_csv(start_dt, end_dt, flist)
 
-        thisdate = thisdate + dt.timedelta(hours=freq)
+    # Time subset
+    # pdb.set_trace()
+    data['dateTimeMYT'] = pd.to_datetime(dict(year=data.YEAR, month=data.MTH, day=data.DAY, hour=data.HOUR))
+    data['dateTimeUTC'] = data['dateTimeMYT'] - pd.Timedelta(hours=8)
+    data = data.set_index('dateTimeUTC')
+    data = data.loc[start_dt.strftime('%Y-%m-%d %H:%M'):end_dt.strftime('%Y-%m-%d %H:%M')]
 
-    return outdf
+    # Station ID subset
+    for stid in station_id:
+        print(stid)
+        if stid == 'all':
+            continue
+        else:
+            data = data.loc[data['WMOINDEX'] == stid]
+
+    return data
 
 def getData_PAGASA(start_dt, end_dt, settings, station_id=None):
     '''
@@ -175,6 +225,7 @@ def getData_PAGASA(start_dt, end_dt, settings, station_id=None):
         thisdate = thisdate + dt.timedelta(hours=freq)
 
     # TODO: Once we have the final output, let's add in a column for local times too
+    outdf = outdf.set_index('dateTimeUTC')
 
     # Return a pandas dataframe of the requested data
     return outdf
@@ -186,20 +237,22 @@ def plotStationData(df, plotsettings):
     Plot a time series for all the columns in the dataframe
     '''
 
-    if not os.path.isdir(plotsettings['plotdir']):
-        os.makedirs(plotsettings['plotdir'])
-
-    ofile = plotsettings['plotdir'] + 'synops_' + \
+    odir = plotsettings['plotdir'].rstrip('/') + '/synop/'
+    if not os.path.isdir(odir):
+        os.makedirs(odir)
+    # print(odir)
+    ofile = odir + \
             plotsettings['start'].strftime('%Y%m%dT%H%MZ') + '-' + \
             plotsettings['end'].strftime('%Y%m%dT%H%MZ') + '_' + str(plotsettings['station_id']) + '.png'
 
     title = 'Synoptic observations at station '+str(plotsettings['station_id'])
     xlab = 'Time'
 
+    # pdb.set_trace()
     matplotlib.rcParams.update({'font.size': 7})
     plt.figure(figsize=(12,17))
-    df.plot.line(x='dateTimeUTC',
-                    y=['wetbulb', 'drybulb', 'pressure-mslp', 'wind-speed', 'wind-direction', 'wind-gust',
+    df.plot.line(#x='dateTimeUTC',
+                    y=['wetbulb', 'drybulb', 'pressure-mslp', 'wind-speed', 'wind-direction',
                        'rainfall-observed', 'cloud-oktas'], title=title, subplots=True)
     plt.xlabel(xlab)
     plt.savefig(ofile, dpi=400)
@@ -250,7 +303,7 @@ def main(organisation, start_dt, end_dt, station_id):
         # Get the model data
 
         # Make the obs only plots
-        plotsettings = {'plotdir': settings['synop_path'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
+        plotsettings = {'plotdir': settings['plot_dir'], 'station_id': st_id, 'start': start_dt, 'end': end_dt}
         plotStationData(df, plotsettings)
 
 if __name__ == '__main__':
