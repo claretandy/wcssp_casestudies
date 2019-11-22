@@ -1,3 +1,39 @@
+Some more notes on using github within this project ...
+
+- To start a new branch ...
+1. You need to pull from the remote (i.e. github) the most recent version of the remote master
+        - this refreshes your local master with the current state of the code, and therefore brings in all the changes made by others
+        - In pycharm, you can do this by changing the branch to 'master', and clicking VCS -> Git -> Pull
+        - Or on the command line, run the following ...
+        git checkout master
+        git pull --rebase origin master
+2. Now that your local master is updated, you can create a new branch ..
+        - In pycharm, go to 'VCS -> Git -> Branches' then select '+ New branch'
+        - Double check that your local master is the same as online!
+        - On the command line ...
+        git branch <name-of-new-branch>
+3. Checkout that branch ...
+        - In pycharm when you created that branch, it automatically checks it out
+        - On the command line ...
+        git checkout <name-of-new-branch>
+3.a. On the command line you will also need to point the new local branch at a location on the remote ...
+        git push --set-upstream origin <name-of-branch>
+3.b. In Pycharm, if your starting code is not the same as the remote master (on the web), you may also need to go to
+        VCS -> Git -> Pull / Then under 'branches to merge', select origin/master
+        This will force your branch to match exactly the master
+4. Write some code
+5. Commit back to local repository
+        - In pycharm 'VCS -> Commit'
+        - On the command line ...
+        git commit -a -m 'Some description of what you've done'
+6. Push your changes up to the remote so that others can see what you're doing on your branch (and possibly get some help)
+        - In pycharm 'VCS -> Git -> Push'
+        - On command line ...
+        git push
+7. When you're happy that your branch works and can be committed back to the remote, you can commit / push so that
+        everything is up to date, and then issue a 'pull request'
+
+
 1. On the github webpage https://github.com/claretandy/wcssp_casestudies hit 'Clone or download', and copy the url
 
 2. In a terminal, cd to a directory that you want to store the code in (e.g. ~/github ), then type the follwoing code into the terminal
