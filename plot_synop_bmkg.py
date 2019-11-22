@@ -2,6 +2,12 @@ import sys, os
 import location_config as config
 from datetime import datetime, timedelta
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from pandas.plotting import register_matplotlib_converters
+import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
+register_matplotlib_converters()
 
 '''
 This script will plot synop data available from BMKG synop dataset.
@@ -78,6 +84,77 @@ def get_data(flist, station_id):
 
     return df_ready
 
+def plotdata(df, station_id, start_date, end_date):
+    #get station info
+    print(df)
+    df.fillna(method="ffill")
+    df_station = pd.read_csv("E:/DataSynop/Master.csv", sep=",", header=0 ,index_col="Station Number")
+    st_name = df_station.at[station_id,"Station Name"]
+    st_lat = df_station.at[station_id,"latitude"]
+    st_lon = df_station.at[station_id,"longitude"]
+    st_elev = df_station.at[station_id,"Elevation"]
+
+    myfmt = mdates.DateFormatter("%d/%m %HZ")
+    myfmt2 = mdates.DateFormatter("%d/%H")
+    minfmt = mdates.DateFormatter("%H")
+
+    #set plot
+    fig = plt.figure(figsize=(10,7))
+    gs = gridspec.GridSpec(4,4)
+
+    ax0 = fig.add_subplot(gs[0:2,:])
+    ax0.plot(df["time"],df["temp"],linewidth=1.2, linestyle='-', marker='o', color='#0B2E59', label='Temperature')
+    ax0.plot(df["time"],df["dewpt"],linewidth=1.2, linestyle='-', marker='o', color='#7AB317', label='Dew Point')
+    ax0.plot(df["time"],df["tmax"], '2r', label='T Max')
+    ax0.plot(df["time"],df["tmin"], '1b', label='T Min')
+    ax0.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax0.xaxis.set_major_formatter(myfmt)
+    ax0.xaxis.set_minor_locator(ticker.AutoMinorLocator(8))
+    ax0.tick_params(labelsize=8)
+    #ax0.set_ylim(20,37)
+    ax0.grid(True)
+    ax0.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=4)
+    fig.suptitle('Synop Observation Data at ' + str(st_name) +' ('+str(station_id)+')\n'
+                 +str(st_lat)+"N "+str(st_lon)+"E "+ str(st_elev)+ "m \n"
+                 +"from "+ str(start_date)+ " to "+str(end_date))
+
+    ax1 = fig.add_subplot(gs[2,0:2])
+    ax1.plot(df["time"],df["rr03"], label='3hr Rainfall')
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax1.xaxis.set_major_formatter(myfmt)
+    ax1.tick_params(labelsize=8)
+    ax1.legend(prop={'size': 7})
+    ax1.xaxis.set_minor_locator(ticker.AutoMinorLocator(8))
+
+    ax2 = fig.add_subplot(gs[2,2:])
+    ax2.plot(df["time"],df["rr24"], label='24hr Rainfall')
+    ax2.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax2.xaxis.set_major_formatter(myfmt)
+    ax2.tick_params(labelsize=8)
+    ax2.legend(prop={'size': 7})
+    ax2.xaxis.set_minor_locator(ticker.AutoMinorLocator(8))
+
+    ax3 = fig.add_subplot(gs[3,0:2])
+    ax3.plot(df["time"], df["mslp"], label='MSLP')
+    ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax3.xaxis.set_major_formatter(myfmt2)
+    ax3.legend(prop={'size': 6})
+    ax3.tick_params(labelsize=7)
+
+    ax4 = fig.add_subplot(gs[3,2])
+    ax4.plot(df["time"], df["wspd"], label="FF")
+    ax4.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax4.tick_params(labelsize=7, which='major')
+    ax4.legend(prop={'size': 6})
+    ax4.xaxis.set_major_formatter(myfmt2)
+
+    ax5 = fig.add_subplot(gs[3,3])
+    ax5.plot(df["time"], df["cloud"], label="Cloud")
+    ax5.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax5.tick_params(labelsize=7, which='major')
+    ax5.legend(prop={'size': 6})
+    ax5.xaxis.set_major_formatter(myfmt2)
+
 def main(start_date, end_date, agency, station_id):
     settings = config.load_location_settings(agency)
     start_date = datetime.strptime(str(start_date), '%Y%m%d')
@@ -99,7 +176,7 @@ def main(start_date, end_date, agency, station_id):
 
     df = get_data(flist, station_id)
 
-    print(df)
+    plotdata(df, station_id, start_date, end_date)
 
 if __name__ == '__main__':
     start_date = sys.argv[1]  # date should in YYYYMMDD
