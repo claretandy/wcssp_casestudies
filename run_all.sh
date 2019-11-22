@@ -14,9 +14,9 @@ conda activate scitools
 
 ######################################################################################################################
 # Change things in here for each case study
-organisation='Andy-MacBook' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
+organisation='MMD' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
 start='201911190000' # Format YYYYMMDDHHMM
-end='201911201300' # Format YYYYMMDDHHMM
+end='201911220000' # Format YYYYMMDDHHMM
 station_id=98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
 event_domain='99,0.5,106,7.5' # xmin, ymin, xmax, ymax
 event_location_name='Johor' # A short name to decribe the location of the event
@@ -31,7 +31,7 @@ eventname=${event_region_name}'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_
 python downloadGPM.py auto ${start} ${end} ${organisation}
 
 # Plot GPM animation for different time aggregations
-#python nrt_plots_v3_casestudies.py ${start} ${end} ${event_domain} ${eventname} # TODO : make this script work in this environment
+python nrt_plots_v3_casestudies.py ${start} ${end} ${event_domain} ${eventname} # TODO : make this script work in this environment
 
 # Get UM model data from FTP
 #python downloadUM.py ${organisation} # TODO : Either download from UKMO ftp site, or find files locally
