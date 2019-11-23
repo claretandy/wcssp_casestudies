@@ -1,0 +1,111 @@
+Station Number,Station Name,latitude,longitude,Elevation
+96001,Sabang / Cut Bau (Indonesia),5.87,95.33,126
+96009,Lhokseumawe/Malikussaleh (Indonesia),5.22,96.94,87
+96011,Banda Aceh / Blangbintang (Indonesia),5.51,95.42,21
+96015,Meulaboh / Cut Nyak Dhien (Indonesia),4.04,96.24,90
+96033,Belawan (Indonesia),3.79,98.69,3
+96035,Kualanamu Medan (Indonesia),3.64,98.87,25
+96073,Sibolga / Pinangsori (Indonesia),1.55,98.89,3
+96075,Gunung Sitoli/Binaka (Indonesia),1.16,97.7,6
+96087,"Batan, Sumatra (Indonesia)",1.12,104.11,24
+96091,Tanjungpinang / Kijang (Indonesia),0.92,104.53,18
+96109,Pakanbaru / Simpangtiga (Indonesia),0.46,101.44,31
+96145,Tarempa (Indonesia),3.21,106.21,3
+96147,Ranai / Ranai (Indonesia),3.91,108.39,2
+96163,Mia Padang (Indonesia),-0.78,100.28,3
+96171,Rengat/Japura (Indonesia),-0.34,102.33,46
+96179,Singkep / Dabo (Indonesia),-0.47,104.57,31
+96195,Jambi / Sultan Taha (Indonesia),-1.63,103.64,25
+96207,Kerinci / Depati Parbo (Indonesia),-2.09,101.46,782
+96221,Palembang / Talangbetutu (Indonesia),-2.89,104.7,10
+96237,Pangkalpinang / Pangkalpinang (Indonesia),-2.16,106.13,33
+96249,Tanjungpandan / Buluh Tumbang (Indonesia),-2.75,107.75,44
+96253,Bengkulu / Padangkemiling (Indonesia),-3.86,102.33,16
+96295,Tanjung Karang/Radin Inten Ii (Indonesia),-5.24,105.17,96
+96505,Longbawan / Juvai Semaring (Indonesia),3.88,115.69,965
+96509,Tarakan / Juwata (Indonesia),3.32,117.57,6
+96525,Tanjung Selor (Indonesia),2.83,117.37,50
+96529,Tanjung Redep / Berau (Indonesia),2.15,117.43,26
+96535,Paloh (Indonesia),1.76,109.3,15
+96557,Nangapinoh (Indonesia),-0.34,111.74,37
+96559,Sintang (Indonesia),0.06,111.47,30
+96565,Putusibau (Indonesia),0.83,112.93,34
+96581,Pontianak / Supadio (Indonesia),-0.14,109.4,3
+96595,Muaratewe / Beringin (Indonesia),-0.94,114.89,60
+96607,Samarinda / Temindung (Indonesia),-0.48,117.15,230
+96615,Ketapang / Rahadi Usmaman (Indonesia),-1.81,109.96,9
+96633,Balikpapan / Sepinggan (Indonesia),-1.26,116.89,3
+96645,Pangkalan Bun/Iskandar (Indonesia),-2.7,111.66,25
+96655,Palangka Raya/Tjilik Riwut (Indonesia),-2.22,113.94,27
+96685,Banjarmasin / Syamsuddin Noor (Indonesia),-3.43,114.75,20
+96695,Kotabaru (Indonesia),-3.29,116.16,18
+96737,Serang (Indonesia),-6.11,106.13,40
+96739,Curug / Budiarto (Indonesia),-6.29,106.56,46
+96741,Jakarta / Tanjung Priok (Indonesia),-6.09,106.86,2
+96745,Jakarta / Observatory (Indonesia),-6.18,106.83,8
+96749,Jakarta / Soekarno-Hatta (Indonesia),-6.12,106.65,8
+96751,Citeko / Puncak (Indonesia),-6.69,106.93,920
+96781,Bandung / Husein (Indonesia),-6.9,107.57,740
+96791,Jatiwangi (Indonesia),-6.75,108.26,50
+96797,Tegal (Indonesia),-6.86,109.12,10
+96805,Cilacap (Indonesia),-7.64,109.05,6
+96837,Semarang (Indonesia),-6.96,110.41,3
+96839,Semarang / Ahmadyani (Indonesia),-6.97,110.37,3
+96925,Sangkapura Bawean Island  (Indonesia),-5.85,112.65,3
+96933,Surabaya / Perak (Indonesia),-7.21,112.71,3
+96935,Surabaya / Juanda (Indonesia),-7.37,112.79,3
+96937,Surabaya/Perak Ii (Indonesia),-7.21,112.71,3
+96973,Kalianget Madura Island  (Indonesia),-7.05,113.96,3
+96987,Banyuwangi (Indonesia),-8.21,114.38,5
+97008,Tahuna (Indonesia),3.68,125.52,38
+97014,Menado / Dr. Sam Ratulangi (Indonesia),1.54,124.92,80
+97016,Bitung (Indonesia),1.43,125.18,3
+97028,Toli-Toli / Lalos (Indonesia),1.12,120.79,2
+97048,Gorontalo / Jalaluddin (Indonesia),0.63,122.85,2
+97072,Palu / Mutiara (Indonesia),-0.91,119.9,6
+97086,Luwuk / Bubung (Indonesia),-1.04,122.77,2
+97096,Poso / Kasiguncu (Indonesia),-1.42,120.65,2
+97120,Majene (Indonesia),-2.5,119,8
+97126,Masamba (Indonesia),-2.55,120.32,50
+97142,Kolaka / Poma (Indonesia),-4.18,121.61,3
+97146,Kendari / Woltermon-Ginsidi (Indonesia),-4.08,122.41,50
+97180,Ujung Pandang / Hasanuddin (Indonesia),-5.07,119.54,14
+97182,Ujang Pandang (Indonesia),-5.06,119.55,14
+97192,Bau-Bau / Beto Ambiri (Indonesia),-5.48,122.56,2
+97230,Denpasar / Ngurah-Rai (Indonesia),-8.74,115.16,1
+97240,Ampenan / Selaparang (Indonesia),-8.56,116.09,3
+97260,Sumbawa Besar / Sumbawa Besar (Indonesia),-8.48,117.41,3
+97270,Bima (Indonesia),-8.54,118.69,2
+97284,Ruteng / Satartacik (Indonesia),-8.59,120.47,1170
+97300,Maumere / Wai Oti (Indonesia),-8.63,122.23,3
+97310,Larantuka (Indonesia),-8.27,123,9
+97320,Alor / Mali (Indonesia),-8.13,124.59,12
+97340,Waingapu / Mau Hau (Indonesia),-9.66,120.29,12
+97372,Kupang / El Tari (Indonesia),-10.17,123.67,108
+97378,Rote / Baa (Indonesia),-10.76,123.07,1
+97380,Sabu / Tardamu (Indonesia),-10.49,121.84,26
+97406,Galela / Gamarmalamu (Indonesia),1.83,127.78,8
+97430,Ternate / Babullah (Indonesia),0.82,127.38,23
+97460,Labuha/Oesman Sadik (Indonesia),-0.64,127.49,3
+97502,Deo Sorong (Indonesia),-0.89,131.28,3
+97530,Manokwari / Rendani (Indonesia),-0.89,134.05,3
+97560,Biak / Mokmer (Indonesia),-1.18,136.1,11
+97570,Serui / Yendosa (Indonesia),-1.87,136.24,3
+97580,Sarmi (Indonesia),-1.87,138.75,3
+97600,Sanana (Indonesia),-2.09,125.96,2
+97630,Fak-Fak / Torea (Indonesia),-2.91,132.26,130
+97682,Nabire (Indonesia),-3.36,135.49,3
+97690,Jayapura / Sentani (Indonesia),-2.57,140.51,99
+97698,Jayapura (Indonesia),-2.36,140.71,3
+97700,Namlea (Indonesia),-3.23,127.09,20
+97722,Amahai (Indonesia),-3.34,128.92,10
+97724,Ambon / Pattimura (Indonesia),-3.7,128.08,12
+97748,Geser (Indonesia),-3.79,130.83,3
+97760,Kaimana / Utarom (Indonesia),-3.64,133.69,3
+97780,Enarotali (Indonesia),-3.92,136.37,1770
+97790,Neira (Indonesia),-4.52,129.9,4
+97796,Timika (Indonesia),-4.52,136.88,3
+97810,Tual / Dumatubun (Indonesia),-5.66,132.73,12
+97876,Tanah Merah / Tanah Merah (Indonesia),-6.09,140.3,16
+97900,Saumlaki (Indonesia),-7.98,131.3,24
+97980,Merauke / Mopah (Indonesia),-8.51,140.41,3
