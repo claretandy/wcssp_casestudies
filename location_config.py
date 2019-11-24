@@ -12,27 +12,46 @@ def load_location_settings(site):
 
     settings = {}
     # Assume that the org is generic unless the site variable is in the config file
-    org = 'generic'
-
+    start_setting = False
+    got_one = False
     with open('../.config', 'r') as f:
         data = f.readlines()
         for line in data:
-            try:
+            if line == '\n':
+                continue
+            else:
                 var = line.split('=')[0]
                 val = line.split('=')[1].replace('\n', '')
                 if var == 'organisation':
-                    org = val
-                if org == site:
+                    # print(val)
+                    if val == site:
+                        got_one = True
+                        start_setting = True
+                    elif (not got_one) and (val == 'generic'):
+                        print('Site', site, 'not available, setting generic configuration instead')
+                        site = 'generic'
+                        start_setting = True
+                    else:
+                        start_setting = False
+                if start_setting:
+                    # print(var, val, sep=': ')
                     settings[var] = val
 
-            except:
-                continue
+    countryLUT = {
+        'MMD': 'Malaysia',
+        'PAGASA': 'Philippines',
+        'BMKG': 'Indonesia',
+        'Andy-MacBook': 'Malaysia',
+        'UKMO': 'Malaysia',
+        'generic': 'SEAsia'
+    }
 
     # Add the synop path to the datadir ... we could do more things like this if we all agree a directory structure!
     settings['synop_path'] = settings['datadir'].rstrip('/') + '/synop/'
     settings['sounding_path'] = settings['datadir'].rstrip('/') + '/upper-air/'
     settings['gpm_path'] = settings['datadir'].rstrip('/') + '/gpm/'
     settings['um_path'] = settings['datadir'].rstrip('/') + '/UM/'
+    settings['country'] = countryLUT[site]
 
     # Make sure all the directory paths exist ...
     for k in settings.keys():
