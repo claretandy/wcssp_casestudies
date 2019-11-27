@@ -32,22 +32,38 @@ def ftp_download_files(flist, model_id, settings):
     ftp.cwd(path)
     dataloc = settings['um_path'] + model_id
 
+    ofile_list = []
     for filename in flist:
 
         src_fname = path + filename
         this_dt = dt.datetime.strptime(filename.split('_')[0], '%Y%m%dT%H%MZ')
         dst_fname = dataloc + '/' + this_dt.strftime('%Y%m') + '/' + filename
 
+        src_filesize = ftp.size(src_fname)
+        try:
+            dst_filesize = os.path.getsize(dst_fname)
+        except FileNotFoundError:
+            dst_filesize = 0
+
         if not os.path.isdir(os.path.dirname(dst_fname)):
             os.makedirs(os.path.dirname(dst_fname))
+
+        # If the filesizes don't match, then delete and re-download
+        if os.path.isfile(dst_fname) and not (dst_filesize == src_filesize):
+            os.remove(dst_fname)
 
         if not os.path.isfile(dst_fname):
             print('Downloading: ' + dst_fname)
             proses = ftp.retrbinary("RETR " + src_fname, open(dst_fname, 'wb').write)
         else:
-            print('Nothing to do: ' + src_fname)
+            print('File already exists locally and local file size agrees with ftp file: ' + dst_fname)
+
+        if os.path.isfile(dst_fname):
+            ofile_list.append(dst_fname)
 
     ftp.quit()
+
+    return(ofile_list)
 
 
 def get_analysis_times(start, end, incr):
@@ -138,11 +154,14 @@ def stashLUT(sc, style='short'):
         30461: {'short': 'totcolumnwatervap', 'long': 'Total Column Water Vapour'}
     }
 
+    if sc == 'all':
+        return dict([(stitems[0], val[style]) for val, stitems in zip(stashcodes.values(), stashcodes.items())])
+
     if isinstance(sc, int):
-        return stashcodes[sc][style]
+        return dict([(sc, stashcodes[sc][style])])
 
     if isinstance(sc, str):
-        return [stitems[0] for val, stitems in zip(stashcodes.values(), stashcodes.items()) if sc in val['long'].lower()]
+        return dict([(stitems[0], val[style]) for val, stitems in zip(stashcodes.values(), stashcodes.items()) if sc in val['long'].lower()])
 
 
 def getUM(start, end, model_id, settings):
@@ -165,7 +184,7 @@ def getUM(start, end, model_id, settings):
     else:
         init_times = sf.getInitTimes(start, end, 'SEAsia', model_id, sf.get_fc_length(model_id), [0,12])
 
-    # Get FTP file list
+    # Get full FTP file list
     flist = get_ftp_flist(model_id, settings)
 
     # Subset to match this model_id
@@ -179,8 +198,8 @@ def getUM(start, end, model_id, settings):
 
     # Download all available data for this flist and init times that we want
     if flist_init_times:
-        ftp_download_files(flist_init_times, model_id, settings)
-        return flist_init_times
+        ofile_list = ftp_download_files(flist_init_times, model_id, settings)
+        return ofile_list
     else:
         return 'No files on the FTP available for ' + model_id + ' for period ' + start.strftime('%Y-%m-%d %H:%M') + ' to ' + end.strftime('%Y-%m-%d %H:%M')
 
@@ -201,22 +220,45 @@ def loadUM(start, end, model_id, bbox, settings, var='all'):
 
     full_file_list = getUM(start, end, model_id, settings)
 
-    file_list = []
-    if not var == 'all':
-        if isinstance(var, str):
-            var = [var]
+    if not isinstance(bbox, dict):
+        bbox = {'xmin': bbox[0], 'ymin': bbox[1], 'xmax': bbox[2], 'ymax': bbox[3]}
+
+    if isinstance(var, str):
+        var = [var]
+
+    for v in var:
+
+        out_file_list = []
+        vdict = stashLUT(v)
+
         for file in full_file_list:
-            for v in var:
-                if isinstance(v, int):
-                    v = stashLUT(v)
-                #
-                # [val['short'] for val, sc in zip(stashcodes.values(), stashcodes.items()) if v in val['short']]
-                if v.lower() in file.lower():
-                    file_list.append(file)
 
+            for vk in vdict.keys():
+                try:
+                    if str(vk) in file.lower():
+                        out_file_list.append(file)
+                except:
+                    pass
 
-    for file in file_list:
-        cube = iris.load_cube(file)
+            for vv in vdict.values():
+                try:
+                    if vv in file.lower():
+                        out_file_list.append(file)
+                except:
+                    pass
+
+    stash_list = list(set([x.split('_')[-2] for x in out_file_list]))
+    cube_dict = {}
+    for st in stash_list:
+        these_files = [x for x in out_file_list if st in x]
+        cubes = iris.load(these_files)
+        ocubes = iris.cube.CubeList([])
+        for cube in cubes:
+            cube_ss = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
+            ocubes.append(cube_ss)
+        cube_dict[st] = ocubes
+
+    return cube_dict
 
 
 def checkUM_availability(start, end, model_id, settings, var='all'):
