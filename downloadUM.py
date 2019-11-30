@@ -226,9 +226,10 @@ def loadUM(start, end, model_id, bbox, settings, var='all'):
     if isinstance(var, str):
         var = [var]
 
+    out_file_list = []
+
     for v in var:
 
-        out_file_list = []
         vdict = stashLUT(v)
 
         for file in full_file_list:
