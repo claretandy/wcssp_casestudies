@@ -6,6 +6,7 @@ if [ $test == 'scitools' ]; then
   conda activate scitools
 else
   conda create -n scitools
+  conda install -n scitools -c conda-forge iris
 fi
 
 # Now that we have either created it or activated it,
