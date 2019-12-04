@@ -34,7 +34,7 @@ python downloadGPM.py auto ${start} ${end} ${organisation}
 python nrt_plots_v3_casestudies.py ${start} ${end} ${event_domain} ${eventname} # TODO : make this script work in this environment
 
 # Get UM model data from FTP
-#python downloadUM.py ${organisation} # TODO : Either download from UKMO ftp site, or find files locally
+python downloadUM.py ${start} ${end} ${organisation} # TODO : Either download from UKMO ftp site, or find files locally
 
 ## Plot postage stamps of GPM vs models
 #python plot_timelagged.py ${start} ${end} ${event_domain} ${eventname} ${organisation} # TODO : make this script work in this environment - could also be adapted for other satellite obs / analysis
