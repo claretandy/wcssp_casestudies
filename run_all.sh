@@ -14,7 +14,7 @@ conda activate scitools
 
 ######################################################################################################################
 # Change things in here for each case study
-organisation='MMD' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
+organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
 start='201901190000' # Format YYYYMMDDHHMM
 end='201901220000' # Format YYYYMMDDHHMM
 station_id=48650 #98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
