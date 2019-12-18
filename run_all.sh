@@ -3,20 +3,16 @@
 # Runs all the plotting functions for model evaluation
 
 # Load the conda environment
-# TODO : work out a clever way to pick up what the locally preferred environment is (e.g. Andy's env is called scitools, but PAGASA's is called 'nms)
-conda activate scitools
-#conda activate nms
+# NB: running the following script automatically sets up an environment called 'scitools'
+# I think this is a more robust solution than allowing each user the freedom to define the name of their conda environment
+. conda_setup.sh
 
-# If you haven't already, you might need to install the following packages
-#conda install -c conda-forge h5py
-#conda install -c conda-forge wget
-#conda install -c conda-forge PIL
 
 ######################################################################################################################
 # Change things in here for each case study
 organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
 start='201901190000' # Format YYYYMMDDHHMM
-end='201901220000' # Format YYYYMMDDHHMM
+end='201901200000' # Format YYYYMMDDHHMM
 station_id=48650 #98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
 event_domain='99,0.5,106,7.5' # xmin, ymin, xmax, ymax
 event_location_name='Johor' # A short name to decribe the location of the event
