@@ -46,4 +46,4 @@ python plot_synop.py ${organisation} ${start} ${end} ${station_id} # Note: stat
 #python plot_tephi.py ${organisation} ${start} ${end} ${station_id}
 
 # Make an html page summarising all of the output plots
-#python make_html.py ${organisation} # TODO use code from plot_timelagged to auto-generate a summary html page
+python make_html.py ${organisation} # TODO use code from plot_timelagged to auto-generate a summary html page
