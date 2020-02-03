@@ -3,14 +3,16 @@ Created on Tue Nov 12 15:39:30 2019
 
 @author: nms6
 """
-import sys
+import os, sys
 sys.path.append('./tephi_module')
 from tephi_module import tephi
 import datetime as dt
 import matplotlib.pyplot as plt
 import location_config as config
 import pandas as pd
+import urllib.request
 import glob
+
 
 def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
     """
@@ -59,16 +61,87 @@ def getData(start_dt, end_dt, settings, station_id):
     elif organisation == 'MMD':
         data = getData_MMD(start_dt, end_dt, settings, station_id)
     elif organisation == 'UKMO':
-        data = getData_UKMO(start_dt, end_dt, settings, station_id)
+        data = getData_Wyoming(start_dt, end_dt, settings, station_id)
     else:
-        print("Can\'t find the function to read the data")
+        data = getData_Wyoming(start_dt, end_dt, settings, station_id)
 
     try:
         return data
     except:
         return
 
-def getData_BMKG(start_dt, end_dt, settings, st_id):
+def getData_Wyoming(start_dt, end_dt, settings, stn_id):
+
+    # Try to get data from the Wyoming Website
+
+    odir = settings['datadir'].rstrip('/') + '/upper-air/wyoming/'
+    odf = []
+    if not os.path.isdir(odir):
+        os.makedirs(odir)
+    incr = 1 # hour
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        print(current_dt)
+        url = 'http://weather.uwyo.edu/cgi-bin/sounding?region=seasia&TYPE=TEXT%3ALIST&YEAR=' + str(current_dt.year) +'&MONTH='+str(current_dt.month)+'&FROM='+(current_dt).strftime('%d%H')+'&TO='+(current_dt + dt.timedelta(hours=incr) - dt.timedelta(minutes=10)).strftime('%d%H')+'&STNM='+str(stn_id)
+        file_name = odir + str(stn_id) + '_' + current_dt.strftime('%Y%m%dT%H%MZ') + '.txt'
+        outcsv = file_name.replace('txt', 'csv')
+        df = []
+
+        if os.path.isfile(outcsv):
+            print('Getting file from disk')
+            df = pd.read_csv(outcsv)
+        else:
+            try:
+                fn, bla = urllib.request.urlretrieve(url, file_name)
+            except urllib.error.HTTPError:
+                print('Unable to download due to an HTTP error')
+                next
+            except:
+                print('Unknown error occurred while downloading')
+
+            data = []
+            keep = False
+            with open(file_name, 'r') as file:
+                for line in file.readlines():
+                    if '</PRE>' in line:
+                        break
+
+                    if keep:
+                        data.append(line.rstrip('\n'))
+
+                    if '<PRE>' in line:
+                        keep = True
+
+            if data:
+                print('Saving sounding data from Wyoming')
+                df = pd.DataFrame([x.split() for x in data if (not '----' in x) and (not 'hPa' in x)])
+                new_header = df.iloc[0]  # grab the first row for the header
+                df = df[1:]  # take the data less the header row
+                df.columns = new_header  # set the header row as the df header
+                df.insert(0, "datetimeUTC", current_dt, allow_duplicates=True)
+                df.to_csv(outcsv)
+
+            # Delete the downloaded text file
+            os.remove(file_name)
+
+        # pdb.set_trace()
+        if isinstance(odf, list) and isinstance(df, pd.core.frame.DataFrame):
+            odf = df.copy()
+        elif isinstance(odf, pd.core.frame.DataFrame) and isinstance(df, pd.core.frame.DataFrame):
+            # pdb.set_trace()
+            odf = odf.append(df, sort=False)
+        else:
+            pass
+
+        current_dt += dt.timedelta(hours=incr)
+
+    # TODO reformat dataframe to match the output from BMKG
+
+    return odf
+
+
+
+def getData_BMKG(start_dt, end_dt, settings, stn_id):
 
     '''
     This script connects to the internal FTP or file system and returns a dictionary of sounding data
@@ -82,16 +155,19 @@ def getData_BMKG(start_dt, end_dt, settings, st_id):
     # For testing though, use the following sample file ...
     # e.g.
     # function_to_send_url_request(start_dt, end_dt, station_id)
-    infile = 'SampleData/upper-air/sample_upper_revised_bmkg.csv'
+    infile = 'SampleData/upper-air/BMKG/sample_upper_revised_bmkg.csv'
     df = pd.read_csv(infile)
     column_names = ['ID', 'StationNumber', 'StationName', 'Latitude', 'Longitude', 'Date',
                     'Pressure', 'temp', 'dewpt_temp', 'wind_dir', 'wind_speed']
     df.columns = column_names
 
-    if st_id:
-        df_subset = df.loc[df['StationNumber'] == st_id]
+    if stn_id:
+        df_subset = df.loc[df['StationNumber'] == stn_id]
     else:
         df_subset = df
+
+    # TODO: Format the date field and subset according to the date range given
+
 
     # Assume that we have one date?
     dates = list(set(df_subset['Date']))
@@ -106,23 +182,27 @@ def getData_BMKG(start_dt, end_dt, settings, st_id):
         'wind_dir': df_subset['wind_dir'].to_list(),
         'wind_speed': df_subset['wind_speed'].to_list()
     }
+
     # Return a pandas dataframe of the requested data
     return out_dict, dates
 
+
 def main(organisation, start_dt, end_dt, station_id):
+
     # Set some location-specific defaults
     settings = config.load_location_settings(organisation)
 
-    # Get the obs data
+    # Loop through station ID(s)
     for st_id in station_id:
+        # Get the obs data
         input_dict, dates = getData(start_dt, end_dt, settings, st_id)
         for thisdt in dates:
             plot_fname = settings['plot_dir'] + '/upper-air/' + thisdt + '_' + str(st_id) + '.png'
             tephi_plot(st_id, thisdt, input_dict, plot_fname, style_dict=None)
-######################################################################################
-#def tephi_plot(station, date, barbs, TEPHI, style_dict=None):
+
 
 if __name__ == '__main__':
+
     # organisation, start_dt, end_dt, station_id
     try:
         organisation = sys.argv[1]
@@ -136,7 +216,7 @@ if __name__ == '__main__':
         start_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
         start_dt = dt.datetime(2019, 11, 3, 0)
-        # start_dt = now - dt.timedelta(days=7)
+        # start_dt = now - dt.timedelta(days=2)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[3], '%Y%m%d%H%M')

@@ -13,3 +13,4 @@ conda install -c conda-forge h5py
 conda install -c conda-forge wget
 conda install -c conda-forge PIL
 conda install -c conda-forge ftplib
+conda install -c conda-forge lxml
