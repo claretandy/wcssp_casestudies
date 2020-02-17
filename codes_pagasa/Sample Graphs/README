@@ -1,0 +1,7 @@
+Here are the sample graphs that can be done when the codes provided in codes_pagasa folder were used. 
+
+AllData_2020020900.png - Six-Hourly Accumulated Rainfall Graph (GSMaP Gauge NRT and four models with the same initial time)
+
+Forecast_UM_20200216_00.png - Six-Hourly Forecast graph within the day
+
+OneModel_UM_2020021600.png - Six-Hourly Accumulated Rainfall Graph (GSMaP Gauge NRT and Single Model with different initial time)
