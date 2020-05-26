@@ -18,6 +18,3 @@ else
     conda activate scitools
 
 fi
-
-
-
