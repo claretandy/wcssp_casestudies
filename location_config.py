@@ -5,6 +5,30 @@ Some basic paths and details that are location specific
 import os
 import pdb
 
+def get_site_by_ip():
+
+    import json
+    import urllib
+
+    url = 'http://ipinfo.io/json'
+    response = urllib.request.urlopen(url)
+    data = json.load(response)
+
+    country = data['country']
+
+    site_lut = {'GB': 'UKMO',
+                'PH': 'PAGASA',
+                'MY': 'MMD',
+                'ID': 'BMKG',
+                'VN': 'Vietnam',
+                'TH': 'Thailand'
+                }
+
+    try:
+        return site_lut[country]
+    except:
+        return 'generic'
+
 def load_location_settings(site):
     '''
     This loads settings depending on the NMS that we're in

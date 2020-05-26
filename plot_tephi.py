@@ -4,17 +4,21 @@ Created on Tue Nov 12 15:39:30 2019
 @author: nms6
 """
 import os, sys
-sys.path.append('./tephi_module')
-from tephi_module import tephi
 import datetime as dt
-import matplotlib.pyplot as plt
 import location_config as config
 import pandas as pd
-import urllib.request
-import glob
+import nrt_plots_v3 as nrtplt
+import downloadSoundings
+import iris.plot as iplt
+import cartopy.feature as cfeature
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+import tephi
 
+import pdb
 
-def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
+def tephi_plot(station, date, input_dict, plot_fname):
     """
     Plot T-ϕ-gram using modified tephi scripts.
     
@@ -28,8 +32,9 @@ def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
         values: dictionary {'c':, 'ls':}
     """
 
-    date = dt.datetime.strptime(date, '%Y%m%d_%H%M')
-    
+    if not isinstance(date, dt.datetime):
+        date = dt.datetime.strptime(date, '%Y%m%d_%H%M')
+
     fig,ax = plt.subplots(figsize=(10,20))
     plt.axis('off')
     
@@ -40,115 +45,125 @@ def tephi_plot(station, date, input_dict, plot_fname, style_dict=None):
     tephi.MAX_WET_ADIABAT = 60
     tephi.MIXING_RATIO_LINE.update({'linestyle': '--'})
 
-    for key,data in input_dict.items():
-        
-        if style_dict is None:
-            tpg.plot(data, label=key)
-        else:
-            tpg.plot(data, color=style_dict[key]['c'], linestyle=style_dict[key]['ls'], label=key)
-    
-    plt.title('Station: '+station, loc='left')
-    plt.title('Valid date: '+date.strftime('%Y%m%d %HZ'), loc='right')
+    dews = [d for d in zip(input_dict['pressure'], input_dict['dew_point'])]
+    temps = [t for t in zip(input_dict['pressure'], input_dict['temperature'])]
+    tbarbs = [brb for brb in zip(input_dict['wind_speed'], input_dict['wind_dir'], input_dict['pressure'])]
+
+    # pdb.set_trace()
+
+    dprofile = tpg.plot(dews)
+    tprofile = tpg.plot(temps)
+    tprofile.barbs(tbarbs, color='black', linewidth=0.1)
+
+    # for key,data in input_dict.items():
+    #
+    #     if style_dict is None:
+    #         tpg.plot(data, label=key)
+    #     else:
+    #         tpg.plot(data, color=style_dict[key]['c'], linestyle=style_dict[key]['ls'], label=key)
+
+    plt.title('Station: '+str(station.wigosStationIdentifier)+'\n'+station['name']+'\n'+station.territory, loc='left')
+    # plt.title('Station: ' + str(station.wigosStationIdentifier) + ' \n ' + 'station.name', loc='left')
+    plt.title('Valid time\n'+date.strftime('%H:%M (UTC)')+'\n'+date.strftime('%Y-%m-%d'), loc='right')
     plt.savefig(plot_fname, bbox_inches='tight')
 
+    plt.close(fig)
 
-def getData(start_dt, end_dt, settings, station_id):
+def getData(start_dt, end_dt, event_domain, settings):
+    """
+    Runs functions to get data from each organisation (which might be in different formats)
+    :param start_dt: datetime object
+    :param end_dt: datetime object
+    :param event_domain: list containing float values of [xmin, ymin, xmax, ymax]
+    :param settings: settings read from the config file
+    :return: pandas dataframe of all stations and all datetimes available
+    """
     organisation = settings['organisation']
+
+    # This might be necessary to get a list of upper air stations within the event domain
+    stations_df = downloadSoundings.getUpperAirStations(event_domain)
+
     if organisation == 'BMKG':
-        data = getData_BMKG(start_dt, end_dt, settings, station_id)
+        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        # Replace with the following when available
+        # data = getData_BMKG(start_dt, end_dt, settings, stations_df)
     elif organisation == 'PAGASA':
-        data = getData_PAGASA(start_dt, end_dt, settings, station_id)
+        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        # Replace with the following when available
+        # data = getData_PAGASA(start_dt, end_dt, settings, stations_df)
     elif organisation == 'MMD':
-        data = getData_MMD(start_dt, end_dt, settings, station_id)
+        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        # Replace with the following when available
+        # data = getData_MMD(start_dt, end_dt, settings, stations_df)
     elif organisation == 'UKMO':
-        data = getData_Wyoming(start_dt, end_dt, settings, station_id)
+        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
     else:
-        data = getData_Wyoming(start_dt, end_dt, settings, station_id)
+        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
 
     try:
-        return data
+        return data, stations_df
     except:
-        return
-
-def getData_Wyoming(start_dt, end_dt, settings, stn_id):
-
-    # Try to get data from the Wyoming Website
-
-    odir = settings['datadir'].rstrip('/') + '/upper-air/wyoming/'
-    odf = []
-    if not os.path.isdir(odir):
-        os.makedirs(odir)
-    incr = 1 # hour
-    current_dt = start_dt
-    while current_dt <= end_dt:
-        print(current_dt)
-        url = 'http://weather.uwyo.edu/cgi-bin/sounding?region=seasia&TYPE=TEXT%3ALIST&YEAR=' + str(current_dt.year) +'&MONTH='+str(current_dt.month)+'&FROM='+(current_dt).strftime('%d%H')+'&TO='+(current_dt + dt.timedelta(hours=incr) - dt.timedelta(minutes=10)).strftime('%d%H')+'&STNM='+str(stn_id)
-        file_name = odir + str(stn_id) + '_' + current_dt.strftime('%Y%m%dT%H%MZ') + '.txt'
-        outcsv = file_name.replace('txt', 'csv')
-        df = []
-
-        if os.path.isfile(outcsv):
-            print('Getting file from disk')
-            df = pd.read_csv(outcsv)
-        else:
-            try:
-                fn, bla = urllib.request.urlretrieve(url, file_name)
-            except urllib.error.HTTPError:
-                print('Unable to download due to an HTTP error')
-                next
-            except:
-                print('Unknown error occurred while downloading')
-
-            data = []
-            keep = False
-            with open(file_name, 'r') as file:
-                for line in file.readlines():
-                    if '</PRE>' in line:
-                        break
-
-                    if keep:
-                        data.append(line.rstrip('\n'))
-
-                    if '<PRE>' in line:
-                        keep = True
-
-            if data:
-                print('Saving sounding data from Wyoming')
-                df = pd.DataFrame([x.split() for x in data if (not '----' in x) and (not 'hPa' in x)])
-                new_header = df.iloc[0]  # grab the first row for the header
-                df = df[1:]  # take the data less the header row
-                df.columns = new_header  # set the header row as the df header
-                df.insert(0, "datetimeUTC", current_dt, allow_duplicates=True)
-                df.to_csv(outcsv)
-
-            # Delete the downloaded text file
-            os.remove(file_name)
-
-        # pdb.set_trace()
-        if isinstance(odf, list) and isinstance(df, pd.core.frame.DataFrame):
-            odf = df.copy()
-        elif isinstance(odf, pd.core.frame.DataFrame) and isinstance(df, pd.core.frame.DataFrame):
-            # pdb.set_trace()
-            odf = odf.append(df, sort=False)
-        else:
-            pass
-
-        current_dt += dt.timedelta(hours=incr)
-
-    # TODO reformat dataframe to match the output from BMKG
-
-    return odf
+        return 'Something went wrong with retrieving the data'
 
 
+def data_to_dict(df):
+    """
+    Translates a dataframe with different column names in to a dictionary with standard key names
+    :param df: pandas dataframe with columns containing data for tephigram plots
+    :return: dictionary with standardised keys
+    """
+    out_dict = {}
+    cols = df.columns
+    lut = {'pressure': ['P', 'PRES', 'PRESSURE'],
+           'height': ['HGHT', 'HEIGHT'],
+           'temperature': ['T', 'TEMP', 'TEMPERATURE'],
+           'dew_point': ['DWPT', 'DEWPOINT', 'DEWPOINTTEMP'],
+           'wind_dir': ['DRCT', 'WDIR', 'WINDDIR'],
+           'wind_speed': ['SKNT', 'WSPD', 'WINDSPD']}
 
-def getData_BMKG(start_dt, end_dt, settings, stn_id):
+    for k in lut.keys():
+        try:
+            col, = [x for x in lut[k] if x in cols]
+            out_dict.update({k : df[col].to_list()})
+        except:
+            print(k + ' column name not found, if it exists in df, please add to the look up table')
+            if k in ['pressure', 'temperature']:
+                return('Can\'t plot a tephi without ' + k)
 
-    '''
-    This script connects to the internal FTP or file system and returns a dictionary of sounding data
+    return out_dict
 
-    start_dt and end_dt are datetime objects
-    station_id is optional, but if given, selects just one station
-    '''
+def getData_MMD(start_dt, end_dt, settings, stations_df):
+    """
+    Function for MMD to write in order to retrieve local sounding data
+    :param start_dt:
+    :param end_dt:
+    :param settings:
+    :param stations_df: Pandas dataframe of all the upper stations within the event_domain
+    :return: A pandas dataframe containing data for all stations for all dates.
+    Column names need to match those output by downloadSoundings.main()
+    """
+
+def getData_PAGASA(start_dt, end_dt, settings, stations_df):
+    """
+    Function for PAGASA to write in order to retrieve local sounding data
+    :param start_dt:
+    :param end_dt:
+    :param settings:
+    :param stations_df: Pandas dataframe of all the upper stations within the event_domain
+    :return: A pandas dataframe containing data for all stations for all dates.
+    Column names need to match those output by downloadSoundings.main()
+    """
+
+def getData_BMKG(start_dt, end_dt, settings, stations_df):
+    """
+    Function for BMKG to edit in order to retrieve local sounding data
+    :param start_dt:
+    :param end_dt:
+    :param settings:
+    :param stations_df: Pandas dataframe of all the upper stations within the event_domain
+    :return: A pandas dataframe containing data for all stations for all dates.
+    Column names need to match those output by downloadSoundings.main()
+    """
 
     # TODO: Set up automatic download of data files to the Data directory. Might be a separate function
     
@@ -170,12 +185,13 @@ def getData_BMKG(start_dt, end_dt, settings, stn_id):
 
 
     # Assume that we have one date?
-    dates = list(set(df_subset['Date']))
+    # dates = list(set(df_subset['Date']))
 
     #  TODO: Once we have the final output, let's add in a column for local times too
 
     # Create an output dictionary
     out_dict = {
+        'datetime': [dt.datetime.strptime(x, '%Y%m%d_%H%M') for x in df_subset['Date'].to_list()],
         'pressure': df_subset['Pressure'].to_list(),
         'temperature': df_subset['temp'].to_list(),
         'dew_point': df_subset['dewpt_temp'].to_list(),
@@ -183,58 +199,123 @@ def getData_BMKG(start_dt, end_dt, settings, stn_id):
         'wind_speed': df_subset['wind_speed'].to_list()
     }
 
-    # Return a pandas dataframe of the requested data
-    return out_dict, dates
+    # Return a dictionary of the requested data
+    return out_dict
+
+def plot_station_map(stations, event_domain, map_plot_fname):
+    """
+    Plots the locations of upper air stations within the event domain
+    :param stations: pandas dataframe of upper air stations within event domain
+    :param map_plot_fname: filename for plot output
+    :return: File name of resulting plot
+    """
+
+    filedir = os.path.dirname(map_plot_fname)
+    if not os.path.isdir(filedir):
+        os.makedirs(filedir)
+
+    # Put domain into correct format for plotting
+    domain = [event_domain[0], event_domain[2], event_domain[1], event_domain[3]]
+
+    # Now do the plotting
+    fig = plt.figure(figsize=nrtplt.getFigSize(event_domain), dpi=96)
+    pltax = plt.axes(projection=ccrs.PlateCarree())
+
+    for i, row in stations.iterrows():
+        pltax.plot(row.longitude, row.latitude, marker='o', color='blue', transform=ccrs.PlateCarree())
+        pltax.text(row.longitude + 0.2, row.latitude, row['name'], transform=ccrs.PlateCarree())
+
+    plt.title('Upper Air Stations')
+    plt.xlabel('longitude / degrees')
+    plt.ylabel('latitude / degrees')
+    ax = plt.gca()
+
+    ax.set_extent(domain)
+    borderlines = cfeature.NaturalEarthFeature(
+        category='cultural',
+        name='admin_0_boundary_lines_land',
+        scale='50m',
+        facecolor='none')
+    ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
+    ax.coastlines(resolution='50m', color='black')
+    gl = ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
+    gl.xlabels_top = False
+    gl.ylabels_left = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabel_style = {'size': 8}
+    gl.ylabel_style = {'size': 8}
+
+    fig.savefig(map_plot_fname, bbox_inches='tight')
+    plt.close(fig)
 
 
-def main(organisation, start_dt, end_dt, station_id):
+def main(start_dt, end_dt, event_domain, event_name, organisation):
+
+    # For testing
+    # start_dt = dt.datetime(2020, 5, 19, 0)
+    # end_dt = dt.datetime(2020, 5, 20, 0)
+    # event_name = 'PeninsulaMalaysia/20200519_test'
+    # event_domain = [100, 0, 110, 10]
+    # organisation = 'UKMO'
 
     # Set some location-specific defaults
     settings = config.load_location_settings(organisation)
 
+    # Get Data
+    data, stations = getData(start_dt, end_dt, event_domain, settings)
+    # Plot map of stations
+    map_plot_fname = settings['plot_dir'] + event_name + '/upper-air/station_map.png'
+    plot_station_map(stations, event_domain, map_plot_fname)
+
     # Loop through station ID(s)
-    for st_id in station_id:
+    for i, station in stations.iterrows():
         # Get the obs data
-        input_dict, dates = getData(start_dt, end_dt, settings, st_id)
+        print(station)
+        stn_id = station['wigosStationIdentifier']
+        datesnp = data[data.station_id == str(stn_id)].datetimeUTC.unique()
+        dates = pd.DatetimeIndex(datesnp).to_pydatetime() # Converts numpy.datetime64 to datetime.datetime
         for thisdt in dates:
-            plot_fname = settings['plot_dir'] + '/upper-air/' + thisdt + '_' + str(st_id) + '.png'
-            tephi_plot(st_id, thisdt, input_dict, plot_fname, style_dict=None)
+            print(thisdt)
+            mysubset = data[(data.station_id == str(stn_id)) & (data.datetimeUTC == thisdt)]
+            dict_to_plot = data_to_dict(mysubset)
+            plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime('%Y%m%dT%H%MZ') + '_' + str(stn_id) + '.png'
+            tephi_plot(station, thisdt, dict_to_plot, plot_fname)
 
 
 if __name__ == '__main__':
 
-    # organisation, start_dt, end_dt, station_id
-    try:
-        organisation = sys.argv[1]
-    except:
-        # TODO: Add a function here to determine country / organisation by IP address
-        #  For the time being though, PAGASA data is tested with this
-        organisation = 'Andy-MacBook'
-
     now = dt.datetime.utcnow()
     try:
-        start_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
+        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
+        # For testing
         start_dt = dt.datetime(2019, 11, 3, 0)
-        # start_dt = now - dt.timedelta(days=2)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[3], '%Y%m%d%H%M')
+        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
-        # end_dt = now
+        # For testing
         end_dt = dt.datetime(2019, 11, 6, 0)
 
-    #  Allows the user to plot multiple station IDs at once
     try:
-        station_id = sys.argv[4]
-        if ',' in station_id:
-            station_id = [int(x) for x in station_id.split(',')]
-        else:
-            station_id = [station_id]
+        domain_str = sys.argv[3]
+        event_domain = [float(x) for x in domain_str.split(',')]
     except:
-        #  TODO: Write a function that returns some common station IDs (e.g. Cengkareng, Hasanuddin, etc)
-        station_id = [96749, 97180]
+        # For testing
+        event_domain = [100, 0, 110, 10]
 
-    main(organisation, start_dt, end_dt, station_id)
+    try:
+        event_name = sys.argv[4]
+    except:
+        # For testing
+        event_name = 'PeninsulaMalaysia/20190122_Johor'
 
+    try:
+        organisation = sys.argv[5]
+    except:
+        # TODO: Add a function here to determine country / organisation by IP address
+        #  For the time being though, Wyoming data is tested with this
+        organisation = 'UKMO'
 
+    main(start_dt, end_dt, event_domain, event_name, organisation)
