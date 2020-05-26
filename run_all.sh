@@ -2,8 +2,8 @@
 # This script runs all the plotting functions for model evaluation
 
 # First, if you haven't already done so, you'll need to setup a conda environment
-scitools_test=$(conda info --envs | grep scitools | wc -l) # Tests if the scitools env already exists
-if [ ${scitools_test} -eq 0 ]; then
+scitools_test=$(conda info --envs | grep 'scitools' | cut -d' ' -f1) # Tests if the scitools env already exists
+if [ ${scitools_test} != 'scitools' ]; then
   . run_setup.sh
 fi
 
@@ -13,6 +13,7 @@ conda activate scitools
 ######################################################################################################################
 # Change things in here for each case study
 organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
+
 start='201901210000' # Format YYYYMMDDHHMM
 end='201901220000' # Format YYYYMMDDHHMM
 station_id=48650 #98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
