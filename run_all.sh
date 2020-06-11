@@ -1,14 +1,8 @@
 #!/bin/bash -l
 # This script runs all the plotting functions for model evaluation
 
-# First, if you haven't already done so, you'll need to setup a conda environment
-scitools_test=$(conda info --envs | grep 'scitools' | cut -d' ' -f1) # Tests if the scitools env already exists
-if [ ${scitools_test} != 'scitools' ]; then
-  . run_setup.sh
-fi
-
-# Load the conda environment
-conda activate scitools
+# Either setup the conda environment or activate it if it already exists
+. run_setup.sh
 
 ######################################################################################################################
 # Change things in here for each case study

@@ -190,9 +190,31 @@ def get1p5modelid(locname):
 
 def make_time_func(t1m, t2m):
     def tfunc(cell):
-        return t1m < cell.point <= t2m
+        return t1m <= cell.point <= t2m
     return tfunc
 
+def make_timeseries(start, end, freq):
+    '''
+    Makes a timeseries between the start and end with timestamps on common valid hours separated by freq
+    e.g. 00, 03, 06 ... or 00, 01, 02, 03 ...
+    :param start: datetime
+    :param end: datetime
+    :param freq: int (hours).
+    :return: list of datetimes
+    '''
+    outlist = []
+    hrs = np.arange(0,24,freq)
+    for iday in [start - dt.timedelta(days=1), start]:
+        for ih in hrs:
+            pi = dt.datetime(iday.year, iday.month, iday.day, ih)
+            if pi <= start:
+                thisdt = pi
+
+    while thisdt <= end:
+        outlist.append(thisdt)
+        thisdt += dt.timedelta(hours=freq)
+
+    return outlist
 
 def periodConstraint(cube, t1, t2):
     # Constrains the cube according to min and max datetimes
@@ -582,6 +604,25 @@ def get_fc_length(model_id):
     return(fcl)
 
 
+def get_default_stash_proc_codes(list_type='long'):
+    '''
+    Returns a pandas dataframe of the
+    :param list_type: 'short' or 'long' or 'profile'
+    :return: pandas dataframe
+    '''
+    import pandas as pd
+
+    if list_type in ['long', 'short', 'profile', 'share']:
+        list_type = list_type + '_list'
+    else:
+        return 'List type does not exist'
+
+    df = pd.read_csv('std_stashcodes.csv')
+    outdf = df[df[list_type]]
+
+    return outdf
+
+
 def get_fc_InitHours(jobid):
 
     initdict = {
@@ -604,13 +645,18 @@ def get_fc_InitHours(jobid):
 
 def getInitTimes(start_dt, end_dt, domain, model_id=None, fcl=None, init_hrs=None, searchtxt=None, init_incr=None):
     '''
-    start = start of the period for comparison to obs
-    end   = end of the period for comparison to obs
-    domain= name of the domain
-    model_id= Name of model within the jobid (e.g. km4p4)
-    fcl   = forecast length in DAYS (5 for 4.4km model, and 1.5 days for 1.5km models)
-    init_hrs = list of the hours each day that the model is initialised
-    init_incr = legacy option, not used
+    Given a start and end date of a case study period, what are all the possible model runs that could be available?
+    :param start_dt: datetime
+    :param end_dt: datetime
+    :param domain: string. Can be one of 'SEAsia', 'TAfrica' or 'Global'. This is used with the date to get the jobid
+    :param model_id: string (optional). Name of the model within the jobid. See the function 'getModelID_byJobID', but generally
+            can be one of 'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5', 'phikm1p5',
+            or 'global_prods' (for the operational global)
+    :param fcl: int (optional). Forecast length in hours. If not given, the function 'get_fc_length' will be used
+    :param init_hrs: list (optional). What hours (in UTC) is the forecast initialised?
+    :param searchtxt: string (optional). If model_id is not given, this will be used to search for the model_id
+    :param init_incr: int (not used now). Legacy option that needs to be removed
+    :return: list of datetimes
     '''
 
     jobid = getJobID_byDateTime(start_dt, domain=domain, choice='newest')
@@ -1294,6 +1340,148 @@ def getPrecipStash(model_id, lbproc=None, type='long'):
         return(outstash)
 
 
+def compute_rh(q, t, p, es_eqtn='default'):
+    """
+    Calculates RH from air specific humidity, temperature and pressure
+    RH is the ratio of actual water mixing ratio to saturation mixing ratio
+    See Annex 4.A. pg184 of https://library.wmo.int/doc_num.php?explnum_id=10179
+    and
+    https://archive.eol.ucar.edu/projects/ceop/dm/documents/refdata_report/eqns.html
+    and
+    https://cran.r-project.org/web/packages/humidity/vignettes/humidity-measures.html
+    and
+    http://cires1.colorado.edu/~voemel/vp.html
+    :param q: float. Specific humidity (kg/kg) ratio of water mass / total air mass
+    :param t: float. Temperature (degrees C)
+    :param p: float. Pressure (hPa)
+    :param es_eqtn: string. Either 'cc1', 'cc2', 'default' or empty. Determines which method is used for calculating
+    saturation vapour pressure
+    :return: float. Relative humidity as a percentage.
+    """
+    if not isinstance(q, np.ndarray) :
+        q = np.array(q)
+    if not isinstance(t, np.ndarray):
+        t = np.array(t)
+    if not isinstance(p, np.ndarray):
+        p = np.array(p)
+
+    # molar mass of water vapour (g/mol)
+    Mw = 18.01528
+    # molar mass of dry air (g/mol)
+    Md = 28.9634
+    # Mixing ratio of moist air over water
+    r = 0.62198 # Mw / Md # Approx 0.622
+    # molar gas constant (J/molK)
+    R = 8.3144621
+    # specific gas constant for water vapour
+    Rw = 1000 * R / Mw
+    # Reference temperature (K)
+    T0 = 273.15
+    # Latent heat of evaporation for water (J/Kg)
+    L = 2.5*np.power(10,6)
+    # Saturation Vapour Pressure at the reference temperature (hPa)
+    esT0 = 6.112
+
+    # Saturation Vapour Pressure (hPa)
+    # Lots of different ways of doing this, but they all seem to have fairly similar results.
+    # In the end, I decided to use the WMO definition, but Clausius-Clapeyron worked just as well.
+    tk = 273.15 + t
+    if es_eqtn == 'cc1':
+        # Using Clausius-Clapeyron
+        es = esT0 * np.exp(L/Rw * ((1 / T0) - (1/tk)))
+    elif es_eqtn == 'cc2':
+        # Using Clausius-Clapeyron from Lawrence (2005) equation (10)
+        # See https://journals.ametsoc.org/doi/pdf/10.1175/BAMS-86-2-225
+        C2 = 2.53*np.power(10,9) # hPa at tk = 273.15
+        es = C2 * np.exp((-L/Rw)/tk)
+    else:
+        # Using pg 188 of https://library.wmo.int/doc_num.php?explnum_id=10179
+        # NB: 1.0016 is an enhancement factor proposed by Buck (1981) that is dependent on P and T
+        #       for the tables, see Buck's table 1, or the introduction to Table 4.10 here:
+        #       https://library.wmo.int/doc_num.php?explnum_id=7997
+        fp = 1.0016 + (3.15 * np.power(10.,-6)*p) - (0.074/p)
+        ewt = 6.112 * np.exp((17.62 * t) / (t + 243.12))
+        es = fp * ewt
+
+    # Vapour Pressure (hPa)
+    # See Annex 4.A. pg184 of https://library.wmo.int/doc_num.php?explnum_id=10179
+    e = (q * p) / ((q * (1 - r)) + r)
+
+    rh = 100 * e / es
+    # pdb.set_trace()
+    if not isinstance(rh, np.ndarray) :
+        rh = np.array(rh)
+
+    rh[rh > 100] = 100.0
+    rh[rh < 0] = 0.0
+
+    return np.round(rh, 1)
+
+def compute_td(rh, t):
+    '''
+    Computes td given RH and t bases on Eq. 8 in Lawrence (2004).
+    Coefficients are as stated in text, based on Alduchov and Eskridge (1986)
+    Lawrence, M.G., 2004: The Relationship between Relative Humidity and the Dewpoint
+    Temperature in Moist Air - A Simple Conversion and Applications. DOI:10.1175/BAMS-86-2-225
+    :param rh: list or numpy array. Relative humidity as a percentage
+    :param t: list or numpy array. Degrees celcius
+    :return: numpy array of dewpoint temperature in degrees celcius
+    '''
+
+    if isinstance(rh, list):
+        rh = np.array(rh)
+
+    if isinstance(t, list):
+        t = np.array(t)
+
+    A1 = 17.625
+    B1 = 243.04  # deg C
+
+    num = B1 * (np.log(rh / 100.) + A1 * t / (B1 + t))
+    den = A1 - np.log(rh / 100.) - A1 * t / (B1 + t)
+
+    return np.round(num / den, 1)
+
+
+def compute_wdir(u, v):
+    '''
+    Calculate wind direction based on model u and v vectors
+    As a reminder, see http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv
+    and
+    https://stackoverflow.com/questions/21484558/how-to-calculate-wind-direction-from-u-and-v-wind-components-in-r
+    :param u: list or numpy array. U wind vector
+    :param v: list or numpy array. V wind vector
+    :return: array of the same shape of wind direction in degrees
+    '''
+    if isinstance(u, list):
+        u = np.array(u)
+
+    if isinstance(v, list):
+        v = np.array(v)
+
+    wdir = np.mod(180 + np.rad2deg(np.arctan2(u, v)), 360)
+    wdir[(u == 0) & (v == 0)] = np.nan
+
+    return wdir
+
+
+def compute_wspd(u, v):
+    '''
+    Calculate the wind speed given model u and v vectors
+    As a reminder see http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv
+    :param u: list or numpy array. U wind vector
+    :param v: list or numpy array. V wind vector
+    :return: array of the same shape of wind speed
+    '''
+    if isinstance(u, list):
+        u = np.array(u)
+
+    if isinstance(v, list):
+        v = np.array(v)
+
+    return np.sqrt(u**2 + v**2)
+
+
 def gpmLatencyDecider(inlatency, end_date):
 
     # Decide which latency to run the program with
@@ -1494,4 +1682,33 @@ def plot_compare(cube1, cube2, filename=None):
         fig.savefig(filename, bbox_inches='tight')
         plt.close(fig)
 
-        
+
+def send_to_ftp(filelist, ftp_path, settings):
+    '''
+    *** This function only works inside the Met Office (UKMO) ***
+    Sends a list of local files to the ftp site, replacing the stash code with a nice name if possible
+    :param filelist: list of local files
+    :param ftp_path: folder on the ftp site
+    :return: print statements to show success or failure
+    '''
+
+    ftp_details = ['doftp', '-host', settings['ukmo_ftp_url'], '-user', settings['ukmo_ftp_user'], '-pass', settings['ukmo_ftp_pass']]
+    stashdf = get_default_stash_proc_codes()
+
+    for file in filelist:
+        # Replaces the stash code with a nice name if it is in the stash code file
+        file_nice = [file.replace(str(x.stash), x.name) if int(os.path.basename(file).split('_')[-2]) == x.stash else file for x in stashdf.itertuples()]
+        ftpfilecheck = ftp_details.copy()
+        ftpfilecheck.extend(['-ls', ftp_path])
+        result = subprocess.check_output(ftpfilecheck)
+        if not os.path.basename(file_nice) in str(result):
+            print('Sending ', file_nice)
+            these_ftp_details = ftp_details.copy()
+            try:
+                these_ftp_details.extend(['-cwd', '/' + ftp_path, '-put', file + '=' + file_nice])
+                subprocess.check_output(these_ftp_details)
+            except:
+                print(these_ftp_details, sep=' ')
+                print('There was a problem sending', file_nice, 'to the FTP site')
+        else:
+            print(file_nice, 'already exists on FTP site')

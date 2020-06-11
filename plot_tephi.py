@@ -6,15 +6,18 @@ Created on Tue Nov 12 15:39:30 2019
 import os, sys
 import datetime as dt
 import location_config as config
+import iris
 import pandas as pd
 import nrt_plots_v3 as nrtplt
 import downloadSoundings
-import iris.plot as iplt
 import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+import numpy as np
 import tephi
+import downloadUM as dum
+import std_functions as sf
 
 import pdb
 
@@ -45,15 +48,15 @@ def tephi_plot(station, date, input_dict, plot_fname):
     tephi.MAX_WET_ADIABAT = 60
     tephi.MIXING_RATIO_LINE.update({'linestyle': '--'})
 
-    dews = [d for d in zip(input_dict['pressure'], input_dict['dew_point'])]
-    temps = [t for t in zip(input_dict['pressure'], input_dict['temperature'])]
-    tbarbs = [brb for brb in zip(input_dict['wind_speed'], input_dict['wind_dir'], input_dict['pressure'])]
+    dews = [d for d in zip(input_dict['pressure'], input_dict['dew_point']) if pd.notna(d[1])]
+    temps = [t for t in zip(input_dict['pressure'], input_dict['temperature']) if pd.notna(t[1])]
+    tbarbs = [brb for brb in zip(input_dict['wind_speed'], input_dict['wind_dir'], input_dict['pressure']) if pd.notna(brb[0]) and pd.notna(brb[1])]
 
     # pdb.set_trace()
 
     dprofile = tpg.plot(dews)
     tprofile = tpg.plot(temps)
-    tprofile.barbs(tbarbs, color='black', linewidth=0.1)
+    tprofile.barbs(tbarbs, color='black', linewidth=0.5)
 
     # for key,data in input_dict.items():
     #
@@ -69,7 +72,63 @@ def tephi_plot(station, date, input_dict, plot_fname):
 
     plt.close(fig)
 
-def getData(start_dt, end_dt, event_domain, settings):
+def getModelData(start_dt, end_dt, bbox, locations, settings, model_id='all'):
+    """
+    Looks in the data directory for UM model data, and returns
+    vertical profiles for the time period and locations specified
+    :param start_dt: datetime
+    :param end_dt: datetime
+    :param bbox: dictionary specifying bounding box that we want to plot
+            e.g. {'xmin': 99, 'ymin': 0.5, 'xmax': 106, 'ymax': 7.5}
+    :param locations: either a dataframe of stations or a list of lat/lon tuples e.g. [(x1,y1),(x2,y2)]
+    :param settings: settings read from the config file
+    :param model_id: Can be any from the following ['analysis', 'ga6', 'ga7', 'km4p4', 'km1p5', 'all']
+    :return: pandas dataframe of all available model data
+    """
+
+    # Timestep defines how frequently we want to return UM data (starting at 00Z)
+    timestep = 3
+    vars = ['specific-humidity','templevels-inst','Uwind-inst','Vwind-inst']
+
+    alldata = dum.loadUM(start_dt, end_dt, model_id, bbox, settings, var=vars, timeclip=False)
+    myu, = list(set([cube.coord('forecast_reference_time').units for k in alldata.keys() for cube in alldata[k]]))
+    fcrt = np.unique([cube.coord('forecast_reference_time').points for k in alldata.keys() for cube in alldata[k]])
+    init_times = myu.num2date([t for t in fcrt])
+
+    # Extract point locations
+    column_names = ['station_id', 'valid_datetimeUTC', 'lead_time', 'PRES', 'HGHT', 'TEMP', 'DWPT', 'RELH', 'Q', 'DRCT', 'SKNT', 'U', 'V']
+    df = pd.DataFrame(columns=column_names)
+
+    # Sets the start adjusted to every <timestep> hours from 00UTC
+    validtimes = sf.make_timeseries(start_dt, end_dt, 3)
+
+    # Loop through each location
+    for i, row in locations.iterrows():
+        print(row['name'], row['latitude'], row['longitude'])
+
+        # Loop through valid time by <timestep> hour intervals from start to the end, ensuring that 00, 03, 06 etc are selected
+        for vt in validtimes:
+            for it in init_times:
+                for k in alldata.keys():
+                    cubelist = alldata[k]
+                    cube, = [cube for cube in cubelist if cube.coord('forecast_reference_time').points == myu.date2num(it)]
+
+
+        # for it in init_times:
+
+        # Calculate rh and td from q and t
+        rh = sf.compute_rh(q, t, p)
+        td = sf.compute_td(rh, t)
+
+        # Calculate speed and direction from u and v
+        wdir = sf.compute_wdir(u, v)
+        wspd = sf.compute_wspd(u, v)
+
+    # Return a dataframe with columns including:
+    # station id, valid_datetime, lead_time, pressure, height, q, t, rh, td, wspd, wdir
+
+
+def getObsData(start_dt, end_dt, event_domain, settings):
     """
     Runs functions to get data from each organisation (which might be in different formats)
     :param start_dt: datetime object
@@ -86,15 +145,15 @@ def getData(start_dt, end_dt, event_domain, settings):
     if organisation == 'BMKG':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
         # Replace with the following when available
-        # data = getData_BMKG(start_dt, end_dt, settings, stations_df)
+        # data = getObsData_BMKG(start_dt, end_dt, settings, stations_df)
     elif organisation == 'PAGASA':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
         # Replace with the following when available
-        # data = getData_PAGASA(start_dt, end_dt, settings, stations_df)
+        # data = getObsData_PAGASA(start_dt, end_dt, settings, stations_df)
     elif organisation == 'MMD':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
         # Replace with the following when available
-        # data = getData_MMD(start_dt, end_dt, settings, stations_df)
+        # data = getObsData_MMD(start_dt, end_dt, settings, stations_df)
     elif organisation == 'UKMO':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
     else:
@@ -132,7 +191,7 @@ def data_to_dict(df):
 
     return out_dict
 
-def getData_MMD(start_dt, end_dt, settings, stations_df):
+def getObsData_MMD(start_dt, end_dt, settings, stations_df):
     """
     Function for MMD to write in order to retrieve local sounding data
     :param start_dt:
@@ -143,7 +202,7 @@ def getData_MMD(start_dt, end_dt, settings, stations_df):
     Column names need to match those output by downloadSoundings.main()
     """
 
-def getData_PAGASA(start_dt, end_dt, settings, stations_df):
+def getObsData_PAGASA(start_dt, end_dt, settings, stations_df):
     """
     Function for PAGASA to write in order to retrieve local sounding data
     :param start_dt:
@@ -154,7 +213,7 @@ def getData_PAGASA(start_dt, end_dt, settings, stations_df):
     Column names need to match those output by downloadSoundings.main()
     """
 
-def getData_BMKG(start_dt, end_dt, settings, stations_df):
+def getObsData_BMKG(start_dt, end_dt, settings, stations_df):
     """
     Function for BMKG to edit in order to retrieve local sounding data
     :param start_dt:
@@ -253,17 +312,19 @@ def plot_station_map(stations, event_domain, map_plot_fname):
 def main(start_dt, end_dt, event_domain, event_name, organisation):
 
     # For testing
-    # start_dt = dt.datetime(2020, 5, 19, 0)
-    # end_dt = dt.datetime(2020, 5, 20, 0)
-    # event_name = 'PeninsulaMalaysia/20200519_test'
-    # event_domain = [100, 0, 110, 10]
-    # organisation = 'UKMO'
+    start_dt = dt.datetime(2020, 5, 19, 0)
+    end_dt = dt.datetime(2020, 5, 20, 0)
+    event_name = 'PeninsulaMalaysia/20200519_test'
+    event_domain = [100, 0, 110, 10]
+    organisation = 'UKMO'
 
     # Set some location-specific defaults
     settings = config.load_location_settings(organisation)
 
     # Get Data
-    data, stations = getData(start_dt, end_dt, event_domain, settings)
+    obsdata, stations = getObsData(start_dt, end_dt, event_domain, settings)
+    modeldata = getModelData(start_dt, end_dt, event_domain, stations, settings, model_id='all')
+
     # Plot map of stations
     map_plot_fname = settings['plot_dir'] + event_name + '/upper-air/station_map.png'
     plot_station_map(stations, event_domain, map_plot_fname)
@@ -271,13 +332,13 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
     # Loop through station ID(s)
     for i, station in stations.iterrows():
         # Get the obs data
-        print(station)
+        print(station['name'] + ', ' + station['territory'])
         stn_id = station['wigosStationIdentifier']
-        datesnp = data[data.station_id == str(stn_id)].datetimeUTC.unique()
+        datesnp = obsdata[obsdata.station_id == str(stn_id)].datetimeUTC.unique()
         dates = pd.DatetimeIndex(datesnp).to_pydatetime() # Converts numpy.datetime64 to datetime.datetime
         for thisdt in dates:
             print(thisdt)
-            mysubset = data[(data.station_id == str(stn_id)) & (data.datetimeUTC == thisdt)]
+            mysubset = obsdata[(obsdata.station_id == str(stn_id)) & (obsdata.datetimeUTC == thisdt)]
             dict_to_plot = data_to_dict(mysubset)
             plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime('%Y%m%dT%H%MZ') + '_' + str(stn_id) + '.png'
             tephi_plot(station, thisdt, dict_to_plot, plot_fname)

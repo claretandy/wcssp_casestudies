@@ -124,7 +124,7 @@ def getVarList(model_id):
         'analysis' : [('rh_wrt_water_levels', 'inst'), ('templevels', 'inst'), ('Vwind10m', 'inst'), ('Vwind', 'inst'), ('Uwind10m', 'inst'), ('Uwind', 'inst'), ('temp1.5m', 'inst'), ('dewpttemp1.5m', 'inst'), ('precip', '3hr'), ('precip', 'inst')],
         'ga7' : [(5216, 0), (5216, 128), (15201, 0), (15202, 0), (16202, 0), (16203, 0), (16205, 0), (30205, 0), (30461, 0)],
         'km4p4' : [(4203, 0), (4203, 128), (15201, 0), (15202, 0), (16202, 0), (16203, 0)],
-        'km1p5' : []
+        'km1p5' : [(4203, 0), (4203, 128), (15201, 0), (15202, 0), (16202, 0), (16203, 0)]
     }
     return var_dict[model_id]
 
@@ -140,18 +140,19 @@ def stashLUT(sc, style='short'):
 
     # TODO Add to this list when new model data is added
     stashcodes = {
-        3225: {'short': 'Xwind-10m', 'long': '10m X Wind'},
-        3226: {'short': 'Ywind-10m', 'long': '10m Y Wind'},
-        3236: {'short': 'temp-1.5m', 'long': '1.5m Air Temperature'},
-        4203: {'short': 'precip', 'long': 'Precipitation'},
-        5216: {'short': 'precip', 'long': 'Precipitation'},
-        15201: {'short': 'Xwind', 'long': 'X Wind on levels'},
-        15202: {'short': 'Ywind', 'long': 'Y Wind on levels'},
-        16202: {'short': 'geopot-ht', 'long': 'Geopotential Height on levels'},
-        16203: {'short': 'temp-levels', 'long': 'Temperature on levels'},
-        16205: {'short': 'wetbulbpot-levels', 'long': 'Wet Bulb Potential Temperature on levels'},
-        30205: {'short': 'spechumidity-levels', 'long': 'Specific Humidity on levels'},
-        30461: {'short': 'totcolumnwatervap', 'long': 'Total Column Water Vapour'}
+        3225: {'short': 'Xwind-10m', 'long': '10m X Wind', 'alt1': 'Uwind-10m'},
+        3226: {'short': 'Ywind-10m', 'long': '10m Y Wind', 'alt1': 'Vwind-10m'},
+        3236: {'short': 'temp-1.5m', 'long': '1.5m Air Temperature', 'alt1': 'temp-1.5m'},
+        4203: {'short': 'precip', 'long': 'Precipitation', 'alt1': 'precip'},
+        5216: {'short': 'precip', 'long': 'Precipitation', 'alt1': 'precip'},
+        15201: {'short': 'Xwind', 'long': 'X Wind on pressure levels', 'alt1': 'Uwind-inst'},
+        15202: {'short': 'Ywind', 'long': 'Y Wind on pressure levels', 'alt1': 'Vwind-inst'},
+        16202: {'short': 'geopot-ht', 'long': 'Geopotential Height on pressure levels', 'alt1': 'geopot-ht'},
+        16203: {'short': 'templevels-inst', 'long': 'Temperature on pressure levels', 'alt1': 'templevels-inst'},
+        16205: {'short': 'wetbulb-pot-levels', 'long': 'Wet Bulb Potential Temperature on pressure levels', 'alt1': 'wetbulb-pot-levels'},
+        30205: {'short': 'specific-humidity', 'long': 'Specific Humidity on pressure levels', 'alt1': 'specific-humidity'},
+        30206: {'short': 'relative-humidity', 'long': 'Relative Humidity on pressure levels', 'alt1': 'relative-humidity'},
+        30461: {'short': 'totcolumnwatervap', 'long': 'Total Column Water Vapour', 'alt1': 'totcolumnwatervap'}
     }
 
     if sc == 'all':
@@ -161,10 +162,13 @@ def stashLUT(sc, style='short'):
         return dict([(sc, stashcodes[sc][style])])
 
     if isinstance(sc, str):
-        return dict([(stitems[0], val[style]) for val, stitems in zip(stashcodes.values(), stashcodes.items()) if sc in val['long'].lower()])
+        return dict([(stitems[0], val[style]) for val, stitems in zip(stashcodes.values(), stashcodes.items())
+                     if (sc.lower() in val['long'].lower()) or
+                        (sc.lower() in val['short'].lower()) or
+                        (sc.lower() in val['alt1'].lower()) ])
 
 
-def getUM(start, end, model_id, settings):
+def getUM_FileList(start, end, model_id, settings):
     '''
     Gets the UM data either from a local directory or from the FTP.
     It should be possible to run this code in real time to download from the UKMO FTP site, or
@@ -174,7 +178,7 @@ def getUM(start, end, model_id, settings):
     :param end: datetime object for the end of the event
     :param model_id: choose from [analysis|ga7|km4p4|km1p5]
     :param settings: local settings
-    :return:
+    :return: file list
     '''
 
     if model_id == 'analysis':
@@ -204,61 +208,57 @@ def getUM(start, end, model_id, settings):
         return 'No files on the FTP available for ' + model_id + ' for period ' + start.strftime('%Y-%m-%d %H:%M') + ' to ' + end.strftime('%Y-%m-%d %H:%M')
 
 
-def loadUM(start, end, model_id, bbox, settings, var='all'):
+def loadUM(start, end, model_id, bbox, settings, var='all', timeclip=True):
     '''
-    Loads the UM data for the specified period, model_id, variables and subsets by bbox
+    Loads all the available UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
     :param end: datetime object
     :param model_id: string. Select from ['analysis', 'ga7', 'km4p4', 'km1p5']
     :param bbox: dictionary specifying bounding box that we want to plot
             e.g. {'xmin': 99, 'ymin': 0.5, 'xmax': 106, 'ymax': 7.5}
     :param settings: settings from the config file
-    :param var: Either not specified (i.e. 'all') or a string or a list of strings
-            e.g. ['wind', 'temperature']
+    :param var: Either not specified (i.e. 'all') or a string or a list of strings that matches names in
+            sf.get_default_stash_proc_codes()['name'] ... available values:
+            ['Uwind10m-inst', 'Vwind10m-inst', 'temp1.5m-inst', 'dewpttemp1.5m-inst', 'precip-3hr', 'precip-inst', 'precip-3hr', 'precip-inst', 'precip-3hr', 'Uwind-inst', 'Vwind-inst', 'Geopotential-ht', 'templevels-inst', 'wetbulb-pot-temp', 'mslp', 'rh_wrt_water_levels-inst', 'divergence', 'relative-vorticity', 'updraft-helicity-2000m-5000m', 'lightning-flashrate-inst', 'num-of-lightning-flashes-3hr', 'templevels-uvgrid', 'specific-humidity', 'relative-humidity', 'templevels-tgrid']
+    :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
+            If False, it returns the full cube
     :return: Cubelist of all variables and init_times
     '''
 
-    full_file_list = getUM(start, end, model_id, settings)
-
-    if not isinstance(bbox, dict):
-        bbox = {'xmin': bbox[0], 'ymin': bbox[1], 'xmax': bbox[2], 'ymax': bbox[3]}
+    full_file_list = getUM_FileList(start, end, model_id, settings)
+    file_vars = list(set([os.path.basename(fn).split('_')[-2] for fn in full_file_list]))
 
     if isinstance(var, str):
         var = [var]
 
-    for v in var:
+    if var == ['all']:
+        # Gets all available
+        vars = file_vars
+    else:
+        # subset file_vars according to the list given
+        vars = [v for v in var if v in file_vars]
 
-        out_file_list = []
-        vdict = stashLUT(v)
+    if not isinstance(bbox, dict):
+        bbox = {'xmin': bbox[0], 'ymin': bbox[1], 'xmax': bbox[2], 'ymax': bbox[3]}
 
-        for file in full_file_list:
-
-            for vk in vdict.keys():
-                try:
-                    if str(vk) in file.lower():
-                        out_file_list.append(file)
-                except:
-                    pass
-
-            for vv in vdict.values():
-                try:
-                    if vv in file.lower():
-                        out_file_list.append(file)
-                except:
-                    pass
-
-    stash_list = list(set([x.split('_')[-2] for x in out_file_list]))
     cube_dict = {}
-    for st in stash_list:
-        these_files = [x for x in out_file_list if st in x]
+    for st in vars:
+
+        these_files = [x for x in full_file_list if st in x]
+
         cubes = iris.load(these_files)
         ocubes = iris.cube.CubeList([])
         for cube in cubes:
             cube_ss = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
+            if timeclip:
+                cube_ss = sf.periodConstraint(cube_ss, start, end)
             ocubes.append(cube_ss)
         cube_dict[st] = ocubes
 
-    return cube_dict
+    if len(vars) == 1:
+        return cube_dict[vars[0]]
+    else:
+        return cube_dict
 
 
 def checkUM_availability(start, end, model_id, settings, var='all'):
@@ -378,10 +378,14 @@ def main(start, end, organisation):
     settings = config.load_location_settings(organisation)
 
     modelcheck = ['analysis', 'ga7', 'km4p4', 'km1p5']
+
+    ofilelist = []
     for model_id in modelcheck:
 
-        filelist = getUM(start, end, model_id, settings)
+        filelist = getUM_FileList(start, end, model_id, settings)
+        ofilelist.append(filelist)
 
+    return ofilelist
 
 if __name__ == '__main__':
 
