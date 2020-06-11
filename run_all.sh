@@ -19,6 +19,10 @@ event_region_name='PeninsulaMalaysia' # This should be a large region for which
 # Set the eventname automatically so it is a standard format of region/date_eventlocation
 eventname=${event_region_name}'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_'${event_location_name}
 
+# If running from inside the Met Office, extract data for this case study and share on FTP
+if [ $organisation == 'UKMO' ]; then
+  python extractUM.py ${start} ${end} ${event_domain} ${eventname} ${organisation}
+
 # Run scripts to plot case study data
 # Download GPM IMERG data
 python downloadGPM.py auto ${start} ${end} ${organisation}
@@ -36,6 +40,7 @@ python downloadUM.py ${start} ${end} ${organisation}
 #python plot_timelagged.py ${start} ${end} ${event_domain} ${eventname} ${organisation}
 
 ## Plot SYNOP data from each organisation vs models
+# TODO : remove the dependence on station_id
 python plot_synop.py ${organisation} ${start} ${end} ${station_id} # Note: station_id is optional
 
 ## Plot Upper Air soundings for each organisation vs models

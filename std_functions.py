@@ -11,6 +11,7 @@ import glob
 from shapely.geometry import Polygon
 from collections import Counter
 from dateutil.relativedelta import relativedelta
+import location_config as config
 import pdb
 
 def getDomain_bybox(plotdomain):
@@ -88,6 +89,8 @@ def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
         dtrng_byjobid = {'u-ao907': [dt.datetime(2017, 7, 30, 12, 0), dt.datetime(2019, 4, 1, 0)],
                          'opfc': [dt.datetime(2019, 4, 1, 0), dt.datetime.now()]
                          }
+    elif domain == 'global':
+        dtrng_byjobid = {'opfc': [dt.datetime(2015, 1, 1, 0), dt.datetime.now()]}
     else:
         print('Domain not specified')
         return
@@ -243,13 +246,14 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
     timeagg    : 1, 3, 6, 12, 24 hours
     mod   : model_id
     jobid : jobid e.g. u-ba482
-    odir  : typcially /scratch/hadhy/seasia
     lbproc: assumes we want 0 (instantaneous data), but 128, 4096 and 8192 are also possible
     overwrite: do we want to re-extract the model data from MASS? NB: the cropped data is not saved
 
     NB: old args:
     def loadModelData(start, end, stash, plotdomain, timeagg, model_id, jobid, odir, lbproc, overwrite=False)
     '''
+
+    settings = config.load_location_settings('UKMO')
 
     # 1. Get model domain for the given plotting domain
     domain = getDomain_bybox(plotdomain)
@@ -259,7 +263,12 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
     jobid = getJobID_byDateTime(end, domain=domain)
     model_id = getModelID_byJobID(jobid, searchtxt=searchtxt)
     model_id = model_id[0] if isinstance(model_id, list) else model_id
-    odir = '/scratch/hadhy/'+domain.lower()+'/CaseStudies/'
+
+    # Directory that model data is saved to
+    modeldatadir = settings['scratchdir'] + 'ModelData/'
+    odir = pathlib.PurePath(modeldatadir, jobid).as_posix()
+    if not pathlib.Path(odir).is_dir():
+        pathlib.Path(odir).mkdir(parents=True)
 
     # 2. Extract from MASS
     # pdb.set_trace()
@@ -1020,6 +1029,7 @@ def accumulated2sequential(accum_cubefile, returncube=False):
 
 def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, odir=None, returncube=False, overwrite=False):
     '''
+    *** This function only works inside the Met Office (UKMO) ***
     Select from MASS the operational 'late' analysis
     :param start_dt: Start date/time (as datetime object)
     :param end_dt: End date/time (as datetime object)
@@ -1038,9 +1048,14 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
     #########
     # Change nothing from here onwards
 
+    settings = config.load_location_settings('UKMO')
     # Directory to save global analysis data to
     if not odir:
-        odir = '/scratch/hadhy/ModelData/UM_Analysis/'
+        odir = settings['scratchdir'] + 'ModelData/um_analysis/'
+
+    # Make sure the directory exists
+    if not os.path.isdir(odir):
+        os.makedirs(odir)
 
     # Times of day for which the analysis is run
     analysis_times = np.arange(start=0, stop=24, step=analysis_incr)
@@ -1158,17 +1173,32 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
         return (ofilelist)
 
 
-def selectModelDataFromMASS(init_times, stash, odir, domain='SEAsia', plotdomain=None, lbproc=None, lblev=None, choice='newest',
+def selectModelDataFromMASS(init_times, stash, odir=None, domain='SEAsia', plotdomain=None, lbproc=None, lblev=None, choice='newest',
                             searchtxt=None, returncube=False, overwrite=False):
-
     '''
+    *** This function only works inside the Met Office (UKMO) ***
     For a list of initialisation times, get the relevant model data from MASS
-    init_times = datetime list of initialisation times
-    stash = 4 or 5 digit stash code (only one at a time)
-    odir  = Output directory for the data (minus the jobid)
-    choice = ['newest', 'most_common', 'first'] # indicates how to select the jobid when more than one exists in the list. Default is 'newest'
-    searchtxt = False # text string to indicate what model data is required (e.g. km4p4, indkm1p5, etc)
+    :param init_times: list of datetimes. Initialisation times as output by the getInitTimes function
+    :param stash: integer. Code for the variable that we want to extract (only takes one at a time)
+    :param odir: string. Better to leave this set to None so the default is used. Output directory for the data minus jobid.
+    :param domain: string. Either 'SEAsia', 'Africa', or 'global'. Used only to retrieve the correct jobid (not for spatial subsetting)
+    :param plotdomain: list of floats. Contains [xmin, ymin, xmax, ymax]. Used only to determine the available models within a jobid
+    :param lbproc: integer. Normally either 0 (instantaneous) or 128 (time averaged)
+    :param lblev: list of integers or floats. Pressure levels to select from the data
+    :param choice: string. Choose from ['newest', 'most_common', 'first']. Indicates how to select the jobid when more
+            than one exists in the list. Default is 'newest'
+    :param searchtxt: string (or list). Allows you to subset the list of available model_ids. Most likely options:
+            'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5', 'phikm1p5', 'global_prods' (global operational),
+            'africa_prods' (africa operational)
+    :param returncube: boolean. Returns an iris.cube.CubeList object of the extracted data
+    :param overwrite: boolean. Allows extracting the data again in case the file disk is currupted
+    :return: Either a list of the files extracted or a iris.cube.CubeList
     '''
+
+    settings = config.load_location_settings('UKMO')
+    # Directory to save model data to
+    if not odir:
+        odir = settings['scratchdir'] + 'ModelData/'
 
     # Check that the request is not split across different jobids
     if isinstance(init_times, list):
@@ -1179,7 +1209,7 @@ def selectModelDataFromMASS(init_times, stash, odir, domain='SEAsia', plotdomain
 
     if jobid == 'opfc':
         # Operational model MASS path
-        moddomain = searchtxt.split('_')[0]
+        moddomain = searchtxt.split('_')[0] # either africa_prods or global_prods
         collection = 'moose:/opfc/atm/'+moddomain+'/prods/year.pp'
     else:
         collection = 'moose:/devfc/'+jobid+'/field.pp'
