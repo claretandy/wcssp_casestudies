@@ -100,7 +100,7 @@ def getModelData(start_dt, end_dt, bbox, locations, settings, model_id='all'):
     df = pd.DataFrame(columns=column_names)
 
     # Sets the start adjusted to every <timestep> hours from 00UTC
-    validtimes = sf.make_timeseries(start_dt, end_dt, 3)
+    validtimes = sf.make_timeseries(start_dt, end_dt, timestep)
 
     # Loop through each location
     for i, row in locations.iterrows():

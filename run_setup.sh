@@ -12,9 +12,11 @@ else
 
   # Install some important packages
   conda install -c conda-forge -n scitools iris
+  conda install -c conda-forge -n scitools mo_pack
   conda install -c conda-forge -n scitools h5py
   conda install -c conda-forge -n scitools wget # Possibly not required anymore
   conda install -c conda-forge -n scitools PIL # Possibly not required anymore
+  conda install -n scitools sphinx # For documentation
 
   conda activate scitools
 

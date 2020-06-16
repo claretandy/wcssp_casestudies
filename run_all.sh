@@ -8,9 +8,9 @@
 # Change things in here for each case study
 organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
 
-start='201901210000' # Format YYYYMMDDHHMM
-end='201901220000' # Format YYYYMMDDHHMM
-station_id=48650 #98222 # TODO : Georeference each station ID so that they can be selected using a spatial query
+start='202005190000' # Format YYYYMMDDHHMM
+end='202005200000' # Format YYYYMMDDHHMM
+station_id=48650 #98222 # TODO : Remove the dependence on this
 event_domain='99,0.5,106,7.5' # xmin, ymin, xmax, ymax
 event_location_name='Johor' # A short name to decribe the location of the event
 event_region_name='PeninsulaMalaysia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
@@ -21,7 +21,7 @@ eventname=${event_region_name}'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_
 
 # If running from inside the Met Office, extract data for this case study and share on FTP
 if [ $organisation == 'UKMO' ]; then
-  python extractUM.py ${start} ${end} ${event_domain} ${eventname} ${organisation}
+  python extractUM.py ${start} ${end} ${event_domain} ${eventname}
 
 # Run scripts to plot case study data
 # Download GPM IMERG data

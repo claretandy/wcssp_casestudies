@@ -8,12 +8,20 @@ import glob
 import iris
 import pdb
 
-def get_ftp_flist(model_id, settings):
+def get_ftp_flist(model_id, event_name, settings):
+    '''
+    What files are currently on the ftp site for this event_name?
+    :param model_id: Can be any from the following ['analysis', 'ga6', 'ga7', 'km4p4', 'km1p5', 'all']
+    :param event_name: string. Either 'RealTime' or '<region>/<datetime>_<event_name>'
+    :param settings: dictionary of settings defined by the config file
+    :return: list of filenames on the ftp site for this event_name
+    '''
 
-    if 'km1p5' in model_id:
-        path = '/' + settings['country'] + '/'
+    if event_name == 'RealTime':
+        path = '/SEAsia/RealTime'
     else:
-        path = '/SEAsia/'
+        path = '/SEAsia/CaseStudyData/'
+
     ftp = FTP(settings['ukmo_ftp_url'], settings['ukmo_ftp_user'], settings['ukmo_ftp_pass'])
     ftp.cwd(path)
     flist = ftp.nlst()
@@ -168,7 +176,7 @@ def stashLUT(sc, style='short'):
                         (sc.lower() in val['alt1'].lower()) ])
 
 
-def getUM_FileList(start, end, model_id, settings):
+def getUM_FileList(start, end, model_id, event_name, settings):
     '''
     Gets the UM data either from a local directory or from the FTP.
     It should be possible to run this code in real time to download from the UKMO FTP site, or
@@ -177,6 +185,7 @@ def getUM_FileList(start, end, model_id, settings):
     :param start: datetime object for the start of the event
     :param end: datetime object for the end of the event
     :param model_id: choose from [analysis|ga7|km4p4|km1p5]
+    :param event_name: string. Either 'realtime' or '<region>/<datetime>_<event_name>'
     :param settings: local settings
     :return: file list
     '''
@@ -189,7 +198,7 @@ def getUM_FileList(start, end, model_id, settings):
         init_times = sf.getInitTimes(start, end, 'SEAsia', model_id, sf.get_fc_length(model_id), [0,12])
 
     # Get full FTP file list
-    flist = get_ftp_flist(model_id, settings)
+    flist = get_ftp_flist(model_id, event_name, settings)
 
     # Subset to match this model_id
     flist = [fl for fl in flist if model_id in fl]
@@ -208,7 +217,7 @@ def getUM_FileList(start, end, model_id, settings):
         return 'No files on the FTP available for ' + model_id + ' for period ' + start.strftime('%Y-%m-%d %H:%M') + ' to ' + end.strftime('%Y-%m-%d %H:%M')
 
 
-def loadUM(start, end, model_id, bbox, settings, var='all', timeclip=True):
+def loadUM(start, end, model_id, bbox, event_name, settings, var='all', timeclip=True):
     '''
     Loads all the available UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
@@ -216,16 +225,16 @@ def loadUM(start, end, model_id, bbox, settings, var='all', timeclip=True):
     :param model_id: string. Select from ['analysis', 'ga7', 'km4p4', 'km1p5']
     :param bbox: dictionary specifying bounding box that we want to plot
             e.g. {'xmin': 99, 'ymin': 0.5, 'xmax': 106, 'ymax': 7.5}
+    :param event_name: string. Format is <region_name>/<date>_<event_name> or 'RealTime'
     :param settings: settings from the config file
     :param var: Either not specified (i.e. 'all') or a string or a list of strings that matches names in
-            sf.get_default_stash_proc_codes()['name'] ... available values:
-            ['Uwind10m-inst', 'Vwind10m-inst', 'temp1.5m-inst', 'dewpttemp1.5m-inst', 'precip-3hr', 'precip-inst', 'precip-3hr', 'precip-inst', 'precip-3hr', 'Uwind-inst', 'Vwind-inst', 'Geopotential-ht', 'templevels-inst', 'wetbulb-pot-temp', 'mslp', 'rh_wrt_water_levels-inst', 'divergence', 'relative-vorticity', 'updraft-helicity-2000m-5000m', 'lightning-flashrate-inst', 'num-of-lightning-flashes-3hr', 'templevels-uvgrid', 'specific-humidity', 'relative-humidity', 'templevels-tgrid']
+            sf.get_default_stash_proc_codes()['name']
     :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
             If False, it returns the full cube
     :return: Cubelist of all variables and init_times
     '''
 
-    full_file_list = getUM_FileList(start, end, model_id, settings)
+    full_file_list = getUM_FileList(start, end, model_id, event_name, settings)
     file_vars = list(set([os.path.basename(fn).split('_')[-2] for fn in full_file_list]))
 
     if isinstance(var, str):
@@ -261,13 +270,14 @@ def loadUM(start, end, model_id, bbox, settings, var='all', timeclip=True):
         return cube_dict
 
 
-def checkUM_availability(start, end, model_id, settings, var='all'):
+def checkUM_availability(start, end, model_id, event_name, settings, var='all'):
     '''
     Checks what variables are available locally and on the ftp for the model_id and period.
     Can accept either a list of variables or if not set, will list all vars available locally and online
     :param start: datetime object
     :param end: datetime object
     :param model_id: string. Select from ['analysis', 'ga7', 'km4p4', 'km1p5']
+    :param event_name: string. Either 'RealTime' or '<region>/<datetime>_<event_name>'
     :param settings: settings from the config file
     :param var: Either 'all' or a string or a list of strings
             e.g. ['wind', 'temperature']
@@ -283,7 +293,7 @@ def checkUM_availability(start, end, model_id, settings, var='all'):
 
     # FTP files ....
     # Get FTP file list
-    flist = get_ftp_flist(model_id, settings)
+    flist = get_ftp_flist(model_id, event_name, settings)
     # Subset to match this model_id
     flist = [fl for fl in flist if model_id in fl]
     # Subset to match init_times
@@ -310,6 +320,7 @@ def checkUM_availability(start, end, model_id, settings, var='all'):
                     # If it's a number, this will work
                     lstash = stashLUT(int(lstash), style='long')
                 except ValueError:
+                    # TODO make this work with text stash names
                     #  If it's already a descriptive stash name, pass
                     pass
                 if v.lower() in lstash.lower():
@@ -323,6 +334,7 @@ def checkUM_availability(start, end, model_id, settings, var='all'):
                     # If it's a number, this will work
                     stash = stashLUT(int(stash), style='long')
                 except ValueError:
+                    # TODO make this work with text stash names
                     # If it's already a descriptive stash name, pass
                     pass
                 if v.lower() in stash.lower():
@@ -350,6 +362,7 @@ def checkUM_availability(start, end, model_id, settings, var='all'):
                         # If it's a number, this will work
                         st = stashLUT(int(st), style='short')
                     except ValueError:
+                        # TODO make this work with text stash names
                         #  If it's already a descriptive stash name, pass
                         pass
                     if v.lower() in st.lower():
@@ -392,12 +405,12 @@ if __name__ == '__main__':
     now = dt.datetime.utcnow()
 
     try:
-        start = dt.datetime.strptime(sys.argv[2][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
+        start = dt.datetime.strptime(sys.argv[1][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
     except IndexError:
         start = now.date() - dt.timedelta(days=7)
 
     try:
-        end = dt.datetime.strptime(sys.argv[3][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
+        end = dt.datetime.strptime(sys.argv[2][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
     except IndexError:
         end = now.date()
 

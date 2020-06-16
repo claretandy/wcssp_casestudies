@@ -28,19 +28,38 @@ def getDomain_bybox(plotdomain):
         domain = 'TAfrica'
     else:
         print('The domain does not match any available convective scale models')
-        domain = None
+        domain = 'Global'
 
     return domain
 
-def getModels_bybox(plotdomain):
+
+def getBBox_byRegionName(regname):
+
+    regname = regname.lower()
+    known_regions = {
+        'seasia' : [90, -18, 154, 30],
+        'tafrica': [-19, -12, 52, 22],
+        'global' : [-180, -90, 180, 90]
+    }
+
+    try:
+        return known_regions[regname]
+    except:
+        return 'Region unknown: ' + regname
+
+
+def getModels_bybox(plotdomain, reg=None):
 
     xmin, ymin, xmax, ymax = plotdomain
     p1 = Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
 
+    if not reg:
+        reg = getDomain_bybox(plotdomain)
+
     domain_dict = {
         'SEAsia' : {
-            'ga6'      : Polygon([(90, -18), (90, 30), (154, 30), (154, -18)]),
-            'ga7': Polygon([(90, -18), (90, 30), (154, 30), (154, -18)]),
+            'ga6'     : Polygon([(90, -18), (90, 30), (154, 30), (154, -18)]),
+            'ga7'     : Polygon([(90, -18), (90, 30), (154, 30), (154, -18)]),
             'km4p4'   : Polygon([(90, -18), (90, 30), (154, 30), (154, -18)]),
             'phikm1p5': Polygon([(116, 3), (116, 21), (132, 21), (132, 3)]),
             'viekm1p5': Polygon([(96.26825, 4.23075), (96.26825, 25.155752), (111.11825, 25.155752), (111.11825, 4.23075)]),
@@ -54,18 +73,24 @@ def getModels_bybox(plotdomain):
             'eakm4p4'  : Polygon([(21.49, -20.52), (21.49, 17.48), (52, 17.48), (52, -20.52)]),
             'africa_prods' : Polygon([(-19, -12), (-19, 22), (52, 22), (52, -12)]),
             'global_prods' : Polygon([(-180, -90), (-180, 90), (180, 90), (180, -90)])
+        },
+        'Global': {
+            'opfc': Polygon([(-180, -90), (-180, 90), (180, 90), (180, -90)])
         }
     }
     model_list = []
     domain_list = []
+    area_list = []
     for k, v in domain_dict.items():
         for k1, v1 in v.items():
-            if p1.intersects(v1):
+            if p1.intersects(v1) and k == reg:
                 model_list.append(k1)
                 domain_list.append(k)
+                area_list.append(p1.intersection(v1).area)
 
     # Accounts for the fact that the global model matches everything
-    domain = Counter(domain_list).most_common()[0][0]
+    domain = domain_list[area_list.index(np.max(area_list))]  # Matches the largest area
+    # domain = Counter(domain_list).most_common()[0][0]
 
     if not domain or model_list == []:
         print('The domain does not match any available convective scale model domains')
@@ -83,13 +108,14 @@ def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
         dtrng_byjobid = {'u-ai613': [dt.datetime(2016, 12, 15, 12, 0), dt.datetime(2017, 7, 17, 12, 0)],
                          'u-ao347': [dt.datetime(2017, 7, 13, 12, 0), dt.datetime(2017, 8, 11, 0, 0)],
                          'u-ao902': [dt.datetime(2017, 7, 28, 12, 0), dt.datetime(2019, 1, 15, 0, 0)],
-                         'u-ba482': [dt.datetime(2018, 9, 6, 12, 0), dt.datetime.now()] # started earier, but the first date that ra1tld appears
+                         'u-ba482': [dt.datetime(2018, 9, 6, 12, 0), dt.datetime(2019, 10, 30, 0, 0)], # started earier, but the first date that ra1tld appears
+                         'u-bn272': [dt.datetime(2019, 10, 2, 0, 0), dt.datetime.now()]
                          }
     elif domain == 'TAfrica':
         dtrng_byjobid = {'u-ao907': [dt.datetime(2017, 7, 30, 12, 0), dt.datetime(2019, 4, 1, 0)],
                          'opfc': [dt.datetime(2019, 4, 1, 0), dt.datetime.now()]
                          }
-    elif domain == 'global':
+    elif domain == 'Global':
         dtrng_byjobid = {'opfc': [dt.datetime(2015, 1, 1, 0), dt.datetime.now()]}
     else:
         print('Domain not specified')
@@ -127,6 +153,7 @@ def getModelID_byJobID(jobid, searchtxt=None):
                  'u-ba482': ['SEA4_n1280_ga6', 'SEA4_km4p4_ra1tld', 'SEA4_indkm1p5_ra1tld', 'SEA4_indkm0p2_ra1tld', 'SEA4_indkm0p5_ra1tld',
                                 'SEA4_malkm1p5_ra1tld', 'SEA4_malkm0p2_ra1tld', 'SEA4_malkm0p5_ra1tld', 'SEA4_phikm1p5_ra1tld', 'SEA4_phikm0p2_ra1tld',
                                 'SEA4_phikm0p5_ra1tld', 'SEA4_viekm1p5_ra1tld'], # NB: not all these are available from August 2018
+                 'u-bn272': ['SEA5_n1280_ga7', 'SEA5_km4p4_ra2t', 'SEA5_indkm1p5_ra2t', 'SEA5_malkm1p5_ra2t', 'SEA5_phikm1p5_ra2t', 'SEA5_viekm1p5_ra2t'],
                  'opfc': ['africa_prods', 'global_prods']
         }
 
@@ -141,7 +168,10 @@ def getModelID_byJobID(jobid, searchtxt=None):
     else:
         outmodellist = [m for m in modellist[jobid] if searchtxt in m]
 
-    return(outmodellist)
+    if outmodellist == []:
+        return None
+    else:
+        return(outmodellist)
 
     
 def getModelID_byDatetime(thisdate, domain='SEAsia', searchtxt=False):
@@ -150,45 +180,6 @@ def getModelID_byDatetime(thisdate, domain='SEAsia', searchtxt=False):
     modellist = getModelID_byJobID(jobid, searchtxt=searchtxt)
 
     return {"jobid": jobid, "modellist":modellist}
-
-
-def getModelFileName(jobid, model_id):
-    
-    model_id_dict = {
-        "ga7"     : "SEA2_n1280_ga7",
-        "ga7plus" : "SEA3_n1280_ga7plus", #"SEA2_n1280_ga7plus",
-        "ga6_sea1" : "SEA1_n1280_ga6",
-        "ga6_sea2" : "SEA2_n1280_ga6",
-        "ga6_sea3"     : "SEA3_n1280_ga6", #"SEA2_n1280_ga6",
-        "km4p4_protora1"  : "SEA2_km4p4_protora1t",
-        "km4p4_ra1": "SEA3_km4p4_protora1t", #"SEA2_km4p4_protora1t",
-        "km4p4_4p0": "SEA1_km4p4_sing4p0",
-        "km1p5_phil_ra1"  : "SEA3_phi2km1p5_protora1t", #"PHI2_km1p5_protora1t",
-        "km1p5_phil_protora1t" : "PHI2_km1p5_protora1t",
-        "km1p5_phil_4p0"  : "PHI_km1p5_vn4p0",
-        "km1p5_mal_ra1"   : "SEA3_mal2km1p5_protora1t", #"MAL2_km1p5_protora1t",
-        "km1p5_mal_protora1t" : "MAL2_km1p5_protora1t",
-        "km1p5_mal_4p0"   : "MAL_km1p5_vn4p0",
-        "km1p5_indon_ra1" : "SEA3_indon2km1p5_protora1t", #"INDON2_km1p5_protora1t",
-        "km1p5_indon_4p0" : "INDON_km1p5_singv4p0",
-        "km1p5_indon_protora1t" : "INDON2_km1p5_protora1t",
-        "km1p5_singv_ra1" : "SINGRA1_km1p5ra1_protora1t",
-        "km1p5_singv_4p1" : "SINGRA1_km1p54p1_v4p1",
-        "km1p5_singv_4p0" : "SINGV3_km1p5_singv4p0"
-        }
-    return(model_id_dict[model_id])
-
-
-
-def get1p5modelid(locname):
-    # This refers to the 'getModelFileName' function below
-    modelids1p5 = {
-                'kuala_lumpur': 'km1p5_mal', #'mal_ra1',
-                'manila'      : 'km1p5_phil', #'phil_ra1',
-                'jakarta'     : 'km1p5_indon' #'indon_ra1'
-        }
-    #return(model_id + '_' + modelids1p5[locname])
-    return(modelids1p5[locname])
 
 
 def make_time_func(t1m, t2m):
@@ -207,17 +198,17 @@ def make_timeseries(start, end, freq):
     '''
     outlist = []
     hrs = np.arange(0,24,freq)
-    for iday in [start - dt.timedelta(days=1), start]:
+    for iday in [end - dt.timedelta(days=1), end]:
         for ih in hrs:
             pi = dt.datetime(iday.year, iday.month, iday.day, ih)
-            if pi <= start:
+            if pi <= end:
                 thisdt = pi
 
-    while thisdt <= end:
+    while thisdt >= start:
         outlist.append(thisdt)
-        thisdt += dt.timedelta(hours=freq)
+        thisdt -= dt.timedelta(hours=freq)
 
-    return outlist
+    return sorted(outlist)
 
 def periodConstraint(cube, t1, t2):
     # Constrains the cube according to min and max datetimes
@@ -234,34 +225,62 @@ def periodConstraint(cube, t1, t2):
     return(ocube)
 
 
-def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggregate=True, overwrite=False):
-    '''
+def check_time_fully_within(cube, start=None, end=None, timeagg=None):
+    """
+    Checks whether the cube has start and end times fully within the specified start and end datetimes.
+    If only timeagg is supplied, it will just check that the cube timespan is greater than timeagg
+    :param cube: iris cube with a time coord
+    :param start: datetime
+    :param end: datetime
+    :param timeagg: int
+    :return: boolean
+    """
+    myu = cube.coord('time').units
+    if not cube.coord('time').has_bounds():
+        cube.coord('time').guess_bounds()
+
+    bnd_start = min([myu.num2date(x[0]) for x in cube.coord('time').bounds])
+    bnd_end = max([myu.num2date(x[1]) for x in cube.coord('time').bounds])
+    diff_hrs = int( np.round((bnd_end - bnd_start).total_seconds() / 3600., 0) )
+
+    if start and end:
+        timeagg = int( np.round((end - start).total_seconds() / 3600., 0) )
+
+    if diff_hrs >= timeagg:
+        return True
+    else:
+        return False
+
+
+
+def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggregate=True, totals=True, overwrite=False):
+    """
     Loads all available model runs and clips data:
         - spatially (within lat/on box specified by plotdomain) and
         - temporally (between start and end datetimes)
-    start : needs to be a datetime object
-    end   : needs to be a datetime object
-    stash : short format, as a string
-    plotdomain : [xmin, ymin, xmax, ymax]
-    timeagg    : 1, 3, 6, 12, 24 hours
-    mod   : model_id
-    jobid : jobid e.g. u-ba482
-    lbproc: assumes we want 0 (instantaneous data), but 128, 4096 and 8192 are also possible
-    overwrite: do we want to re-extract the model data from MASS? NB: the cropped data is not saved
-
-    NB: old args:
-    def loadModelData(start, end, stash, plotdomain, timeagg, model_id, jobid, odir, lbproc, overwrite=False)
-    '''
-
-    settings = config.load_location_settings('UKMO')
+    :param start: datetime
+    :param end: datetime
+    :param stash: string (short format e.g. 4203)
+    :param plotdomain: list (format [xmin, ymin, xmax, ymax] each value is a float)
+    :param searchtxt: string (optional). Name of the model (e.g. km4p4, km1p5, ga6, ga7, opfc, etc)
+    :param lbproc: int (optional). Assumes we want 0 (instantaneous data), but 128, 4096 and 8192 are also possible
+    :param aggregate: boolean. Aggregate over the start-end period or not?
+    :param totals: boolean. Do the values represent the total accumulated over the aggregation period?
+    :param overwrite: Overwrite files downloaded from MASS?
+    :return: CubeList of all available model runs between the start and end
+    """
 
     # 1. Get model domain for the given plotting domain
     domain = getDomain_bybox(plotdomain)
     if not domain:
-        return "Not loading data because no data in the plotting domain"
+        print("Not loading data because no data in the plotting domain")
+        return None
 
     jobid = getJobID_byDateTime(end, domain=domain)
     model_id = getModelID_byJobID(jobid, searchtxt=searchtxt)
+    if not model_id:
+        print("The searchtxt \'"+searchtxt+"\' does\'t exist in this jobid: "+jobid)
+        return None
     model_id = model_id[0] if isinstance(model_id, list) else model_id
 
     # Directory that model data is saved to
@@ -275,10 +294,10 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
     if str(stash) in ['4201', '4203', '5216', '5226']:
         stash = getPrecipStash(model_id, type='short')
 
-    print(model_id, jobid, stash, lbproc)
-
-    cubelist = selectModelDataFromMASS(getInitTimes(start, end, domain, model_id=model_id), stash, odir, domain=domain, plotdomain=plotdomain, lbproc=lbproc, choice='newest',searchtxt=searchtxt, returncube=True, overwrite=overwrite)
-
+    print(start, end, model_id, jobid, stash, lbproc)
+    # pdb.set_trace()
+    cubelist = selectModelDataFromMASS(getInitTimes(start, end, domain, model_id=model_id), stash, odir=odir, domain=domain, plotdomain=plotdomain, lbproc=lbproc, choice='newest',searchtxt=searchtxt, returncube=True, overwrite=overwrite)
+    # pdb.set_trace()
     # 3. Loop through data and load into a cube list
     outcubelist = iris.cube.CubeList([])
     for cube in cubelist:
@@ -287,10 +306,13 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
         try:
             cube_dclipped = cube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
             # 3B. Extract time period
-            # pdb.set_trace()
             cube_tclipped = periodConstraint(cube_dclipped, start, end)
+            try:
+                timechk = check_time_fully_within(cube_tclipped, start=start, end=end)
+            except:
+                continue
 
-            if not cube_tclipped:
+            if not timechk :
                 continue
 
             # 3C. Convert units
@@ -302,17 +324,26 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
 
 
             # 3D. Aggregate
-            if aggregate:
-                if len(cube_tclipped.coord('time').points) > 1:
-                    cube_tclipped = cube_tclipped.collapsed('time', iris.analysis.MEAN) # Assuming precip
-                    # diff_hrs = (end - start).total_seconds() // 3600
-                    # print(diff_hrs)
-                    # cube_tclipped.data = cube_tclipped.data * diff_hrs
-                    cube_tclipped.attributes['aggregated'] = 'True'
-                    cube_tclipped.attributes['units_note'] = 'Values represent mean rate over the aggregation period'
-            else:
-                cube_tclipped.attributes['units_note'] = 'Values represent those given by cube.units'
-
+            try:
+                if aggregate:
+                    if len(cube_tclipped.coord('time').points) > 1:
+                        cube_tclipped = cube_tclipped.collapsed('time', iris.analysis.MEAN) # Assuming precip
+                        if totals:
+                            diff_hrs = (end - start).total_seconds() // 3600
+                            # print(diff_hrs)
+                            cube_tclipped.data = cube_tclipped.data * diff_hrs
+                            cube_tclipped.attributes['units_note'] = 'Values represent total accumulated over the aggregation period'
+                        else:
+                            cube_tclipped.attributes['units_note'] = 'Values represent mean rate over the aggregation period'
+                        cube_tclipped.attributes['aggregated'] = 'True'
+                else:
+                    cube_tclipped.attributes['units_note'] = 'Values represent those given by cube.units'
+            except:
+                print('****************************************')
+                print('There\'s a problem with this cube ....')
+                print(cube)
+                print('****************************************')
+                # pdb.set_trace()
 
             # 3E. Add attributes
             try:
@@ -601,11 +632,12 @@ def get_fc_length(model_id):
         model_id = model_id[0]
 
     if 'km1p5' in model_id:
-        fcl = 72 # 3 days
+        fcl = 48 # 2 days ... actually this changes depending on the jobid
     elif 'km4p4' in model_id or 'ga' in model_id:
         fcl = 120 # 5 days
     elif 'prod' in model_id:
-        fcl = 54 # 2 and a bit days (Operational TAfrica)
+        fcl = 168 # Operational Global
+        # fcl = 54 # 2 and a bit days (Operational TAfrica)
     else:
         print('Guessing the forecast length as 120 hours')
         fcl = 120
@@ -636,12 +668,13 @@ def get_fc_InitHours(jobid):
 
     initdict = {
         'analysis' : [0, 6, 12, 18],
-        'opfc' : [6,18],
+        'opfc' : [0,6,12,18],
         'u-ao907'   : [0,12],
         'u-ai613'   : [0,12],
         'u-ao347'   : [0,12],
         'u-ao902'   : [0,12],
-        'u-ba482'   : [0,12]
+        'u-ba482'   : [0,12],
+        'u-bn272'   : [0,12]
     }
     try:
         init_hrs = initdict[jobid]
@@ -708,41 +741,6 @@ def getInitTimes(start_dt, end_dt, domain, model_id=None, fcl=None, init_hrs=Non
     return(init_ts)
 
 
-def getInitTimes_old(strt_dt, end_dt, fcl=None, init_incr=12):
-    '''
-    Replaced on 4th June 2019
-    start = start of the period for comparison to obs
-    end   = end of the period for comparison to obs
-    fcl   = forecast length in DAYS (5 for 4.4km model, and 1.5 days for 1.5km models)
-    '''
-    # Most recent init date has to be before the start date!
-    # Oldest init date has to be before the end date minus 5 days!
-    #fcl = 120 # hours
-    # init_incr = 12 # hours
-
-    if not fcl:
-        # Guess the forecast length from the start date (assume it doesn't change)
-        jobid = getJobID_byDateTime(strt_dt, choice='newest')
-        fcl = get_fc_length(jobid)
-
-    # 1. Find the most recent init time BEFORE the end_dt
-    mostrecent_init = end_dt.replace(hour=myround(end_dt.hour, base=init_incr), minute=0, second=0, microsecond=0) - dt.timedelta(hours=init_incr)
-
-    # 2. Find the datetime of oldest model run available ...
-    oldest_init = strt_dt.replace(hour=myround(strt_dt.hour, base=init_incr), minute=0, second=0, microsecond=0) + dt.timedelta(hours=init_incr) - dt.timedelta(hours=int(fcl))
-    #print('Most recent init: ', mostrecent_init)
-    #print('Oldest init: ', oldest_init)
-
-    # 3. Loop through oldest to most recent init dates to create a timeseries
-    init_ts = []
-
-    while oldest_init <= mostrecent_init:
-        init_ts.append(oldest_init) # .strftime('%Y%m%dT%H%MZ')
-        oldest_init += dt.timedelta(hours=init_incr)
-
-    return(init_ts)
-
-
 def most_common(lst):
     return max(set(lst), key=lst.count)
 
@@ -754,6 +752,23 @@ def myround(x, base=3):
 def myroundup(x, base=3):
     return int(base * np.ceil(float(x)/base))
 
+def lbproc_LUT(lbproc, type='short'):
+    '''
+    What does the lbproc code mean?
+    :param lbproc: integer. Either 0, 128, 4096 or 8192
+    :param type: string. Either 'short' or 'long'
+    :return: string for use in a filename or plot
+    '''
+
+    lut = {
+        0: {'short': 'inst', 'long': 'Instantaneous'},
+        128: {'short': 'timeaver', 'long': 'Time Step Average'},
+        4096: {'short': 'timemin', 'long': 'Time Step Minimum'},
+        8192: {'short': 'timemax', 'long': 'Time Step Maximum'}
+    }
+
+    return lut[lbproc][type]
+
 
 def get_lbproc_by_stash(stash, jobid):
     # which lbproc codes go with which stash codes?
@@ -763,6 +778,7 @@ def get_lbproc_by_stash(stash, jobid):
                          'u-ao902': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
                          'u-ao907': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
                          'u-ba482': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
+                         'u-bn272': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
                          'opfc'   : []
                          }
 
@@ -771,6 +787,7 @@ def get_lbproc_by_stash(stash, jobid):
                          'u-ao902': [],
                          'u-ao907': [],
                          'u-ba482': [20080],
+                         'u-bn272': [20080],
                          'opfc'   : []
                          }
 
@@ -779,7 +796,8 @@ def get_lbproc_by_stash(stash, jobid):
                          'u-ao902': [],
                          'u-ao907': [],
                          'u-ba482': [3463, 20080],
-                        'opfc': []
+                         'u-bn272': [3463, 20080],
+                         'opfc': []
                          }
 
     # 4201, 4202, 5201, 5202, 5226, 23
@@ -788,6 +806,7 @@ def get_lbproc_by_stash(stash, jobid):
                          'u-ao902': [],
                          'u-ao907': [4201, 4202, 5201, 5202, 5226, 23],
                          'u-ba482': [],
+                         'u-bn272': [],
                          'opfc'   : []
                          }
 
@@ -1083,9 +1102,9 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
         while not end_dt.hour in analysis_times:
             end_dt += dt.timedelta(hours=1)
 
+    datetime_list = make_timeseries(start_dt, end_dt, analysis_incr)
     # Loop through all analysis times
-    this_dt = start_dt
-    while this_dt <= end_dt:
+    for this_dt in datetime_list:
 
         it = this_dt.strftime('%Y%m%dT%H%MZ')
 
@@ -1129,6 +1148,8 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
                 os.remove(queryfn)
                 # os.remove(tmpfile)
                 print('moo select failed for ' + it + ' ; stash: ' + str(stash))
+                this_dt += dt.timedelta(hours=analysis_incr)
+                continue
 
         elif os.path.isfile(ofile):
             ofilelist.append(ofile)
@@ -1163,8 +1184,6 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
             except:
                 print('No model data for ' + it)
 
-        this_dt += dt.timedelta(hours=analysis_incr)
-
     if returncube:
         # Possibly throw in a merge or concatenate_cube here ...
         ocube = ocubes.merge_cube()
@@ -1173,18 +1192,80 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
         return (ofilelist)
 
 
-def selectModelDataFromMASS(init_times, stash, odir=None, domain='SEAsia', plotdomain=None, lbproc=None, lblev=None, choice='newest',
-                            searchtxt=None, returncube=False, overwrite=False):
+def make_query_file(nowstamp, stash, proc, massfilename, lblev=None):
+    # Create a query template
+    queryfn = 'query' + nowstamp
+    queryfile = open(queryfn, 'w')
+    queryfile.write('begin\n')
+    queryfile.write('  stash='+str(stash)+'\n')
+    queryfile.write('  lbproc=' + str(proc) + '\n')
+    if lblev:
+        queryfile.write('  lblev=(' + ','.join([str(lev) for lev in lblev]) + ')\n')
+    queryfile.write('  pp_file=\''+massfilename+'\'\n')
+    queryfile.write('end\n')
+    queryfile.close()
+
+    return queryfn
+
+
+def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
+
+    # Now do the moo select
+    print('Extracting from MASS to: ', ofile)
+
+    tmpfile = os.path.dirname(ofile) + '/tmp' + nowstamp + '.pp'
+    not_archived = ofile.replace('.nc', '.notarchived')
+
+    if os.path.isfile(ofile):
+        os.remove(ofile)
+
+    attempts = 0
+    while (not os.path.isfile(ofile)) and (not os.path.isfile(not_archived)) and (attempts < 3):
+
+        try:
+            getresult = subprocess.run(['moo', 'select', '-q', '-f', '-C', queryfn, collection, tmpfile], stdout=subprocess.DEVNULL)
+        except:
+            attempts += 1
+            continue
+
+        if getresult.returncode == 0:
+            try:
+                cube = iris.load_cube(tmpfile)
+                iris.save(cube, ofile) #, zlib=True)
+            except:
+                attempts += 1
+                continue
+        elif getresult.returncode == 2:
+            print('Attempt: ' + str(attempts) + '. No file atoms are matched by query text file')
+        else:
+            print('Subprocess returned an exit code that I\'ve not considered yet')
+
+        attempts += 1
+
+    if os.path.isfile(ofile):
+        ofilelist.append(ofile)
+    else:
+        open(not_archived, 'a').close()
+
+    os.remove(queryfn)
+    if os.path.isfile(tmpfile):
+        os.remove(tmpfile)
+
+    return ofilelist
+
+
+def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdomain=None, lbproc=None, lblev=False, choice='newest', searchtxt=None, returncube=False, overwrite=False):
+
     '''
     *** This function only works inside the Met Office (UKMO) ***
     For a list of initialisation times, get the relevant model data from MASS
     :param init_times: list of datetimes. Initialisation times as output by the getInitTimes function
     :param stash: integer. Code for the variable that we want to extract (only takes one at a time)
     :param odir: string. Better to leave this set to None so the default is used. Output directory for the data minus jobid.
-    :param domain: string. Either 'SEAsia', 'Africa', or 'global'. Used only to retrieve the correct jobid (not for spatial subsetting)
+    :param domain: string. Either 'SEAsia', 'Africa', or 'Global'. Used only to retrieve the correct jobid (not for spatial subsetting)
     :param plotdomain: list of floats. Contains [xmin, ymin, xmax, ymax]. Used only to determine the available models within a jobid
     :param lbproc: integer. Normally either 0 (instantaneous) or 128 (time averaged)
-    :param lblev: list of integers or floats. Pressure levels to select from the data
+    :param lblev: Either True, False or a list of levels. Best to get all relevant levels, then subset, so set to True
     :param choice: string. Choose from ['newest', 'most_common', 'first']. Indicates how to select the jobid when more
             than one exists in the list. Default is 'newest'
     :param searchtxt: string (or list). Allows you to subset the list of available model_ids. Most likely options:
@@ -1216,11 +1297,15 @@ def selectModelDataFromMASS(init_times, stash, odir=None, domain='SEAsia', plotd
 
     odir = pathlib.PurePath(odir,jobid).as_posix()
 
-    print('Getting model data for ',domain,'; jobid: ',jobid,' .... ')
-    print('   ... Saving to: ',odir)
+    # print('Getting model data for ',domain,'; jobid: ',jobid,' .... ')
+    # print('   ... Saving to: ',odir)
 
     if not pathlib.Path(odir).is_dir():
         pathlib.Path(odir).mkdir(parents=True)
+
+    # Set lblevs if not already done so
+    if lblev:
+        lblev = [10, 15, 20, 30, 50, 70, 100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 450, 500, 600, 700, 750, 850, 900, 925, 950, 1000]
 
     if returncube:
         ocubes = iris.cube.CubeList([])
@@ -1244,10 +1329,9 @@ def selectModelDataFromMASS(init_times, stash, odir=None, domain='SEAsia', plotd
             it = it_dt.strftime('%Y%m%dT%H%MZ')
             print(it, thismodel, sep=': ')
 
-            # TODO: Check that this is not needed. The function 'getPrecipStash' should probably be run in the controlling script, so that this script just takes stash code and model_id
             # Make sure we get the correct stash code for precip depending on the model
-            # if str(stash) in ['4201', '4203', '5216', '5226']:
-            #     stash = getPrecipStash(thismodel, type='short')
+            if str(stash) in ['4201', '4203', '5216', '5226']:
+                stash = getPrecipStash(thismodel, type='short')
 
             if jobid == 'opfc':
                 # Replace collection path with correct year
@@ -1273,47 +1357,23 @@ def selectModelDataFromMASS(init_times, stash, odir=None, domain='SEAsia', plotd
             for proc in lbproc:
                 nowstamp = dt.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
                 ofile = pathlib.PurePath(odir, it + '_' + thismodel + '_' + str(stash) + '_' + str(proc) + '.nc').as_posix()
-                tmpfile = os.path.dirname(ofile) + '/tmp'+nowstamp+'.pp'
-                defo_notonmass = os.path.isfile(ofile.replace('.nc', '.notonmass'))
 
-                # if ( not os.path.isfile(ofile) and not defo_notonmass ) or overwrite:
-                if (not os.path.isfile(ofile)) or overwrite:
-
-                    # Create a query template
-                    queryfn = 'query' + nowstamp
-                    queryfile = open(queryfn, 'w')
-                    queryfile.write('begin\n')
-                    queryfile.write('  stash='+str(stash)+'\n')
-                    queryfile.write('  lbproc=' + str(proc) + '\n')
-                    if lblev:
-                        queryfile.write('  lblev=(' + ','.join([str(lev) for lev in lblev]) + ')\n')
-                    queryfile.write('  pp_file=\''+massfilename+'\'\n')
-                    queryfile.write('end\n')
-                    queryfile.close()
-
+                if os.path.isfile(ofile):
                     try:
-                        # Now do the moo select
-                        print('Extracting from MASS: ', it, '; stash: ', str(stash), '; lbproc: ', str(proc))
-                        getresult = subprocess.check_output(['moo', 'select', '-q', '-f', '-C', queryfn, collection, tmpfile])
-                        cube = iris.load_cube(tmpfile)
-                        iris.save(cube, ofile, zlib=True)
+                        # If it is a file, make sure we can open it ...
+                        test = iris.load_cube(ofile)
+                        test = None
+                        print(it + ': File already exists on disk')
                         ofilelist.append(ofile)
-                        os.remove(queryfn)
-                        os.remove(tmpfile)
-
-                        if defo_notonmass:
-                            os.remove(ofile.replace('.nc', '.notonmass'))
                     except:
-                        # open(ofile.replace('.nc', '.notonmass'), 'a').close()
-                        # pdb.set_trace()
-                        os.remove(queryfn)
-                        print('moo select failed for ' + it + ' ; stash: '+str(stash))
-                elif os.path.isfile(ofile):
-                    ofilelist.append(ofile)
-                    print(ofile)
-                    print(it + ': File already exists on disk')
+                        queryfn = make_query_file(nowstamp, stash, proc, massfilename, lblev=None)
+                        ofilelist = run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist)
+                elif (not os.path.isfile(ofile)) or overwrite:
+                    queryfn = make_query_file(nowstamp, stash, proc, massfilename, lblev=None)
+                    ofilelist = run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist)
+
                 else:
-                    print(it + ': Something else went wrong ... probably should check what' )
+                    print(it + ': Something else went wrong ... probably should check what')
 
                 if returncube and os.path.isfile(ofile):
                     # Try to load the data and return a cube or cubelist
@@ -1323,15 +1383,18 @@ def selectModelDataFromMASS(init_times, stash, odir=None, domain='SEAsia', plotd
                     except:
                         continue
 
-                    if lbproc == 0:
-                        bndpos = 0.5
-                    else:
-                        bndpos = 1
+                    try:
+                        if lbproc == 0:
+                            bndpos = 0.5
+                        else:
+                            bndpos = 1
 
-                    if not cube.coord('time').has_bounds():
-                        cube.coord('time').guess_bounds(bound_position=bndpos)
-                    if not cube.coord('forecast_period').has_bounds():
-                        cube.coord('forecast_period').guess_bounds(bound_position=bndpos)
+                        if not cube.coord('time').has_bounds():
+                            cube.coord('time').guess_bounds(bound_position=bndpos)
+                        if not cube.coord('forecast_period').has_bounds():
+                            cube.coord('forecast_period').guess_bounds(bound_position=bndpos)
+                    except:
+                        continue
 
                     # If Convert units to mm per hour
                     try:
@@ -1712,33 +1775,103 @@ def plot_compare(cube1, cube2, filename=None):
         fig.savefig(filename, bbox_inches='tight')
         plt.close(fig)
 
+def make_nice_filename(file):
+    '''
+    Interprets a standard filename, and replaces stash and lbproc codes with nice text
+    :param file: filename formatted e.g. 20200519T0300Z_analysis_3225_0.nc
+    :return: filename with text instead of numbers e.g. 20200519T0300Z_analysis_Uwind10m_inst.nc
+    '''
 
-def send_to_ftp(filelist, ftp_path, settings):
+    # Replaces the stash code with a nice name if it is in the stash code file
+    stashdf = get_default_stash_proc_codes()
+
+    # Tries to read the stash and lbproc code from the filename
+    filestash = os.path.basename(file).split('_')[-2]
+    fileproc = os.path.basename(file).split('_')[-1].replace('.nc', '')
+
+    try:
+        record = stashdf[(stashdf['stash'] == int(filestash)) & (stashdf['lbproc'] == int(fileproc))]
+        file_nice = file.replace(
+                            filestash + '_' + fileproc,
+                            record['name'].to_string(index=False).lstrip(' ') + '_' + lbproc_LUT(int(fileproc))
+                            )
+    except:
+        file_nice = file
+
+    return file_nice
+
+
+def send_to_ftp(filelist, ftp_path, settings, removeold=False):
     '''
     *** This function only works inside the Met Office (UKMO) ***
-    Sends a list of local files to the ftp site, replacing the stash code with a nice name if possible
+    Sends a list of local files to the ftp site, replacing the stash and lbproc codes with a nice name if possible
     :param filelist: list of local files
-    :param ftp_path: folder on the ftp site
+    :param ftp_path: folder on the ftp site (e.g. /)
+    :param settings: dictionary read from the .config file
+    :param removeold: boolean. If True, if a file on the ftp is not in the filelist, then delete it
     :return: print statements to show success or failure
     '''
 
     ftp_details = ['doftp', '-host', settings['ukmo_ftp_url'], '-user', settings['ukmo_ftp_user'], '-pass', settings['ukmo_ftp_pass']]
     stashdf = get_default_stash_proc_codes()
 
+    dircheck = ftp_details.copy()
+    dircheck.extend(['-mkdir', ftp_path])
+    subprocess.run(dircheck)
+
+    ftpfilecheck = ftp_details.copy()
+    ftpfilecheck.extend(['-ls', ftp_path])
+    result = subprocess.check_output(ftpfilecheck)
+    ftpfilelist = str(result).lstrip('\'b').rstrip('\\n\\n\'').split('\\n')
+
+    if removeold:
+        # TODO Make sure that this only deletes files outside the daterange of filelist (and only for this model/stash/lbproc)
+        infiles = [os.path.basename(make_nice_filename(fn)) for fn in filelist]
+        # For testing
+        infiles = ['20200608T0000Z_analysis_Uwind10m_inst.nc', '20200608T0600Z_analysis_Uwind10m_inst.nc',
+         '20200608T1200Z_analysis_Uwind10m_inst.nc', '20200608T1800Z_analysis_Uwind10m_inst.nc',
+         '20200609T0000Z_analysis_Uwind10m_inst.nc', '20200609T0600Z_analysis_Uwind10m_inst.nc',
+         '20200609T1200Z_analysis_Uwind10m_inst.nc', '20200609T1800Z_analysis_Uwind10m_inst.nc',
+         '20200610T0000Z_analysis_Uwind10m_inst.nc', '20200610T0600Z_analysis_Uwind10m_inst.nc',
+         '20200610T1200Z_analysis_Uwind10m_inst.nc', '20200610T1800Z_analysis_Uwind10m_inst.nc',
+         '20200611T0000Z_analysis_Uwind10m_inst.nc', '20200611T0600Z_analysis_Uwind10m_inst.nc',
+         '20200611T1200Z_analysis_Uwind10m_inst.nc', '20200611T1800Z_analysis_Uwind10m_inst.nc',
+         '20200612T0000Z_analysis_Uwind10m_inst.nc', '20200612T0600Z_analysis_Uwind10m_inst.nc',
+         '20200612T1200Z_analysis_Uwind10m_inst.nc']
+        ftpfilelist = ['/WCSSP/SEAsia/RealTime/20200607T0000Z_analysis_Vwind10m_inst.nc', '/WCSSP/SEAsia/RealTime/20200607T0000Z_analysis_Uwind10m_inst.nc', '/WCSSP/SEAsia/RealTime/20200608T0000Z_analysis_Uwind10m_inst.nc']
+        ftpfilelist = ['']
+
+        # Gets just the dates in the list of files to upload
+        filedates = [fn.split('_')[0] for fn in infiles]
+
+        # Gets just the model_stash_lbproc string from the list of files to upload
+        modstashproc = list(set([fn[1+fn.find('_', 1):].rstrip('.nc') for fn in infiles]))
+
+        # From the list of files on the ftp, this subsets according to the ones that match modstashproc
+        ftpfiles_modstpr = [x for x in ftpfilelist if x[1+x.find('_', 1):].rstrip('.nc') in modstashproc]
+
+        # From the modstashproc files that are on the ftp (ftpfiles_modstpr), which ones don't have dates in filedates?
+        ftpfiles_todelete = [x for x in ftpfiles_modstpr if not os.path.basename(x).split('_')[0] in filedates]
+
+        for ftpfile in ftpfiles_todelete:
+            print('Removing ' + os.path.basename(ftpfile))
+            ftpfiledel = ftp_details.copy()
+            ftpfiledel.extend(['-delete', ftpfile])
+            subprocess.check_output(ftpfiledel)
+
     for file in filelist:
-        # Replaces the stash code with a nice name if it is in the stash code file
-        file_nice = [file.replace(str(x.stash), x.name) if int(os.path.basename(file).split('_')[-2]) == x.stash else file for x in stashdf.itertuples()]
-        ftpfilecheck = ftp_details.copy()
-        ftpfilecheck.extend(['-ls', ftp_path])
-        result = subprocess.check_output(ftpfilecheck)
+
+        file_nice = make_nice_filename(file)
+
         if not os.path.basename(file_nice) in str(result):
             print('Sending ', file_nice)
             these_ftp_details = ftp_details.copy()
             try:
-                these_ftp_details.extend(['-cwd', '/' + ftp_path, '-put', file + '=' + file_nice])
+                these_ftp_details.extend(['-cwd', ftp_path, '-put', file + '=' + os.path.basename(file_nice)])
                 subprocess.check_output(these_ftp_details)
             except:
                 print(these_ftp_details, sep=' ')
+                # pdb.set_trace()
                 print('There was a problem sending', file_nice, 'to the FTP site')
         else:
             print(file_nice, 'already exists on FTP site')
