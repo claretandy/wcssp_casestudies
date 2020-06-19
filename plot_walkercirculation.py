@@ -1,6 +1,9 @@
+import os, sys
 import location_config as config
+import std_functions as sf
 import iris
 import downloadUM as dum
+import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import iris.plot as iplt
@@ -8,6 +11,7 @@ import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import matplotlib.ticker as mticker
 import numpy as np
+import pdb
 
 def getHorizontalData(u, v, equator=(-30,30), plev=850):
 
@@ -61,11 +65,18 @@ def getLandFraction(equator):
 
     return leq3
 
-def plot_walker(u, v, ofile):
+def plot_walker(u, v, w, ofile):
 
-    equator = (-5, 5)
-    leq3 = getLandFraction(equator)
-    Y, X, U, V, lw, ueq2 = getHovmollerData(u,v, equator=equator)
+    # Check the directory of ofile exists
+    if not os.path.isdir(os.path.dirname(ofile)):
+        os.makedirs(os.path.dirname(ofile))
+
+    # Retrieve the datetime from the ofile name so that we can make a title
+    this_dt = dt.datetime.strptime(os.path.basename(ofile).split('_')[0], '%Y%m%dT%H%MZ')
+
+    os.path.basename(ofile)
+    leq3 = getLandFraction((-5, 5))
+    Y, X, U, V, lw, ueq2 = getHovmollerData(u,v, equator=(-5, 5))
     Yh, Xh, Uh, Vh, lwh, spdh = getHorizontalData(u, v, equator=(-30,30))
 
     x_tick_labels = [u'0\N{DEGREE SIGN}E', u'30\N{DEGREE SIGN}E', u'60\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
@@ -73,17 +84,23 @@ def plot_walker(u, v, ofile):
                      u'120\N{DEGREE SIGN}W', u'90\N{DEGREE SIGN}W', u'60\N{DEGREE SIGN}W', u'30\N{DEGREE SIGN}W',
                      u'0\N{DEGREE SIGN}W']
 
-    fig = plt.figure(figsize=(15, 7)) # width, height
+    fig = plt.figure(figsize=(15, 9)) # width, height
+    # plt.figtext(x=0.98, y=0.96, s='Valid: ' + this_dt.strftime('%H%MUTC on %d %b %Y'), figure=fig, fontsize=16, ha='right', color='gray')
+    fig.suptitle('Valid: ' + this_dt.strftime('%H%MUTC on %d %b %Y'), fontsize=14, x=0.82, ha='right', color='gray')
+    plt.figtext(x=0.08, y=0.965, s='Data source: Operational UM analysis (T+0)', fontsize=14, ha='left')
+
     gs = gridspec.GridSpec(nrows=3, ncols=1, height_ratios=[5,3,0.5])
     crs = ccrs.PlateCarree()
 
     # Hovmoller of vertical profile along the tropics
     ax1 = fig.add_subplot(gs[0])
+    ax1.set_title('Zonal Wind (+Westerly, -Easterly)')
+
     uplot = ax1.contourf(X, Y, ueq2.data, cmap='RdBu_r', levels=np.arange(-15, 17, 2), extend='both')
     ax1.streamplot(X, Y, U, V, density=(1.2, 1.2), color='k', linewidth=lw)
-    ax1.set_ylim((1000,100))
+    ax1.set_ylim((1000, 100))
     ax1.set_ylabel('Pressure Levels (hPa)')
-    ax1.set_title('Zonal Wind (+Westerly, -Easterly)')
+
     ax1.set_xticks(np.arange(0, 390, 30))
     ax1.set_xticklabels(x_tick_labels)
     ax1.tick_params(axis='both', labelsize=8)
@@ -144,23 +161,96 @@ def plot_walker(u, v, ofile):
     plt.close(fig)
 
 
-def main(start, end, model_id, organisation):
+def main(start, end, model_ids, event_name, organisation):
     '''
     Runs code to plot the large scale tropical circulation using the UM analysis
-    :param start:
-    :param end:
-    :param model_id:
-    :param organisation:
-    :return:
+    :param start: datetime. Event start
+    :param end: datetime. Event end
+    :param model_ids: list. Could include 'analysis' or 'opfc'
+    :param event_name: string. e.g. 'monitoring/realtime'
+    :param organisation: 'UKMO' or other
+    :return: png files in the plot directory for the event_name
     '''
 
     settings = config.load_location_settings(organisation)
 
-    # Get data
-    u = iris.load_cube('/scratch/hadhy/ModelData/um_analysis/20200613T1200Z_analysis_15201_0.nc')
-    v = iris.load_cube('/scratch/hadhy/ModelData/um_analysis/20200613T1200Z_analysis_15202_0.nc')
-    w = iris.load_cube('/scratch/hadhy/ModelData/um_analysis/20200613T1200Z_analysis_15242_0.nc')
+    analysis_incr = 6
 
-    plot_walker(u, v, ofile)
+    for model_id in model_ids:
+        # TODO This only works in the Met Office with analysis data at the moment, so I'll need to replace this with something like:
+        # dum.loadUM
+        if model_id == 'analysis':
+            u_files = sf.selectAnalysisDataFromMass(start, end, 15201, lbproc=0, lblev=True)
+            v_files = sf.selectAnalysisDataFromMass(start, end, 15202, lbproc=0, lblev=True)
+            w_files = sf.selectAnalysisDataFromMass(start, end, 15242, lbproc=0, lblev=True)
+        else:
+            # This will only work for the global operational forecast (model_id = 'opfc')
+            init_times = sf.getInitTimes(start, end, 'Global', model_id=model_id)
+            u_files = sf.selectModelDataFromMASS(init_times, 15201, lbproc=0, lblev=True, plotdomain=[-180,-90,180,90], searchtxt=model_id)
+            v_files = sf.selectModelDataFromMASS(init_times, 15202, lbproc=0, lblev=True, plotdomain=[-180, -90, 180, 90], searchtxt=model_id)
+            w_files = sf.selectModelDataFromMASS(init_times, 15242, lbproc=0, lblev=True, plotdomain=[-180, -90, 180, 90], searchtxt=model_id)
 
-    # dum.loadUM(start, end, 'analysis')
+        analysis_datetimes = sf.make_timeseries(start, end, analysis_incr)
+
+        for this_dt in analysis_datetimes:
+
+            # Format this datetime
+            this_dt_fmt = this_dt.strftime('%Y%m%dT%H%MZ')
+
+            # Set the output file
+            ofile = settings['plot_dir'] + event_name + '/walker_tropics/' + this_dt_fmt + '_' + model_id + '_walker.png'
+
+            # Subset filelists for this_dt
+            try:
+                u_file, = [fn for fn in u_files if this_dt_fmt in fn]
+                v_file, = [fn for fn in v_files if this_dt_fmt in fn]
+                w_file, = [fn for fn in w_files if this_dt_fmt in fn]
+            except:
+                continue
+
+            # Make sure we have files for each variable, if we do, then load them and run the plotting code
+            if u_file and v_file and w_file:
+                print('Walker Circulation plotting:',this_dt_fmt)
+                u = iris.load_cube(u_file)
+                v = iris.load_cube(v_file)
+                w = iris.load_cube(w_file)
+
+                try:
+                    plot_walker(u, v, w, ofile)
+                except:
+                    continue
+
+
+if __name__ == '__main__':
+
+    try:
+        start = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
+    except:
+        # For testing
+        start = dt.datetime.utcnow() - dt.timedelta(days=1)
+
+    try:
+        end = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
+    except:
+        # For testing
+        end = dt.datetime.utcnow()
+
+    try:
+        model_ids = sys.argv[3]
+        model_ids = [x for x in model_ids.split(',')]
+    except:
+        # For testing (global domain because we're looking at the global context of a particular case study)
+        model_ids = ['analysis']
+
+    try:
+        event_name = sys.argv[4]
+    except:
+        # For testing
+        event_name = 'monitoring/realtime'
+
+    try:
+        organisation = sys.argv[5]
+    except:
+        organisation = 'UKMO'
+
+    main(start, end, model_ids, event_name, organisation)

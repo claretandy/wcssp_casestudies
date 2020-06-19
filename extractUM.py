@@ -30,7 +30,7 @@ def spatial_temporal_subset(start, end, filelist, bboxes, event_name, row, setti
     odir = settings['um_path'] + 'CaseStudyData/' + event_name
     if not os.path.isdir(odir):
         os.makedirs(odir)
-    # stashdf = sf.get_default_stash_proc_codes()
+
     ofilelist = []
 
     for file in filelist:
@@ -39,19 +39,17 @@ def spatial_temporal_subset(start, end, filelist, bboxes, event_name, row, setti
         fileproc = os.path.basename(file).split('_')[-1].replace('.nc', '')
 
         file_nice = file.replace(filestash+'_'+fileproc, row.name+'_'+sf.lbproc_LUT(int(fileproc)))
-        # file_nice = file.replace(str(filestash), stashdf[stashdf.stash == int(filestash)]['name'].to_list()[0]) if filestash in stashdf.stash.to_list() else file
         ofile_base = odir + '/' + os.path.basename(file_nice)
 
         icube = iris.load_cube(file)
 
         # Loop through the dictionary of regions.
-        # bboxes has 2 keys (region and event), both of which either contain a list of bbox coordinates or None
+        # bboxes has 3 keys (tropics, region and event), which either contain a list of bbox coordinates or None
         # If the item contains coordinates, that means we want to subset it
         for k, val in bboxes.items():
             cube = icube.copy()
-            ofile = ofile_base
+            ofile = ofile_base.replace('.nc', '_' + k + '.nc')
             if k == 'region' and val:
-                ofile = ofile.replace('.nc', '_full-domain.nc')
                 if row.levels:
                     cube = cube.extract(iris.Constraint(pressure=[925., 850., 700., 500., 200.]))
             try:
@@ -66,29 +64,48 @@ def spatial_temporal_subset(start, end, filelist, bboxes, event_name, row, setti
 
     return ofilelist
 
-def domain_size_decider(row, model_id, regbbox, event_domain, event_name):
+def domain_size_decider(row, model_id, regbbox, eventbbox, event_name):
     '''
-    Decides, using the stashdf row, whether we are subsetting using the event_domain and/or the regional bounding box
+    Decides, using the stashdf row (from std_stashcodes.csv), whether we are subsetting using the event_domain, the
+    regional bounding box or the global tropics
     :param row: pandas Series. A subset taken from sf.get_default_stash_proc_codes
     :param model_id: string. The model identifier. Could be anyone of 'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5',
             'phikm1p5', 'global_prods' (global operational), 'africa_prods' (africa operational)
     :param regbbox: list of floats. Bounding box of the (larger) regional domain. Contains [xmin, ymin, xmax, ymax]
-    :param event_domain: list of floats. Bounding box of the (smaller) event domain. Contains [xmin, ymin, xmax, ymax]
+    :param eventbbox: list of floats. Bounding box of the (smaller) event domain. Contains [xmin, ymin, xmax, ymax]
     :return: dictionary of domains to use for subsetting. If a domain is set to None, then it is not used for this
             stash code / region combination
     '''
 
+    # Models that have a full global coverage
+    global_models = ['analysis', 'global_prods', 'opfc']
+    # Models that are likely to have a full regional coverage
     regional_models = ['analysis', 'ga6', 'ga7', 'km4p4', 'global_prods', 'africa_prods', 'opfc']
+    # No point sharing global data not in the tropics, and this reduces the data size by 2/3
+    tropicsbbox = [-180, -30, 180, 30]
 
-    if row.share_list and event_name == 'RealTime':
-        return {'region': None, 'event': regbbox}
+    if row.share_list:
 
-    if row.share_region and model_id in regional_models:
-        reg = regbbox
-    else:
-        reg = None
+        if event_name == 'RealTime':
+            '''
+            If the event_name is 'RealTime', then we export the regional domain, but only leave the data on the
+            FTP for a limited time
+            '''
+            tropics = tropicsbbox if row.share_tropics and model_id in global_models else None
+            region = regbbox if model_id in regional_models else None
+            event = None
 
-    return {'region': reg, 'event': event_domain}
+        else:
+            '''
+            If the event_name is not 'RealTime', then we assume it is an event.
+            The logic below will lead to some duplication, but I think this is acceptable because it reduces 
+            complexity in the plotting scripts
+            '''
+            tropics = tropicsbbox if row.share_tropics and model_id in global_models else None
+            region = regbbox if row.share_region and model_id in regional_models else None
+            event = eventbbox
+
+    return {'tropics': tropics, 'region': region, 'event': event}
 
 
 def main(start, end, event_domain, event_name):

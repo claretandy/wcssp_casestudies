@@ -99,7 +99,7 @@ def getModels_bybox(plotdomain, reg=None):
     return {"domain" : domain, "model_list": model_list}
 
 
-def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
+def  getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
     # Prefered method here ...
     # Provide a date, and return either the newest OR the oldest running model_id
     # NB: Update this when new model versions are run

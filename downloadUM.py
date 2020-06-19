@@ -8,22 +8,26 @@ import glob
 import iris
 import pdb
 
-def get_ftp_flist(model_id, event_name, settings):
+def get_ftp_flist(domain, event_name, settings):
     '''
     What files are currently on the ftp site for this event_name?
-    :param model_id: Can be any from the following ['analysis', 'ga6', 'ga7', 'km4p4', 'km1p5', 'all']
+    :param domain: string. Either 'SEAsia' or 'Africa'
     :param event_name: string. Either 'RealTime' or '<region>/<datetime>_<event_name>'
     :param settings: dictionary of settings defined by the config file
     :return: list of filenames on the ftp site for this event_name
     '''
 
     if event_name == 'RealTime':
-        path = '/SEAsia/RealTime'
+        path = '/'+domain+'/RealTime/'
     else:
-        path = '/SEAsia/CaseStudyData/'
+        path = '/'+domain+'/CaseStudyData/' + event_name
 
     ftp = FTP(settings['ukmo_ftp_url'], settings['ukmo_ftp_user'], settings['ukmo_ftp_pass'])
-    ftp.cwd(path)
+    try:
+        ftp.cwd(path)
+    except:
+        # If logged in as Andy, there is another directory above path ..
+        ftp.cwd('WCSSP/' + path)
     flist = ftp.nlst()
 
     return flist
@@ -122,6 +126,7 @@ def expand_start_end(start_dt, end_dt, model_id):
 
 
 def getVarList(model_id):
+    # TODO check if this is needed
     '''
     Gets the variables that are known to exist for a given model_id
     :param model_id: string; can be either ['analysis', 'ga7', 'km4p4', 'km1p5']
@@ -176,7 +181,7 @@ def stashLUT(sc, style='short'):
                         (sc.lower() in val['alt1'].lower()) ])
 
 
-def getUM_FileList(start, end, model_id, event_name, settings):
+def getUM_FileList(start, end, bbox, model_id, event_name, settings):
     '''
     Gets the UM data either from a local directory or from the FTP.
     It should be possible to run this code in real time to download from the UKMO FTP site, or
@@ -184,6 +189,7 @@ def getUM_FileList(start, end, model_id, event_name, settings):
     This script should also cover analysis and forecast model data.
     :param start: datetime object for the start of the event
     :param end: datetime object for the end of the event
+    :param bbox: list of 4 floats. Bounding box of the area of interest [xmin, ymin, xmax, ymax]
     :param model_id: choose from [analysis|ga7|km4p4|km1p5]
     :param event_name: string. Either 'realtime' or '<region>/<datetime>_<event_name>'
     :param settings: local settings
@@ -193,12 +199,14 @@ def getUM_FileList(start, end, model_id, event_name, settings):
     if model_id == 'analysis':
         incr = 6 # Hours
         start1, end1 = expand_start_end(start, end, model_id)
-        init_times = get_analysis_times(start1, end1, incr)
+        init_times = sf.make_timeseries(start1, end1, incr)
     else:
         init_times = sf.getInitTimes(start, end, 'SEAsia', model_id, sf.get_fc_length(model_id), [0,12])
 
+    domain = sf.getDomain_bybox(bbox)
+
     # Get full FTP file list
-    flist = get_ftp_flist(model_id, event_name, settings)
+    flist = get_ftp_flist(event_name, settings)
 
     # Subset to match this model_id
     flist = [fl for fl in flist if model_id in fl]
@@ -217,7 +225,7 @@ def getUM_FileList(start, end, model_id, event_name, settings):
         return 'No files on the FTP available for ' + model_id + ' for period ' + start.strftime('%Y-%m-%d %H:%M') + ' to ' + end.strftime('%Y-%m-%d %H:%M')
 
 
-def loadUM(start, end, model_id, bbox, event_name, settings, var='all', timeclip=True):
+def loadUM(start, end, model_id, bbox, event_name, settings, var='all', checkftp=True, timeclip=True):
     '''
     Loads all the available UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
@@ -229,12 +237,14 @@ def loadUM(start, end, model_id, bbox, event_name, settings, var='all', timeclip
     :param settings: settings from the config file
     :param var: Either not specified (i.e. 'all') or a string or a list of strings that matches names in
             sf.get_default_stash_proc_codes()['name']
+    :param checkftp: boolean. If True, the script will check on the ftp site for files not currently in the local
+            filelist
     :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
             If False, it returns the full cube
     :return: Cubelist of all variables and init_times
     '''
 
-    full_file_list = getUM_FileList(start, end, model_id, event_name, settings)
+    full_file_list = getUM_FileList(start, end, bbox, model_id, event_name, settings)
     file_vars = list(set([os.path.basename(fn).split('_')[-2] for fn in full_file_list]))
 
     if isinstance(var, str):
@@ -269,6 +279,14 @@ def loadUM(start, end, model_id, bbox, event_name, settings, var='all', timeclip
     else:
         return cube_dict
 
+def get_local_path(event_name, model_id, settings):
+
+    if event_name == 'RealTime':
+        local_path = settings['um_path'] + 'RealTime' + model_id + '/'
+    else:
+        local_path = settings['um_path'] + 'CaseStudyData/' + event_name + '/'
+
+    return local_path
 
 def checkUM_availability(start, end, model_id, event_name, settings, var='all'):
     '''
@@ -287,13 +305,13 @@ def checkUM_availability(start, end, model_id, event_name, settings, var='all'):
     if model_id == 'analysis':
         incr = 6 # Hours
         start1, end1 = expand_start_end(start, end, model_id)
-        init_times = get_analysis_times(start1, end1, incr)
+        init_times = sf.make_timeseries(start1, end1, incr)
     else:
         init_times = sf.getInitTimes(start, end, 'SEAsia', model_id, sf.get_fc_length(model_id), [0,12])
 
     # FTP files ....
     # Get FTP file list
-    flist = get_ftp_flist(model_id, event_name, settings)
+    flist = get_ftp_flist(event_name, settings)
     # Subset to match this model_id
     flist = [fl for fl in flist if model_id in fl]
     # Subset to match init_times
@@ -304,7 +322,7 @@ def checkUM_availability(start, end, model_id, event_name, settings, var='all'):
 
     # Local files ...
     #  Get local file list
-    local_path = settings['um_path'] + model_id + '/'
+    local_path = get_local_path(event_name, model_id, settings)
     flist_local = [x for it in init_times for x in glob.glob(local_path + it.strftime('%Y%m') + '/' + it.strftime('%Y%m%dT%H%MZ') + '*')]
 
     ftp_files = []
@@ -376,7 +394,7 @@ def checkUM_availability(start, end, model_id, event_name, settings, var='all'):
 
 def get_full_model_id(model_id):
 
-    # TODO : Check km1p5 name
+    # TODO : Check if this function is needed
     mod_dict = {
         'analysis' : 'analysis',
         'ga7' : 'SEA5_n1280_ga7',
@@ -387,7 +405,7 @@ def get_full_model_id(model_id):
     return mod_dict[model_id]
 
 def main(start, end, organisation):
-    # Do some downloading
+
     settings = config.load_location_settings(organisation)
 
     modelcheck = ['analysis', 'ga7', 'km4p4', 'km1p5']
