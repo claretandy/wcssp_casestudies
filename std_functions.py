@@ -196,7 +196,10 @@ def make_timeseries(start, end, freq):
     :param freq: int (hours).
     :return: list of datetimes
     '''
+    # Set the empty list to return
     outlist = []
+
+    # Retrieve the end point
     hrs = np.arange(0,24,freq)
     for iday in [end - dt.timedelta(days=1), end]:
         for ih in hrs:
@@ -204,10 +207,12 @@ def make_timeseries(start, end, freq):
             if pi <= end:
                 thisdt = pi
 
+    # Looping backwards, get all the datetimes greater than or equal to the specified start
     while thisdt >= start:
         outlist.append(thisdt)
         thisdt -= dt.timedelta(hours=freq)
 
+    # Return a sorted list
     return sorted(outlist)
 
 def periodConstraint(cube, t1, t2):
@@ -752,7 +757,7 @@ def myround(x, base=3):
 def myroundup(x, base=3):
     return int(base * np.ceil(float(x)/base))
 
-def lbproc_LUT(lbproc, type='short'):
+def lut_lbproc(lbproc, type='short'):
     '''
     What does the lbproc code mean?
     :param lbproc: integer. Either 0, 128, 4096 or 8192
@@ -768,6 +773,38 @@ def lbproc_LUT(lbproc, type='short'):
     }
 
     return lut[lbproc][type]
+
+def lut_stash(sc, type='short'):
+    '''
+    Gets either the long or short description of the stash code
+    :param sc: integer. Must relate to an item in the file std_stashcodes.csv
+    :param style: string. Can be either 'short' or 'long'
+    :return: either a string of the stash code name, or a list of matching stash codes
+    '''
+
+    stashcodes = get_default_stash_proc_codes(list_type='long')
+    col = 'name' if type == 'short' else 'long_name'
+
+    if isinstance(sc, str):
+        sc = int(sc)
+
+    outname = stashcodes.loc[stashcodes.stash == sc][col]
+
+    return outname.to_string(index=False).lstrip(' ')
+
+    # May want to consider adding more functionality in the future, as below
+    # if sc == 'all':
+    #     return {'stash': stashcodes['stash'].to_list() , 'name': stashcodes[col].to_list()}
+    #     return dict([(stitems[0], val[style]) for val, stitems in zip(stashcodes.values(), stashcodes.items())])
+    #
+    # if isinstance(sc, int):
+    #     return dict([(sc, stashcodes[sc][style])])
+    #
+    # if isinstance(sc, str):
+    #     return dict([(stitems[0], val[style]) for val, stitems in zip(stashcodes.values(), stashcodes.items())
+    #                  if (sc.lower() in val['long'].lower()) or
+    #                     (sc.lower() in val['short'].lower()) or
+    #                     (sc.lower() in val['alt1'].lower()) ])
 
 
 def get_lbproc_by_stash(stash, jobid):
@@ -1475,10 +1512,17 @@ def compute_rh(q, t, p, es_eqtn='default'):
     # Saturation Vapour Pressure at the reference temperature (hPa)
     esT0 = 6.112
 
+    # First convert degrees to Kelvin (or check the input data was not Kelvin anyway)
+    if np.nanmin(t) > 100:
+        tk = t
+        t = t - T0
+    else:
+        tk = T0 + t
+
     # Saturation Vapour Pressure (hPa)
     # Lots of different ways of doing this, but they all seem to have fairly similar results.
     # In the end, I decided to use the WMO definition, but Clausius-Clapeyron worked just as well.
-    tk = 273.15 + t
+
     if es_eqtn == 'cc1':
         # Using Clausius-Clapeyron
         es = esT0 * np.exp(L/Rw * ((1 / T0) - (1/tk)))
@@ -1502,13 +1546,13 @@ def compute_rh(q, t, p, es_eqtn='default'):
 
     rh = 100 * e / es
     # pdb.set_trace()
-    if not isinstance(rh, np.ndarray) :
+    if not isinstance(rh, np.ndarray):
         rh = np.array(rh)
 
-    rh[rh > 100] = 100.0
-    rh[rh < 0] = 0.0
+    rh[rh > 100.] = 100.0
+    rh[rh <= 0] = 0.1
 
-    return np.round(rh, 1)
+    return np.round(rh, 2)
 
 def compute_td(rh, t):
     '''
@@ -1527,8 +1571,14 @@ def compute_td(rh, t):
     if isinstance(t, list):
         t = np.array(t)
 
+    if np.nanmin(t) > 100:
+        t = t - 273.15
+
     A1 = 17.625
     B1 = 243.04  # deg C
+
+    # Stop divide by zero errors
+    rh[rh <= 0.] = 0.01
 
     num = B1 * (np.log(rh / 100.) + A1 * t / (B1 + t))
     den = A1 - np.log(rh / 100.) - A1 * t / (B1 + t)
@@ -1558,12 +1608,13 @@ def compute_wdir(u, v):
     return wdir
 
 
-def compute_wspd(u, v):
+def compute_wspd(u, v, units='knots'):
     '''
     Calculate the wind speed given model u and v vectors
     As a reminder see http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv
     :param u: list or numpy array. U wind vector
     :param v: list or numpy array. V wind vector
+    :param units: string. 'knots' or 'm/s'
     :return: array of the same shape of wind speed
     '''
     if isinstance(u, list):
@@ -1572,7 +1623,14 @@ def compute_wspd(u, v):
     if isinstance(v, list):
         v = np.array(v)
 
-    return np.sqrt(u**2 + v**2)
+    if units == 'knots':
+        c = 1.943844
+    else:
+        c = 1
+
+    wspd = np.sqrt(u**2 + v**2) * c
+
+    return wspd
 
 
 def gpmLatencyDecider(inlatency, end_date):
@@ -1779,21 +1837,37 @@ def make_nice_filename(file):
     '''
     Interprets a standard filename, and replaces stash and lbproc codes with nice text
     :param file: filename formatted e.g. 20200519T0300Z_analysis_3225_0.nc
-    :return: filename with text instead of numbers e.g. 20200519T0300Z_analysis_Uwind10m_inst.nc
+    :return: filename with text instead of numbers
+            e.g. 20200519T0300Z_analysis_Uwind10m_inst.nc
+            e.g. 20200519T0300Z_SEA5-km4p4-ra2t_Uwind10m_inst.nc
     '''
 
     # Replaces the stash code with a nice name if it is in the stash code file
     stashdf = get_default_stash_proc_codes()
 
     # Tries to read the stash and lbproc code from the filename
-    filestash = os.path.basename(file).split('_')[-2]
-    fileproc = os.path.basename(file).split('_')[-1].replace('.nc', '')
+    filebn = os.path.basename(file)
+    datestr = filebn.split('_')[0]
+    # Sometimes, there might be a region name in the filename, sometimes not
+    # If there, it will be at the end of the filename e.g. _region.nc
+    # So, we need to check if the -1th value converts to an int
+    try:
+        fileproc = int(filebn.split('_')[-1].replace('.nc', ''))
+        fileprocloc = -1
+    except ValueError:
+        fileprocloc = -2
+
+    filestash = filebn.split('_')[fileprocloc - 1]
+    fileproc = filebn.split('_')[fileprocloc].replace('.nc', '')
+    model_id = filebn.split(datestr+'_')[1].split('_'+filestash)[0]
+    new_model_id = model_id.replace('_', '-')
+    file = file.replace(model_id, new_model_id)
 
     try:
         record = stashdf[(stashdf['stash'] == int(filestash)) & (stashdf['lbproc'] == int(fileproc))]
         file_nice = file.replace(
                             filestash + '_' + fileproc,
-                            record['name'].to_string(index=False).lstrip(' ') + '_' + lbproc_LUT(int(fileproc))
+                            record['name'].to_string(index=False).lstrip(' ') + '_' + lut_lbproc(int(fileproc))
                             )
     except:
         file_nice = file
@@ -1825,21 +1899,8 @@ def send_to_ftp(filelist, ftp_path, settings, removeold=False):
     ftpfilelist = str(result).lstrip('\'b').rstrip('\\n\\n\'').split('\\n')
 
     if removeold:
-        # TODO Make sure that this only deletes files outside the daterange of filelist (and only for this model/stash/lbproc)
+
         infiles = [os.path.basename(make_nice_filename(fn)) for fn in filelist]
-        # For testing
-        infiles = ['20200608T0000Z_analysis_Uwind10m_inst.nc', '20200608T0600Z_analysis_Uwind10m_inst.nc',
-         '20200608T1200Z_analysis_Uwind10m_inst.nc', '20200608T1800Z_analysis_Uwind10m_inst.nc',
-         '20200609T0000Z_analysis_Uwind10m_inst.nc', '20200609T0600Z_analysis_Uwind10m_inst.nc',
-         '20200609T1200Z_analysis_Uwind10m_inst.nc', '20200609T1800Z_analysis_Uwind10m_inst.nc',
-         '20200610T0000Z_analysis_Uwind10m_inst.nc', '20200610T0600Z_analysis_Uwind10m_inst.nc',
-         '20200610T1200Z_analysis_Uwind10m_inst.nc', '20200610T1800Z_analysis_Uwind10m_inst.nc',
-         '20200611T0000Z_analysis_Uwind10m_inst.nc', '20200611T0600Z_analysis_Uwind10m_inst.nc',
-         '20200611T1200Z_analysis_Uwind10m_inst.nc', '20200611T1800Z_analysis_Uwind10m_inst.nc',
-         '20200612T0000Z_analysis_Uwind10m_inst.nc', '20200612T0600Z_analysis_Uwind10m_inst.nc',
-         '20200612T1200Z_analysis_Uwind10m_inst.nc']
-        ftpfilelist = ['/WCSSP/SEAsia/RealTime/20200607T0000Z_analysis_Vwind10m_inst.nc', '/WCSSP/SEAsia/RealTime/20200607T0000Z_analysis_Uwind10m_inst.nc', '/WCSSP/SEAsia/RealTime/20200608T0000Z_analysis_Uwind10m_inst.nc']
-        ftpfilelist = ['']
 
         # Gets just the dates in the list of files to upload
         filedates = [fn.split('_')[0] for fn in infiles]

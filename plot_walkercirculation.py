@@ -1,4 +1,11 @@
 import os, sys
+####
+# Use this for running in the Met Office on SPICE ...
+import matplotlib
+hname = os.uname()[1]
+if not hname.startswith('eld') and not hname.startswith('els') and not hname.startswith('vld'):
+   matplotlib.use('Agg')
+####
 import location_config as config
 import std_functions as sf
 import iris
@@ -33,26 +40,35 @@ def getHorizontalData(u, v, equator=(-30,30), plev=850):
 
     return Y, X, U, V, lw, speed_cube
 
-def getHovmollerData(u, v, equator=(-5,5)):
+def getHovmollerData(u, v, w, equator=(-5,5)):
 
     plevs = [('pressure', np.arange(1000, 0, -50))]
     ueq = u.intersection(latitude=equator)
     veq = v.intersection(latitude=equator)
+    weq = w.intersection(latitude=equator)
 
     ueq2 = ueq.collapsed('latitude', iris.analysis.MEAN)
     veq2 = veq.collapsed('latitude', iris.analysis.MEAN)
+    weq2 = weq.collapsed('latitude', iris.analysis.MEAN)
 
     ueq2 = ueq2.interpolate(plevs, iris.analysis.Linear())
     veq2 = veq2.interpolate(plevs, iris.analysis.Linear())
+    weq2 = weq2.interpolate(plevs, iris.analysis.Linear())
+    weq2.data = weq2.data * -1000.
+
+    # uw_speed = ueq2.copy(np.sqrt(ueq2.data ** 2 + weq2.data ** 2))
 
     Y = np.repeat(ueq2.coord('pressure').points[..., np.newaxis], ueq2.shape[1], axis=1)
     X = np.repeat(ueq2.coord('longitude').points[np.newaxis, ...], ueq2.shape[0], axis=0)
     U = ueq2.data
     V = veq2.data
+    W = weq2.data
     speed = np.sqrt(U ** 2 + V ** 2)
+    speedw = np.sqrt(U ** 2 + W ** 2)
     lw = 5 * speed / speed.max()  # Line width
+    lww = 3 * speedw / speedw.max()  # Line width
 
-    return Y, X, U, V, lw, ueq2
+    return Y, X, U, V, W, lw, lww, ueq2
 
 def getLandFraction(equator):
 
@@ -76,7 +92,7 @@ def plot_walker(u, v, w, ofile):
 
     os.path.basename(ofile)
     leq3 = getLandFraction((-5, 5))
-    Y, X, U, V, lw, ueq2 = getHovmollerData(u,v, equator=(-5, 5))
+    Y, X, U, V, W, lw, lww, ueq2 = getHovmollerData(u, v, w, equator=(-5, 5))
     Yh, Xh, Uh, Vh, lwh, spdh = getHorizontalData(u, v, equator=(-30,30))
 
     x_tick_labels = [u'0\N{DEGREE SIGN}E', u'30\N{DEGREE SIGN}E', u'60\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
@@ -97,10 +113,11 @@ def plot_walker(u, v, w, ofile):
     ax1.set_title('Zonal Wind (+Westerly, -Easterly)')
 
     uplot = ax1.contourf(X, Y, ueq2.data, cmap='RdBu_r', levels=np.arange(-15, 17, 2), extend='both')
-    ax1.streamplot(X, Y, U, V, density=(1.2, 1.2), color='k', linewidth=lw)
+    ax1.streamplot(X, Y, U, W, density=(5, 1), color='k', linewidth=lww)
     ax1.set_ylim((1000, 100))
     ax1.set_ylabel('Pressure Levels (hPa)')
 
+    ax1.set_xlim((0,360))
     ax1.set_xticks(np.arange(0, 390, 30))
     ax1.set_xticklabels(x_tick_labels)
     ax1.tick_params(axis='both', labelsize=8)
@@ -115,7 +132,7 @@ def plot_walker(u, v, w, ofile):
     # 30S to 30N winds at 850hPa
     ax2 = fig.add_subplot(gs[1], projection=ccrs.PlateCarree(central_longitude=180))
     vplot = iplt.contourf(spdh, ax2, cmap='viridis_r', levels=np.arange(0, 17, 2), extend='max')
-    ax2.streamplot(Xh, Yh, Uh, Vh, density=(1,1), color='k', linewidth=lwh, transform=crs)
+    ax2.streamplot(Xh, Yh, Uh, Vh, density=(2,1), color='k', linewidth=lwh, transform=crs)
     ax2.set_title('Horizontal wind speed at 850hPa')
     ax2.coastlines(resolution='110m', color='white')
     gl2 = ax2.gridlines(draw_labels=True, color="gray", alpha=0.6)

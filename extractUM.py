@@ -27,40 +27,51 @@ def spatial_temporal_subset(start, end, filelist, bboxes, event_name, row, setti
     :return: list of files in the UM/CaseStudy directory to upload to FTP
     '''
 
-    odir = settings['um_path'] + 'CaseStudyData/' + event_name
-    if not os.path.isdir(odir):
-        os.makedirs(odir)
+    if event_name == 'RealTime':
 
-    ofilelist = []
+        # Don't do any subsetting if we're extracting RealTime data
+        ofilelist = filelist
 
-    for file in filelist:
-        print(file)
-        filestash = os.path.basename(file).split('_')[-2]
-        fileproc = os.path.basename(file).split('_')[-1].replace('.nc', '')
+    else:
+        odir = settings['um_path'] + 'CaseStudyData/' + event_name
+        if not os.path.isdir(odir):
+            os.makedirs(odir)
 
-        file_nice = file.replace(filestash+'_'+fileproc, row.name+'_'+sf.lbproc_LUT(int(fileproc)))
-        ofile_base = odir + '/' + os.path.basename(file_nice)
+        ofilelist = []
 
-        icube = iris.load_cube(file)
+        for file in filelist:
+            print(file)
+            filebn = os.path.basename(file)
+            datestr = filebn.split('_')[0]
+            filestash = filebn.split('_')[-2]
+            fileproc = filebn.split('_')[-1].replace('.nc', '')
+            model_id = filebn.split(datestr + '_')[1].split('_' + filestash)[0]
+            new_model_id = model_id.replace('_', '-')
+            file_nice = file.replace(model_id, new_model_id)
 
-        # Loop through the dictionary of regions.
-        # bboxes has 3 keys (tropics, region and event), which either contain a list of bbox coordinates or None
-        # If the item contains coordinates, that means we want to subset it
-        for k, val in bboxes.items():
-            cube = icube.copy()
-            ofile = ofile_base.replace('.nc', '_' + k + '.nc')
-            if k == 'region' and val:
-                if row.levels:
-                    cube = cube.extract(iris.Constraint(pressure=[925., 850., 700., 500., 200.]))
-            try:
-                cube = cube.intersection(latitude=(val[1], val[3]), longitude=(val[0], val[2]))
-                cube = sf.periodConstraint(cube, start, end)
-                iris.save(cube, ofile, zlib=True)
-                ofilelist.append(ofile)
-            except TypeError:
-                continue
-            except:
-                print('File either outside domain or time constraints')
+            file_nice = file_nice.replace(filestash + '_' + fileproc, row.name + '_' + sf.lut_lbproc(int(fileproc)))
+            ofile_base = odir + '/' + os.path.basename(file_nice)
+
+            icube = iris.load_cube(file)
+
+            # Loop through the dictionary of regions.
+            # bboxes has 3 keys (tropics, region and event), which either contain a list of bbox coordinates or None
+            # If the item contains coordinates, that means we want to subset it
+            for k, val in bboxes.items():
+                cube = icube.copy()
+                ofile = ofile_base.replace('.nc', '_' + k + '.nc')
+                if k == 'region' and val:
+                    if row.levels:
+                        cube = cube.extract(iris.Constraint(pressure=[925., 850., 700., 500., 200.]))
+                try:
+                    cube = cube.intersection(latitude=(val[1], val[3]), longitude=(val[0], val[2]))
+                    cube = sf.periodConstraint(cube, start, end)
+                    iris.save(cube, ofile, zlib=True)
+                    ofilelist.append(ofile)
+                except TypeError:
+                    continue
+                except:
+                    print('File either outside domain or time constraints')
 
     return ofilelist
 
@@ -153,8 +164,7 @@ def main(start, end, event_domain, event_name):
         bboxes = domain_size_decider(row, 'analysis', regbbox, event_domain, event_name)
         ana_start = start - dt.timedelta(days=5)
         filelist_analysis = sf.selectAnalysisDataFromMass(ana_start, end, row.stash, lbproc=row.lbproc, lblev=row.levels)
-        if event_name != 'RealTime':
-            filelist_analysis = spatial_temporal_subset(ana_start, end, filelist_analysis, bboxes, event_name, row, settings)
+        filelist_analysis = spatial_temporal_subset(ana_start, end, filelist_analysis, bboxes, event_name, row, settings)
         sf.send_to_ftp(filelist_analysis, ftp_path, settings, removeold=remove_old)
 
         # Get the UM model data
@@ -162,8 +172,7 @@ def main(start, end, event_domain, event_name):
             init_times = sf.getInitTimes(start, end, domain, model_id=model_id)
             bboxes = domain_size_decider(row, model_id, regbbox, event_domain, event_name)
             filelist_models = sf.selectModelDataFromMASS(init_times, row.stash, lbproc=row.lbproc, lblev=row.levels, plotdomain=event_domain, searchtxt=model_id)
-            if event_name != 'RealTime':
-                filelist_models = spatial_temporal_subset(start, end, filelist_models, bboxes, event_name, row, settings)
+            filelist_models = spatial_temporal_subset(start, end, filelist_models, bboxes, event_name, row, settings)
             sf.send_to_ftp(filelist_models, ftp_path, settings, removeold=remove_old)
 
 
