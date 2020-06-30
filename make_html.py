@@ -1,6 +1,7 @@
 import os, sys
 import glob
 from pathlib import Path
+import shutil
 import re
 import location_config as config
 import pdb
@@ -22,6 +23,8 @@ def create_summary_html(settings):
 
     indir = settings['plot_dir']
     summarypage = Path(indir).as_posix() + '/index.html'
+    jsfile = 'templates/myscripts.js'
+    shutil.copyfile(jsfile, Path(indir).as_posix() + '/myscripts.js')
 
     # NB: Directory structure is as follows:
     # <plotDir>/region_or_country/eventname/[gpm|timelagged_gpm|synop|sounding|etc]
@@ -38,17 +41,23 @@ def create_summary_html(settings):
     htmlpage.write('<html>\n')
     htmlpage.write('<head>\n')
     htmlpage.write('<style>\n')
+    htmlpage.write('.accordion { background-color: #eee; color: #444; cursor: pointer; padding: 18px; width: 100%; border: none; text-align: left; outline: none; font-size: 15px; transition: 0.4s; }\n')
+    htmlpage.write('.active, .accordion:hover { background-color: #ccc; }\n')
+    htmlpage.write('.panel { padding: 0 18px; display: none; background-color: white; overflow: hidden; }\n')
     htmlpage.write('table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; }\n')
     htmlpage.write('td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }\n')
     htmlpage.write('tr:nth-child(even) { background-color: #dddddd; }\n')
     htmlpage.write('</style>\n')
+    htmlpage.write('<script src="myscripts.js"></script>')
     htmlpage.write('</head>\n')
     htmlpage.write('<body>\n')
 
     htmlpage.write('<h1>List of Case Study web pages available</h1>\n')
 
     for reg in regions:
-        htmlpage.write('<h2>'+nice_names(reg)+'</h2>\n')
+        htmlpage.write('<button class="accordion">'+nice_names(reg)+'</button>')
+        htmlpage.write('<div class="panel">')
+        # htmlpage.write('<h2>'+nice_names(reg)+'</h2>\n')
         htmlpage.write('<a id="'+reg+'"></a>\n')
 
         reghtmlfiles = glob.glob(Path(summarypage).with_name(reg).as_posix() + '/**/*.html')

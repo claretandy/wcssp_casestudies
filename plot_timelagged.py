@@ -278,7 +278,7 @@ def main(dt_start, dt_end, timeagg, plotdomain, statdomain, organisation, region
     print('Time aggregation: ',timeagg)
     settings = config.load_location_settings(organisation)
     domain = sf.getDomain_bybox(plotdomain)
-    datadir = '/data/users/hadhy/CaseStudies/'
+    datadir = settings['datadir']
     odir = datadir + domain.lower() + '/'
     html_odir = odir + eventname
     png_odir = html_odir + '/plots/'
@@ -387,7 +387,7 @@ if __name__ == '__main__':
 
     statdomain = plotdomain # Could be smaller more focused on the area
     timeagg = [3, 12, 24]
-    searchlist = 'ga7,km4p4'
+    searchlist = 'ga7,km4p4,km1p5'
     overwrite = False
 
     for ta in timeagg:

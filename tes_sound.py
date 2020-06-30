@@ -1,5 +1,7 @@
 import pandas as pd
 
+# TODO Merge into plot_tephi.getObsData_BMKG()
+
 upper_file = open("C:/Users/Freddy/Documents/GitHub/wcssp_casestudies/sample_upper.csv")
 lines = upper_file.readlines()
 

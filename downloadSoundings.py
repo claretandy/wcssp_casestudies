@@ -165,7 +165,7 @@ def main(start_dt, end_dt, event_domain, settings):
     # Search for sounding data at these intervals (in hours)
     # Note 1: It seems as though most sondes are reported at 00 and 12 UTC, but some local variations may occur
     # Note 2: if your start_dt is not 00UTC or 12UTC, this value should be 1 to make sure that you don't miss any sondes
-    incr = 12
+    incr = 6
 
     # Set up the output directory for storing the data
     odir = Path(settings['datadir']).as_posix() + '/upper-air/wyoming/'

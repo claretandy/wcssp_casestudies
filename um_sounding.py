@@ -5,6 +5,7 @@ from netCDF4 import Dataset
 from math import radians, sin, cos, atan2, sqrt, log, fabs, degrees, atan
 import numpy as np
 
+# TODO: Delete this file once we have transferred it all into plot_tephi and downloadSoundings
 
 def dist_haversine(lat1, lon1, lat2, lon2, R = 6371.0):
     """

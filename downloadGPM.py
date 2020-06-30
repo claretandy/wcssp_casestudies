@@ -8,13 +8,10 @@ import errno
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 import h5py
+import subprocess
 import location_config as config
 from ftplib import FTP
 
-import pdb
-
-# from readGPM_v2 import *
-# iris.FUTURE.netcdf_no_unlimited = True
 
 '''
 Downloads GPM data into an iris cube.
@@ -58,8 +55,14 @@ def mergeGPM(ifiles, ofile, year, month, day, var, version, latency):
     gpm_cubelist = iris.cube.CubeList([])
     for file in sorted(ifiles):
         print(file)
-        # pdb.set_trace()
-        f00 = h5py.File(file, 'r')
+
+        try:
+            f00 = h5py.File(file, 'r')
+        except:
+            print('There was a problem with',file)
+            os.remove(file)
+            continue
+
         filedata = list(f00['Grid/' + var])
         precip = np.dstack(filedata)
         timecoord = getTimeCoord(file)
@@ -160,7 +163,7 @@ def getYMD(indate):
     year = indate.strftime("%Y")
     month = indate.strftime("%m")
     day = indate.strftime("%d")
-    return (year, month, day)
+    return year, month, day
 
 
 def calcQuality(rawdatafiles, ofileq, year, month, day, curVer, latency):
@@ -187,6 +190,40 @@ def calcQuality(rawdatafiles, ofileq, year, month, day, curVer, latency):
     except:
         print('Error creating quality flag: ' + curVer)
 
+def get_file_list(single_date, url):
+    '''
+    Get the file listing for the given url and date using curl.
+    :param single_date: datetime
+    :param url: server url and path to the directory
+    :return: list of files (could be empty).
+    '''
+
+    cmd = 'curl -n ' + url
+    args = cmd.split()
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout = p.communicate()[0].decode()
+    if stdout[0] == '<':
+        print('No imerg files for the given date')
+        return []
+
+    filelist = stdout.split()
+    filelist = [file for file in filelist if single_date.strftime("%Y%m%d-") in file]
+
+    return filelist
+
+def get_file(url, odir):
+    '''
+    Get the given file from jsimpsonhttps or arthurhouhttps using curl
+    :param url: includes server, path and file to download
+    :param odir: path where the file will be saved
+    :return: file saved to disk, but nothing returned
+    '''
+
+    cmd = 'curl -n ' + url + ' -o ' + odir + '/' + os.path.basename(url)
+    args = cmd.split()
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p.wait() # wait so this program doesn't end before getting all files
+
 
 def main(latency, start_date, end_date, agency):
     product = 'imerg'  # This shouldn't change
@@ -194,9 +231,9 @@ def main(latency, start_date, end_date, agency):
     settings = config.load_location_settings(agency)
     outdir = settings['gpm_path']
 
-    server = {'production': ['arthurhou.pps.eosdis.nasa.gov', settings['gpm_username'], '.HDF5'],
-              'NRTlate': ['jsimpson.pps.eosdis.nasa.gov', settings['gpm_username'], '.RT-H5'],
-              'NRTearly': ['jsimpson.pps.eosdis.nasa.gov', settings['gpm_username'], '.RT-H5']
+    server = {'production': ['https://arthurhouhttps.pps.eosdis.nasa.gov/text', settings['gpm_username'], '.HDF5'],
+              'NRTlate': ['https://jsimpsonhttps.pps.eosdis.nasa.gov/text', settings['gpm_username'], '.RT-H5'],
+              'NRTearly': ['https://jsimpsonhttps.pps.eosdis.nasa.gov/text', settings['gpm_username'], '.RT-H5']
               }
     var = 'precipitationCal'
 
@@ -213,9 +250,9 @@ def main(latency, start_date, end_date, agency):
         print(latency + ' : ' + single_date.strftime("%Y-%m-%d"))
 
         year, month, day = getYMD(single_date)
-        sfilepath = {'production': '/gpmdata/' + year + '/' + month + '/' + day + '/imerg/3B-HHR.MS.MRG.3IMERG.',
-                     'NRTlate': '/NRTPUB/imerg/late/' + year + month + '/3B-HHR-L.MS.MRG.3IMERG.' + year + month + day,
-                     'NRTearly': '/NRTPUB/imerg/early/' + year + month + '/3B-HHR-E.MS.MRG.3IMERG.' + year + month + day}  # +'.*.RT-H5'
+        sfilepath = {'production' : '/gpmdata/'+year+'/'+month+'/'+day+'/imerg/',
+                        'NRTlate' : '/imerg/late/'+year+month+'/',
+                        'NRTearly': '/imerg/early/'+year+month+'/'} # +'.*.RT-H5'
 
         rawdata_dir = outdir.rstrip('/') + '/rawdata/' + product + '/' + latency + '/' + year + '/' + month + '/' + day
         netcdf_dir = outdir.rstrip('/') + '/netcdf/' + product + '/' + latency + '/' + year + '/'
@@ -235,11 +272,20 @@ def main(latency, start_date, end_date, agency):
                 len(glob.glob(ofileq_test)) == 1) or (len(glob.glob(ofileq_part_test)) == 2):
             print('    Nothing to do')
         else:
-            # Do everything
-            if not len(rawdatafiles) == 48:
-                serverpath = sfilepath[latency]
-                thisserver = server[latency]
-                downloadftp(rawdata_dir, thisserver, serverpath, settings)
+            attempts = 0
+            filelist = get_file_list(single_date, server[latency][0] + sfilepath[latency])
+
+            if filelist:
+                print('    Downloading files from HTTPS ...')
+
+            # Do the download
+            while (len(rawdatafiles) < 48) and (attempts < 5):
+
+                for file in filelist:
+                    get_file(server[latency][0] + file, rawdata_dir)
+                rawdatafiles = glob.glob(rawdata_dir + '/3B-HHR*' + server[latency][2])
+                attempts += 1
+
             rawdatafiles = glob.glob(rawdata_dir + '/3B-HHR*' + server[latency][2])
 
             versions = [os.path.basename(rdf).split('.')[6] for rdf in rawdatafiles]
@@ -291,7 +337,9 @@ def main(latency, start_date, end_date, agency):
 
 
 def downloadftp(rawdata_dir, server, serverpath, settings):
-    # print(rawdata_dir, server, serverpath, settings)
+    '''
+    The data is no longer servered by FTP. They now use HTTPS or FTPS. This functional can probably be deleted
+    '''
     org = settings["organisation"]
     try:
         ftp = FTP(server[0], settings["gpm_username"], settings["gpm_username"])
