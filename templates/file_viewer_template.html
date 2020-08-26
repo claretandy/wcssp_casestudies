@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>GPM Precipitation | South East Asia</title>
+        <link rel="stylesheet" type="text/css" href="file_viewer.css">
+
+        <script>
+            // Set variables based on the input dictionary
+            imgs_all = {{ imgs }};
+            validtimes = {{ params["valid"] }};
+            modelids = {{ params["model"] }};
+            regions = {{ params["region"] }};
+            timeaggs = {{ params["timeagg"] }};
+            plottypes = {{ params["plottype"] }};
+            plotnames = {{ params["plotname"] }};
+            fclts = {{ params["fclt"] }};
+            divnames = {{ divnames }};  // ['model', 'timeagg', 'region', 'fclt', 'valid'];
+            divnames_nice = {{ nicedivnames }};  // ['Data Source', 'Time Aggregation', 'Region', 'Lead Time', 'Valid Time']
+
+            // Initialise plot variables
+            var app_props = { valid : validtimes[0], model : modelids[0], region : regions[0], timeagg : timeaggs[0], plottype : plottypes[0], plotname : plotnames[0], fclt : fclts[0], selected : 'valid'};
+            var ani_props = { current_image : 0, src : imgs_all[0] }; // Should add src and possibly animation props to this
+
+            // Create a proxy that allows getting values and running other actions when new values are set
+            const onChange = (objToWatch, onChangeFunction) => {
+              const handler = {
+                get(target, property, receiver) {
+                  return Reflect.get(target, property, receiver);
+                },
+                set(target, property, value, receiver) {
+                  setout = Reflect.set(target, property, value)
+                  onChangeFunction();
+                  return setout;
+                },
+                ownKeys(target) {
+                  // Allows us to query the keys or values using:
+                  // Object.values(proxy) or Object.keys(proxy)
+                  return Reflect.ownKeys(target);
+                }
+              };return new Proxy(objToWatch, handler);
+            };
+
+            // Things to do when the app state changes on button clicks
+            doThingsOnChange = function(){
+                subset_img_list();
+                set_active_button();
+                run_settings(imgs);
+                launch();
+                //set_noactive_buttons();
+            };
+
+            doThingsOnAnimChange = function(){
+                // Change either the selected button or option in dropdown
+                // ani_state.current_image
+
+                pcs = ani_state.src.split('/')[1].split('.png')[0].split('_');
+                src_vars = {valid: pcs[0],
+                            model: pcs[1],
+                            region: pcs[2],
+                            timeagg: pcs[3],
+                            plottype: imgs[0].split('/')[0],
+                            plotname: pcs[4],
+                            fclt: pcs[5]
+                            };
+
+                if ( app_state.selected == 'valid' ){
+                    // Dropdown
+                    mydiv = document.getElementById(app_state.selected)
+                    dd = mydiv.getElementsByTagName('select')[0]
+                    dd.value = ani_state.current_image + 1
+
+                } else {
+
+                    // Still need to set the Valid Time Dropdown
+                    mydiv = document.getElementById('valid')
+                    dd = mydiv.getElementsByTagName('select')[0]
+                    vt = validtimes.indexOf(app_state.valid)
+                    dd.value = vt + 1
+
+                    // Button
+                    var header = document.getElementById(app_state.selected);
+                    var current = header.getElementsByClassName("button active");
+                    if (current[0] != null) {
+                        current[0].className = "button";
+                    };
+
+                    btns = header.getElementsByTagName("button")
+                    // Loop through all the buttons in the div
+                    var i;
+                    for (i = 0; i < btns.length; i++) {
+                        btn = btns[i];
+                        id = btn.getAttribute('id');
+                        if (id == src_vars[app_state.selected]){
+                            btn.setAttribute('class', 'button active')
+                        };
+
+                        //Object.keys(props).forEach(function(key){ if (id == props[key]){ btn.setAttribute('class', 'button active') } } );
+                    };
+                }
+            }
+            const app_state = onChange(app_props, doThingsOnChange)
+            const ani_state = onChange(ani_props, doThingsOnAnimChange)
+
+            // Function that subsets the imgs_all list according to the value of our plot variables
+            function subset_img_list(){
+
+                // Don't use the selected value for filtering
+                //var e = document.getElementById("animate_by_dropdown");
+                //var selected_value = e.options[e.selectedIndex].value;
+
+                //['valid', 'model', 'region', 'timeagg', 'plottype', 'plotname', 'fclt'];
+                if (app_state.selected == 'valid'){
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
+                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                } else if (app_state.selected == 'model') {
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes(app_state.valid) && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
+                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                } else if (app_state.selected == 'region') {
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes(app_state.timeagg) &&
+                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                } else if (app_state.selected == 'timeagg') {
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
+                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                } else if (app_state.selected == 'plottype') {
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
+                            elem.includes(app_state.timeagg) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                } else if (app_state.selected == 'plotname') {
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
+                            elem.includes(app_state.timeagg) && elem.includes(app_state.plottype) && elem.includes(app_state.fclt)) } );
+                } else if (app_state.selected == 'fclt') {
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
+                            elem.includes(app_state.timeagg) && elem.includes(app_state.plottype) && elem.includes(app_state.plotname)) } );
+                } else {
+                    // Otherwise, loop through the valid times
+                    imgs = imgs_all.filter( function(elem) { return (
+                            elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
+                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                }
+                // Sort the list
+                var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+                return imgs.sort(collator.compare);
+            };
+
+            // Sets the initial state of the application
+            imgs = subset_img_list();
+            function load_startup(imgs) {
+                run_settings(imgs);
+                set_active_button();
+                launch();
+            };
+
+            function set_active_button() {
+
+                // Loop through each div name
+                divnames.forEach(function(div){
+
+                    var header = document.getElementById(div);
+                    var current = header.getElementsByClassName("button active");
+                    if (current[0] != null) {
+                        current[0].className = "button";
+                    };
+
+                    btns = header.getElementsByTagName("button")
+                    // Loop through all the buttons in the div
+                    var i;
+                    for (i = 0; i < btns.length; i++) {
+                        btn = btns[i];
+                        id = btn.getAttribute('id');
+                        Object.keys(app_state).forEach(function(key){ if (id == app_state[key]){ btn.setAttribute('class', 'button active') } } );
+                    };
+                }); // end of forEach
+
+            };
+
+            function set_noactive_buttons(){
+                var header = document.getElementById(app_state.selected);
+                btns = header.getElementsByTagName("button")
+                // Loop through all the buttons in the div
+                var i;
+                for (i = 0; i < btns.length; i++) {
+                    btn = btns[i];
+                    btn.setAttribute('class', 'button');
+                };
+            };
+
+            function animate_by_change(){
+                app_state.selected = document.getElementById("animate_by_dropdown").value;
+            };
+
+            function validtime_change(){
+                var i = document.getElementById("validtimes_dropdown").value;
+                go2image(parseInt(i)-1);
+            }
+        </script>
+        <script src="animation.js"></script>
+
+    </head> 
+
+    <body onload="load_startup(imgs)" MARGINWIDTH=0 MARGINHEIGHT=0 LEFTMARGIN=0 TOPMARGIN=0>
+    <section>
+        <aside class="left">
+            <p>Plot Type</p>
+            <div id="plottype">
+                {% for pt in params["plottype"] %}
+                    <button id="{{ pt }}" class="button" onclick="app_state.plottype = '{{ pt }}';">{{ pt | replace('-', ' ') | replace('|', '/') | capitalize }}</button>
+                {% endfor %}
+            </div>
+            <br>
+            <p>Plot Name</p>
+            <div id="plotname">
+                {% for pn in params["plotname"] %}
+                    <button id="{{ pn }}" class="button" onclick="app_state.plotname = '{{ pn }}';">{{ pn | replace('-', ' ') | replace('|', '/') | capitalize }}</button>
+                {% endfor %}
+            </div>
+            <br>
+            <p>Data Source</p>
+            <div id="model">
+                {% for key in params["model"] %}
+                    <button id="{{ key }}" class="button" onclick="app_state.model = '{{ key }}';">{{ key }}</button>
+                {% endfor %}
+            </div>
+            <br>
+            <p>Time Aggregation</p>
+            <div id="timeagg">
+                {% for ta in params["timeagg"] %}
+                    <button id="{{ ta }}" class="button" onclick="app_state.timeagg = '{{ ta }}';">{{ ta }}</button>
+                {% endfor %}
+            </div>
+            <br>
+            <p>Region</p>
+            <div id="region">
+                {% for reg in params["region"] %}
+                    <button id="{{ reg }}" class="button" onclick="app_state.region = '{{ reg }}';">{{ reg | replace('-', ' ') | replace('|', '/') | capitalize }}</button>
+                {% endfor %}
+            </div>
+        </aside>
+        <div class="middle-content">
+            <FORM Method=POST Name="control_form">
+            <INPUT TYPE="button" Name="start_but" Value="  FIRST  " onClick="go2image(first_image)">
+            <INPUT TYPE="button" Value=" -1 " onClick="go2image(--current_image)">
+            <INPUT TYPE="button" Value="BACKWARD" onClick="rev()">
+            <INPUT TYPE="button" Value=" STOP " onClick="stop();">
+            <INPUT TYPE="button" Value="FORWARD" onClick="fwd()">
+            <INPUT TYPE="button" Value=" +1 " onClick="go2image(++current_image)">
+            <INPUT TYPE="button" Name="end_but" Value="   LAST   " onClick="go2image(last_image)">
+            <BR>
+            OPTIONS:<SELECT NAME="play_mode_selection" onChange="change_mode(value)">
+                <OPTION SELECTED VALUE=0>continuous</OPTION>
+                <OPTION VALUE=1>loop once</OPTION>
+                <OPTION VALUE=2>swing</OPTION>
+            </SELECT>
+            IMAGE #:<INPUT TYPE="text" NAME="frame_nr" VALUE=0 SIZE="3" onfocus="stop()" onchange="go2image(this.value)">
+            SPEED:<INPUT TYPE="button" Value="  -  " onClick="change_speed(delay_step)">
+            <INPUT TYPE="submit" Value="  +  " onClick="change_speed(-delay_step)\;return false">
+            </FORM>
+<!--            <div class="imgdiv">-->
+            <IMG NAME="animation" SRC="{{ imgs[params["model"][0]] | last }}" ALT="[jsMoviePlayer]" style="float:center;width:60%;height:60%;object-fit:cover;">
+<!--            </div>-->
+
+            <p id="demo">A Paragraph</p>
+        </div>
+        <aside class="right">
+            <br>Forecast Lead Times<br>
+            <div id="fclt">
+                {% for fclt in params["fclt"] %}
+                    <button id="{{ fclt }}" class="button" onclick="app_state.fclt = '{{ fclt }}';">{{ fclt }}</button>
+                {% endfor %}
+            </div>
+            <br>Valid Time<br>
+            <div id="valid">
+                <select id="validtimes_dropdown" onchange="validtime_change()">
+                    {% for vt in params["valid"] %}
+                        {% if loop.last %}
+                            <option value="{{ loop.index }}" selected="selected">{{ vt }}</option>
+                        {% else%}
+                            <option value="{{ loop.index }}">{{ vt }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <br>Animate by:<br>
+            <div id="animate_by_div">
+                <select id="animate_by_dropdown" onchange="animate_by_change()">
+                    {% for dn in divnames %}
+                        {% if dn == 'valid' %}
+                            <option value="{{ dn }}" selected="selected">{{ nicedivnames[loop.index-1] }}</option>
+                        {% else%}
+                            <option value="{{ dn }}">{{ nicedivnames[loop.index-1] }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+        </aside>
+    </section>
+
+    <footer id="footer">
+        <div class="innertube">
+            <p>Processed at: {{ proc_time }}    by <a href="mailto:andrew.hartley@metoffice.gov.uk" target="_top">andrew.hartley@metoffice.gov.uk</a></p>
+        </div>
+    </footer>
+
+    </body>
+</html>
