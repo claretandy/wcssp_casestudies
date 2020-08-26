@@ -2,6 +2,7 @@ import os, sys
 import datetime as dt
 import location_config as config
 import std_functions as sf
+import shutil
 import pandas as pd
 import iris
 import pdb
@@ -13,9 +14,9 @@ It should be able to perform two main tasks:
     2. Extract model data for the whole region for the last x days, share by FTP, and delete older data
 '''
 
-def spatial_temporal_subset(start, end, filelist, bboxes, event_name, row, settings):
+def post_process(start, end, filelist, bboxes, event_name, row, settings):
     '''
-    Make a spatial subset of the files in filelist, and saves into the UM/CaseStudy folder
+    Make a spatial subset of the files in filelist, and saves into the UM/CaseStudy or UM/RealTime folder
     :param start: datetime
     :param end: datetime
     :param filelist: list of full resolution files extracted from MASS
@@ -28,9 +29,19 @@ def spatial_temporal_subset(start, end, filelist, bboxes, event_name, row, setti
     '''
 
     if event_name == 'RealTime':
-
         # Don't do any subsetting if we're extracting RealTime data
-        ofilelist = filelist
+        # Just copy the extracted data to the RealTime folder and change the filename to a nicename
+        odir = settings['um_path'] + 'RealTime/'
+        ofilelist = []
+        for f in filelist:
+            ofile = sf.make_nice_filename(os.path.basename(f))
+            init_dt = dt.datetime.strptime(ofile.split('_')[0], '%Y%m%dT%H%MZ')
+            model_id = ofile.split('_')[1]
+            ofilepath = odir + model_id + '/' + init_dt.strftime('%Y%m/') + ofile
+            if not os.path.isdir(os.path.dirname(ofilepath)):
+                os.makedirs(os.path.dirname(ofilepath))
+            shutil.copy(f, ofilepath)
+            ofilelist.append(ofilepath)
 
     else:
         odir = settings['um_path'] + 'CaseStudyData/' + event_name
@@ -130,7 +141,7 @@ def main(start, end, event_domain, event_name):
     :return: Nothing. Data extracted to:
                 - /scratch for realtime or full model fields
                 - /data/users for casestudy data that might be worth keeping for longer
-                - All data sent to FTP (realtime
+                - All data sent to FTP
     '''
 
     # Set some location-specific defaults
@@ -164,7 +175,7 @@ def main(start, end, event_domain, event_name):
         bboxes = domain_size_decider(row, 'analysis', regbbox, event_domain, event_name)
         ana_start = start - dt.timedelta(days=5)
         filelist_analysis = sf.selectAnalysisDataFromMass(ana_start, end, row.stash, lbproc=row.lbproc, lblev=row.levels)
-        filelist_analysis = spatial_temporal_subset(ana_start, end, filelist_analysis, bboxes, event_name, row, settings)
+        filelist_analysis = post_process(ana_start, end, filelist_analysis, bboxes, event_name, row, settings)
         sf.send_to_ftp(filelist_analysis, ftp_path, settings, removeold=remove_old)
 
         # Get the UM model data
@@ -172,7 +183,7 @@ def main(start, end, event_domain, event_name):
             init_times = sf.getInitTimes(start, end, domain, model_id=model_id)
             bboxes = domain_size_decider(row, model_id, regbbox, event_domain, event_name)
             filelist_models = sf.selectModelDataFromMASS(init_times, row.stash, lbproc=row.lbproc, lblev=row.levels, plotdomain=event_domain, searchtxt=model_id)
-            filelist_models = spatial_temporal_subset(start, end, filelist_models, bboxes, event_name, row, settings)
+            filelist_models = post_process(start, end, filelist_models, bboxes, event_name, row, settings)
             sf.send_to_ftp(filelist_models, ftp_path, settings, removeold=remove_old)
 
 
@@ -184,25 +195,25 @@ if __name__ == '__main__':
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For testing
-        start_dt = dt.datetime(2020, 5, 19, 0)
+        start_dt = dt.datetime.now() - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
         # For testing
-        end_dt = dt.datetime(2020, 5, 20, 0)
+        end_dt = dt.datetime.now()
 
     try:
         domain_str = sys.argv[3]
         event_domain = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
-        event_domain = [100, 0, 110, 10]
+        event_domain = [90, -10, 120, 20]
 
     try:
         event_name = sys.argv[4]
     except:
         # For testing
-        event_name = 'PeninsulaMalaysia/20200520_Johor'
+        event_name = 'RealTime'
 
     main(start_dt, end_dt, event_domain, event_name)

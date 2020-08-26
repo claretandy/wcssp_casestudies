@@ -54,7 +54,7 @@ def ftp_download_files(flist, settings):
 
         if 'RealTime' in ftpfn:
             model_id = fnbn.split('_')[1]
-            dst_fname = settings['um_path'] + 'RealTime/' + model_id + '/' + this_dt.strftime('%Y%m/') + 'fnbn'
+            dst_fname = settings['um_path'] + 'RealTime/' + model_id + '/' + this_dt.strftime('%Y%m/') + fnbn
 
         src_filesize = ftp.size(ftpfn)
         try:
@@ -108,6 +108,7 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
     for it in init_times:
 
         if event_name == 'RealTime':
+            region_type = 'all'
             search_pattern = local_path + it.strftime('%Y%m/') + it.strftime('%Y%m%dT%H%MZ') + '*'
         else:
             search_pattern = local_path + it.strftime('%Y%m%dT%H%MZ') + '*'

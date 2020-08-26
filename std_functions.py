@@ -99,7 +99,7 @@ def getModels_bybox(plotdomain, reg=None):
     return {"domain" : domain, "model_list": model_list}
 
 
-def  getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
+def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
     # Prefered method here ...
     # Provide a date, and return either the newest OR the oldest running model_id
     # NB: Update this when new model versions are run
@@ -109,7 +109,8 @@ def  getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
                          'u-ao347': [dt.datetime(2017, 7, 13, 12, 0), dt.datetime(2017, 8, 11, 0, 0)],
                          'u-ao902': [dt.datetime(2017, 7, 28, 12, 0), dt.datetime(2019, 1, 15, 0, 0)],
                          'u-ba482': [dt.datetime(2018, 9, 6, 12, 0), dt.datetime(2019, 10, 30, 0, 0)], # started earier, but the first date that ra1tld appears
-                         'u-bn272': [dt.datetime(2019, 10, 2, 0, 0), dt.datetime.now()]
+                         'u-bn272': [dt.datetime(2019, 10, 2, 0, 0), dt.datetime(2020, 8, 16, 0, 0)],
+                         'u-bw324': [dt.datetime(2020, 8, 15, 0, 0), dt.datetime.now()]
                          }
     elif domain == 'TAfrica':
         dtrng_byjobid = {'u-ao907': [dt.datetime(2017, 7, 30, 12, 0), dt.datetime(2019, 4, 1, 0)],
@@ -154,6 +155,8 @@ def getModelID_byJobID(jobid, searchtxt=None):
                                 'SEA4_malkm1p5_ra1tld', 'SEA4_malkm0p2_ra1tld', 'SEA4_malkm0p5_ra1tld', 'SEA4_phikm1p5_ra1tld', 'SEA4_phikm0p2_ra1tld',
                                 'SEA4_phikm0p5_ra1tld', 'SEA4_viekm1p5_ra1tld'], # NB: not all these are available from August 2018
                  'u-bn272': ['SEA5_n1280_ga7', 'SEA5_km4p4_ra2t', 'SEA5_indkm1p5_ra2t', 'SEA5_malkm1p5_ra2t', 'SEA5_phikm1p5_ra2t', 'SEA5_viekm1p5_ra2t'],
+                 'u-bw324': ['SEA5_n1280_ga7', 'SEA5_km4p4_ra2t', 'SEA5_indkm1p5_ra2t', 'SEA5_malkm1p5_ra2t',
+                                'SEA5_phikm1p5_ra2t', 'SEA5_viekm1p5_ra2t'],
                  'opfc': ['africa_prods', 'global_prods']
         }
 
@@ -679,7 +682,8 @@ def get_fc_InitHours(jobid):
         'u-ao347'   : [0,12],
         'u-ao902'   : [0,12],
         'u-ba482'   : [0,12],
-        'u-bn272'   : [0,12]
+        'u-bn272'   : [0,12],
+        'u-bw324'   : [0,12]
     }
     try:
         init_hrs = initdict[jobid]
@@ -810,42 +814,47 @@ def lut_stash(sc, type='short'):
 def get_lbproc_by_stash(stash, jobid):
     # which lbproc codes go with which stash codes?
     #TODO Maybe better to write an 'if' statement to separate out global (section 5) from convection permitting
-    lbproc128_avail = {'u-ai613'  : [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
-                         'u-ao347': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
-                         'u-ao902': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
-                         'u-ao907': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
-                         'u-ba482': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
-                         'u-bn272': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
-                         'opfc'   : []
-                         }
+    lbproc128_avail = {'u-ai613': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
+                       'u-ao347': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
+                       'u-ao902': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
+                       'u-ao907': [23, 4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205],
+                       'u-ba482': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
+                       'u-bn272': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
+                       'u-bw324': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205,
+                                   21100, 21104],
+                       'opfc'   : []
+                       }
 
-    lbproc4096_avail = {'u-ai613' : [],
-                         'u-ao347': [],
-                         'u-ao902': [],
-                         'u-ao907': [],
-                         'u-ba482': [20080],
-                         'u-bn272': [20080],
-                         'opfc'   : []
-                         }
+    lbproc4096_avail = {'u-ai613': [],
+                        'u-ao347': [],
+                        'u-ao902': [],
+                        'u-ao907': [],
+                        'u-ba482': [20080],
+                        'u-bn272': [20080],
+                        'u-bw324': [20080],
+                        'opfc'   : []
+                        }
 
-    lbproc8192_avail = {'u-ai613' : [],
-                         'u-ao347': [],
-                         'u-ao902': [],
-                         'u-ao907': [],
-                         'u-ba482': [3463, 20080],
-                         'u-bn272': [3463, 20080],
-                         'opfc': []
-                         }
+    lbproc8192_avail = {'u-ai613': [],
+                        'u-ao347': [],
+                        'u-ao902': [],
+                        'u-ao907': [],
+                        'u-ba482': [3463, 20080],
+                        'u-bn272': [3463, 20080],
+                        'u-bw324': [3463, 20080],
+                        'opfc': []
+                        }
 
     # 4201, 4202, 5201, 5202, 5226, 23
-    lbproc0_notavail = {'u-ai613' : [],
-                         'u-ao347': [],
-                         'u-ao902': [],
-                         'u-ao907': [4201, 4202, 5201, 5202, 5226, 23],
-                         'u-ba482': [],
-                         'u-bn272': [],
-                         'opfc'   : []
-                         }
+    lbproc0_notavail = {'u-ai613': [],
+                        'u-ao347': [],
+                        'u-ao902': [],
+                        'u-ao907': [4201, 4202, 5201, 5202, 5226, 23],
+                        'u-ba482': [],
+                        'u-bn272': [],
+                        'u-bw324': [],
+                        'opfc'   : []
+                        }
 
     oproc = []
     oproc.append(0) if int(stash) not in lbproc0_notavail[jobid] else oproc
@@ -1873,6 +1882,44 @@ def make_nice_filename(file):
         file_nice = file
 
     return file_nice
+
+def make_outputplot_filename(event_name, validtime, modelid, location, timeagg, plottype, plotname, fclt, outtype='filesystem'):
+    '''
+    Given inputs, creates a filename in the standard format so it can be put into a webpage. This is important because the html creation code uses the values in the filename to create the menu structure
+    Filename format:
+    # <Plot-type>/<Valid-time>_<ModelId>_<Location>_<Time-Aggregation>_<Plot-Name>_<Lead-time>.png
+    validtime_modelid_location_timeagg_plottype_forecastleadtime.png
+    :param event_name: string. Usual format: region/event (e.g. PeninsulaMalaysia/20200520_Johor )
+    :param validtime: string. Formatted datetime
+    :param modelid: string. Name of the model or observation
+    :param location: string. Place name. If it contains spaces, fill with a '-' (NOT an underscore as this will mess up the webpage creation)
+    :param timeagg: string. Time averaging period. This is most likely to be 'instantaneous', although it could also be '3hr', '6hr' etc
+    :param plottype: string. A unique identifier for type of plot. This is typical the directory name e.g. precipitation
+    :param plotname: string. A unique identifier for name of the plot within the plot type. e.g. precipitation-circulation, precipitation-postage-stamps, walker-circulation, etc
+    :param fclt: string. Forecast lead time. Typically, this will be T+24, T+36, etc. If it is an observation, use T+0, or if all fclts are used, use something like 'All-FCLTs'
+    :param outtype: string. Specifies whether to output a filename or a url
+    :return: filename string or url
+    '''
+
+    settings = config.load_location_settings()
+    location = location.replace(' ', '-')
+    location = location.replace('/', '|')
+    base = event_name + '/' + plottype + '/' + validtime + '_' + modelid + '_' + location + '_' + timeagg + '_' + plotname + '_' + fclt + '.png'
+    if outtype == 'filesystem':
+        ofile = settings['plot_dir'] + base
+
+        # Make sure that the dir exists
+        odir = os.path.dirname(ofile)
+        if not os.path.isdir(odir):
+            os.makedirs(odir)
+
+    elif outtype == 'url':
+        ofile = settings['url_base'] + base
+    else:
+        return 'Didn\'t recognise outtype: ' + outtype
+
+
+    return ofile
 
 
 def send_to_ftp(filelist, ftp_path, settings, removeold=False):

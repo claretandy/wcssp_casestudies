@@ -18,6 +18,11 @@ import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import matplotlib.ticker as mticker
 import numpy as np
+import run_html as html
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
+import glob
 import pdb
 
 def getHorizontalData(u, v, equator=(-30,30), plev=850):
@@ -81,7 +86,7 @@ def getLandFraction(equator):
 
     return leq3
 
-def plot_walker(u, v, w, ofile):
+def plot_walker(u, v, w, ofile, lats=(-5,5)):
 
     # Check the directory of ofile exists
     if not os.path.isdir(os.path.dirname(ofile)):
@@ -91,8 +96,8 @@ def plot_walker(u, v, w, ofile):
     this_dt = dt.datetime.strptime(os.path.basename(ofile).split('_')[0], '%Y%m%dT%H%MZ')
 
     os.path.basename(ofile)
-    leq3 = getLandFraction((-5, 5))
-    Y, X, U, V, W, lw, lww, ueq2 = getHovmollerData(u, v, w, equator=(-5, 5))
+    leq3 = getLandFraction(lats)
+    Y, X, U, V, W, lw, lww, ueq2 = getHovmollerData(u, v, w, equator=lats)
     Yh, Xh, Uh, Vh, lwh, spdh = getHorizontalData(u, v, equator=(-30,30))
 
     x_tick_labels = [u'0\N{DEGREE SIGN}E', u'30\N{DEGREE SIGN}E', u'60\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
@@ -110,7 +115,9 @@ def plot_walker(u, v, w, ofile):
 
     # Hovmoller of vertical profile along the tropics
     ax1 = fig.add_subplot(gs[0])
-    ax1.set_title('Zonal Wind (+Westerly, -Easterly)')
+    lat0 = str(abs(lats[0]))+'S' if lats[0] < 0 else str(abs(lats[0]))+'N'
+    lat1 = str(abs(lats[1])) + 'S' if lats[1] < 0 else str(abs(lats[1])) + 'N'
+    ax1.set_title('Zonal and Vertical Wind for '+lat0+' to '+lat1+' (+Westerly, -Easterly)')
 
     uplot = ax1.contourf(X, Y, ueq2.data, cmap='RdBu_r', levels=np.arange(-15, 17, 2), extend='both')
     ax1.streamplot(X, Y, U, W, density=(5, 1), color='k', linewidth=lww)
@@ -126,12 +133,9 @@ def plot_walker(u, v, w, ofile):
     cbar1.set_label('U component of wind (m s-1)')
     cbar1.ax.tick_params(labelsize=8)
 
-    # vleft, vbottom, vwidth, vheight = ax1.get_position().bounds
-    # print(vheight / (1 - (vleft + vwidth)))
-
     # 30S to 30N winds at 850hPa
     ax2 = fig.add_subplot(gs[1], projection=ccrs.PlateCarree(central_longitude=180))
-    vplot = iplt.contourf(spdh, ax2, cmap='viridis_r', levels=np.arange(0, 17, 2), extend='max')
+    vplot = iplt.contourf(spdh, ax2, cmap='RdPu', levels=np.arange(0, 17, 2), extend='max')
     ax2.streamplot(Xh, Yh, Uh, Vh, density=(2,1), color='k', linewidth=lwh, transform=crs)
     ax2.set_title('Horizontal wind speed at 850hPa')
     ax2.coastlines(resolution='110m', color='white')
@@ -178,6 +182,29 @@ def plot_walker(u, v, w, ofile):
     plt.close(fig)
 
 
+def make_symlinks(ofiles):
+    '''
+    Makes symbolic links to the most recent files in the list of input files
+    :param ofiles: list of fullpaths to plot files
+    :return: creates symbolic links in the same location as the files
+    '''
+
+    now = dt.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    current_files = []
+    while not current_files:
+        current_files = [f for f in ofiles if now.strftime('%Y%m%dT%H%MZ') in f]
+        now = now - dt.timedelta(hours=1)
+
+    for cf in current_files:
+        most_recent = os.path.basename(cf).split('_')[0]
+        symfile = cf.replace(most_recent, 'current')
+        try:
+            os.remove(symfile)
+        except:
+            pass
+        os.symlink(cf, symfile)
+
+
 def main(start, end, model_ids, event_name, organisation):
     '''
     Runs code to plot the large scale tropical circulation using the UM analysis
@@ -190,8 +217,9 @@ def main(start, end, model_ids, event_name, organisation):
     '''
 
     settings = config.load_location_settings(organisation)
-
     analysis_incr = 6
+    ofiles = []
+    lat_ranges = [(-5,5), (5,15), (-10,10)]
 
     for model_id in model_ids:
         # TODO This only works in the Met Office with analysis data at the moment, so I'll need to replace this with something like:
@@ -214,9 +242,6 @@ def main(start, end, model_ids, event_name, organisation):
             # Format this datetime
             this_dt_fmt = this_dt.strftime('%Y%m%dT%H%MZ')
 
-            # Set the output file
-            ofile = settings['plot_dir'] + event_name + '/walker_tropics/' + this_dt_fmt + '_' + model_id + '_walker.png'
-
             # Subset filelists for this_dt
             try:
                 u_file, = [fn for fn in u_files if this_dt_fmt in fn]
@@ -232,11 +257,31 @@ def main(start, end, model_ids, event_name, organisation):
                 v = iris.load_cube(v_file)
                 w = iris.load_cube(w_file)
 
-                try:
-                    plot_walker(u, v, w, ofile)
-                except:
-                    continue
+                for lats in lat_ranges:
 
+                    # Make nice strings of the lat min and max
+                    lat0 = str(abs(lats[0])) + 'S' if lats[0] < 0 else str(abs(lats[0])) + 'N'
+                    lat1 = str(abs(lats[1])) + 'S' if lats[1] < 0 else str(abs(lats[1])) + 'N'
+
+                    # Set the output file
+                    # ofile = settings['plot_dir'] + event_name + '/walker_tropics/' + this_dt_fmt + '_' + model_id + '_walker.png'
+                    # <Valid-time>_<ModelId>_<Location>_<Time-Aggregation>_<Plot-Name>_<Lead-time>.png
+                    ofile = sf.make_outputplot_filename(event_name, this_dt_fmt, model_id, 'Tropics-'+lat0+'-to-'+lat1,
+                                                        'Instantaneous', 'large-scale', 'walker-circulation', 'T+0')
+
+                    try:
+                        if not os.path.isfile(ofile):
+                            plot_walker(u, v, w, ofile, lats=lats)
+                        # Append to list of ofiles
+                        ofiles.append(ofile)
+                    except:
+                        continue
+
+    # Make symbolic link to most recent files in ofiles
+    make_symlinks(ofiles)
+
+    # Make the html file so that the images can be viewed
+    html.create(ofiles)
 
 if __name__ == '__main__':
 
@@ -244,7 +289,7 @@ if __name__ == '__main__':
         start = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For testing
-        start = dt.datetime.utcnow() - dt.timedelta(days=1)
+        start = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
         end = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')

@@ -16,7 +16,7 @@ conda activate scitools
 organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
 start='202005190000' # Format YYYYMMDDHHMM
 end='202005200000' # Format YYYYMMDDHHMM
-station_id=48650 #98222 # TODO : Remove the dependence on this
+#station_id=48650 #98222 # TODO : Remove the dependence on this
 event_domain='99,0.5,106,7.5' # xmin, ymin, xmax, ymax
 event_location_name='Johor' # A short name to decribe the location of the event
 event_region_name='PeninsulaMalaysia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)

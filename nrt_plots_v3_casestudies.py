@@ -193,7 +193,7 @@ def main(latency, dt_startdt, dt_enddt, plotdomain, region_name, eventname, orga
     rootdir = settings['plot_dir']
 
     # region_name = sf.getDomain_bybox(plotdomain).lower()
-    template_file = 'gpm_template.html'
+    template_file = 'templates/gpm_template.html'
     outdir = rootdir + region_name + '/' + eventname + '/gpm/'
     local_dir = outdir
     #local_dir = os.environ['HOME'] + '/public_html/' + region_name + '/gpm_casestudies/'

@@ -18,6 +18,7 @@ import numpy as np
 import tephi
 import downloadUM as dum
 import std_functions as sf
+import run_html as html
 
 import pdb
 
@@ -100,7 +101,7 @@ def tephi_plot(station, date, input, plot_fname):
 
     plt.close(fig)
 
-def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id=['all']):
+def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id='all'):
     """
     Looks in the data directory for UM model data, and returns
     vertical profiles for the time period and locations specified
@@ -127,10 +128,9 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
     print('Loading model data ...')
     alldata_allmodels = dum.loadUM(start_dt, end_dt, event_name, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=True)
 
-    # 'HGHT', 'TEMP', 'DWPT', 'RELH', 'Q', 'DRCT', 'SKNT', 'U', 'V'
+    # Sets up an empty dataframe to put the data in
     column_names = ['stn_id', 'model_id', 'valid_datetimeUTC', 'fcast_lead_time', 'PRES', 'value', 'variable']
     df = pd.DataFrame(columns=column_names)
-    # Gets a list of forecast reference times
 
     print('Extracting model data for upper air stations ...')
     for m in alldata_allmodels.keys():
@@ -390,6 +390,7 @@ def plot_station_map(stations, event_domain, map_plot_fname):
     fig.savefig(map_plot_fname, bbox_inches='tight')
     plt.close(fig)
 
+
 def merge_data_for_plotting(obsdata, modeldata):
 
     # Add a column to the obsdata for fcast lead time
@@ -407,11 +408,11 @@ def merge_data_for_plotting(obsdata, modeldata):
 def main(start_dt, end_dt, event_domain, event_name, organisation):
 
     # For testing
-    start_dt = dt.datetime(2020, 5, 19, 0)
-    end_dt = dt.datetime(2020, 5, 20, 0)
-    event_name = 'PeninsulaMalaysia/20200520_Johor'
-    event_domain = [99, 0.5, 106, 7.5]
-    organisation = 'UKMO'
+    # start_dt = dt.datetime(2020, 5, 19, 0)
+    # end_dt = dt.datetime(2020, 5, 20, 0)
+    # event_name = 'PeninsulaMalaysia/20200520_Johor'
+    # event_domain = [99, 0.5, 106, 7.5]
+    # organisation = 'UKMO'
 
     # Set some location-specific defaults
     settings = config.load_location_settings(organisation)
@@ -428,6 +429,9 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
     map_plot_fname = settings['plot_dir'] + event_name + '/upper-air/station_map.png'
     plot_station_map(stations, event_domain, map_plot_fname)
 
+    # Output list of filenames for html page
+    ofiles = []
+
     # Loop through station ID(s)
     for i, station in stations.iterrows():
 
@@ -442,23 +446,34 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
         for thisdt in dates:
 
             print(thisdt)
+            this_dt_fmt = thisdt.strftime('%Y%m%dT%H%MZ')
+
             # Create a boolean list of records for this station and datetime
             stndt = (data2plot.station_id == str(stn_id)) & (data2plot.datetimeUTC == thisdt)
 
             # Plot just the observation
             asubset = data2plot.loc[stndt & (data2plot.model_id == 'observation')]
             if not asubset.empty:
-                plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                    '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation.png'
-                tephi_plot(station, thisdt, asubset, plot_fname)
+
+                # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
+                #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation.png'
+                plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde',
+                                             station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
+                if not os.path.isfile(plot_fname):
+                    tephi_plot(station, thisdt, asubset, plot_fname)
+                ofiles.append(plot_fname)
 
             # Plot observation + analysis
             obsana = ((data2plot.model_id == 'observation') | (data2plot.model_id == 'analysis'))
             asubset = data2plot.loc[stndt & obsana]
             if not asubset.empty:
-                plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                    '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis.png'
-                tephi_plot(station, thisdt, asubset, plot_fname)
+                # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
+                #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis.png'
+                plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde+Analysis',
+                                             station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
+                if not os.path.isfile(plot_fname):
+                    tephi_plot(station, thisdt, asubset, plot_fname)
+                ofiles.append(plot_fname)
 
             # Plot observation + analysis + models @ multiple lead times (T+0-24, 24-48, 48-72, 72-96, 96-120)
             fclts = np.arange(0, 120, 24)
@@ -467,17 +482,28 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                 fc = (data2plot.fcast_lead_time > fclt_start) & (data2plot.fcast_lead_time <= fclt_end) & (data2plot.model_id != 'analysis')
                 asubset = data2plot.loc[stndt & (fc | obsana)]
                 if not asubset.empty:
-                    plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                        '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis-modelsT'+str(fclt_end)+'.png'
-                    tephi_plot(station, thisdt, asubset, plot_fname)
+                    # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
+                    #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis-modelsT'+str(fclt_end)+'.png'
+                    plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
+                                             station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+'+str(fclt_end))
+                    if not os.path.isfile(plot_fname):
+                        tephi_plot(station, thisdt, asubset, plot_fname)
+
+                    ofiles.append(plot_fname)
 
             # Plot observation + analysis + models @ all lead times
             asubset = data2plot.loc[stndt]
             if not asubset.empty:
-                plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                    '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis-models-all.png'
-                tephi_plot(station, thisdt, asubset, plot_fname)
+                # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
+                #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis-models-all.png'
+                plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
+                                             station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
+                if not os.path.isfile(plot_fname):
+                    tephi_plot(station, thisdt, asubset, plot_fname)
 
+                ofiles.append(plot_fname)
+
+    html.create(ofiles)
 
 if __name__ == '__main__':
 
@@ -486,26 +512,26 @@ if __name__ == '__main__':
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For testing
-        start_dt = dt.datetime(2020, 5, 19, 0)
+        start_dt = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
         # For testing
-        end_dt = dt.datetime(2020, 5, 20, 0)
+        end_dt = dt.datetime.utcnow()
 
     try:
         domain_str = sys.argv[3]
         event_domain = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
-        event_domain = [100, 0, 110, 10]
+        event_domain = [90, -10, 120, 10]
 
     try:
         event_name = sys.argv[4]
     except:
         # For testing
-        event_name = 'PeninsulaMalaysia/20200520_Johor'
+        event_name = 'monitoring/realtime'
 
     try:
         organisation = sys.argv[5]

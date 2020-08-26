@@ -104,6 +104,21 @@ def create_summary_html(settings):
 
     return summarypage
 
+def create_variable_page(ifiles):
+    '''
+    This is a first attempt to create a page for each variable. In the future, it could use a jinja2 template
+    as shown here:
+    https://keyboardinterrupt.org/rendering-html-with-jinja2-in-python-3-6/
+    https://jinja.palletsprojects.com/en/2.11.x/
+    :param ifiles: dictionary. Each key will be a menu item, all the values are links to files to show in the animation
+    :return: rendered html file
+    '''
+
+    input_template = 'templates/file_viewer_template.html'
+
+
+
+
 def main(organisation):
 
     settings = config.load_location_settings(organisation)
