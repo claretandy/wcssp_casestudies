@@ -53,8 +53,8 @@ def nicenameLUT(keys):
 def create(ifiles):
     '''
     Uses a jinja2 template file and variables derived from the filenames in ifiles to create a web page
-    :param ifiles: a list of files
-    :return:
+    :param ifiles: a list of files with local paths
+    :return: html, css and js files in the directory above the ifiles
     '''
     # The template file has jinja2 code in it to allow page-specific features to be set by this script
     template_filename = "templates/file_viewer_template.html"

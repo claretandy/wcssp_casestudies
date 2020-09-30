@@ -5,6 +5,8 @@ Created on Tue Nov 12 15:39:30 2019
 """
 import os, sys
 import datetime as dt
+
+import load_data
 import location_config as config
 import iris
 import pandas as pd
@@ -126,7 +128,7 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
 
     # Load the model cubes into a dictionary
     print('Loading model data ...')
-    alldata_allmodels = dum.loadUM(start_dt, end_dt, event_name, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=True)
+    alldata_allmodels = load_data.unified_model(start_dt, end_dt, event_name, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=True)
 
     # Sets up an empty dataframe to put the data in
     column_names = ['stn_id', 'model_id', 'valid_datetimeUTC', 'fcast_lead_time', 'PRES', 'value', 'variable']
@@ -228,14 +230,17 @@ def getObsData(start_dt, end_dt, event_domain, settings):
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
         # Replace with the following when available
         # data = getObsData_BMKG(start_dt, end_dt, settings, stations_df)
+
     elif organisation == 'PAGASA':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
         # Replace with the following when available
         # data = getObsData_PAGASA(start_dt, end_dt, settings, stations_df)
+
     elif organisation == 'MMD':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
         # Replace with the following when available
         # data = getObsData_MMD(start_dt, end_dt, settings, stations_df)
+
     elif organisation == 'UKMO':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
     else:
@@ -279,7 +284,7 @@ def getObsData_MMD(start_dt, end_dt, settings, stations_df):
     :param start_dt:
     :param end_dt:
     :param settings:
-    :param stations_df: Pandas dataframe of all the upper stations within the event_domain
+    :param stations_df: Pandas dataframe of all the upper stations within the bbox
     :return: A pandas dataframe containing data for all stations for all dates.
     Column names need to match those output by downloadSoundings.main()
     """
@@ -290,7 +295,7 @@ def getObsData_PAGASA(start_dt, end_dt, settings, stations_df):
     :param start_dt:
     :param end_dt:
     :param settings:
-    :param stations_df: Pandas dataframe of all the upper stations within the event_domain
+    :param stations_df: Pandas dataframe of all the upper stations within the bbox
     :return: A pandas dataframe containing data for all stations for all dates.
     Column names need to match those output by downloadSoundings.main()
     """
@@ -301,7 +306,7 @@ def getObsData_BMKG(start_dt, end_dt, settings, stations_df):
     :param start_dt:
     :param end_dt:
     :param settings:
-    :param stations_df: Pandas dataframe of all the upper stations within the event_domain
+    :param stations_df: Pandas dataframe of all the upper stations within the bbox
     :return: A pandas dataframe containing data for all stations for all dates.
     Column names need to match those output by downloadSoundings.main()
     """
@@ -411,7 +416,7 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
     # start_dt = dt.datetime(2020, 5, 19, 0)
     # end_dt = dt.datetime(2020, 5, 20, 0)
     # event_name = 'PeninsulaMalaysia/20200520_Johor'
-    # event_domain = [99, 0.5, 106, 7.5]
+    # bbox = [99, 0.5, 106, 7.5]
     # organisation = 'UKMO'
 
     # Set some location-specific defaults
@@ -454,9 +459,6 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
             # Plot just the observation
             asubset = data2plot.loc[stndt & (data2plot.model_id == 'observation')]
             if not asubset.empty:
-
-                # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation.png'
                 plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
@@ -467,8 +469,6 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
             obsana = ((data2plot.model_id == 'observation') | (data2plot.model_id == 'analysis'))
             asubset = data2plot.loc[stndt & obsana]
             if not asubset.empty:
-                # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis.png'
                 plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde+Analysis',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
@@ -482,8 +482,6 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                 fc = (data2plot.fcast_lead_time > fclt_start) & (data2plot.fcast_lead_time <= fclt_end) & (data2plot.model_id != 'analysis')
                 asubset = data2plot.loc[stndt & (fc | obsana)]
                 if not asubset.empty:
-                    # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                    #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis-modelsT'+str(fclt_end)+'.png'
                     plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+'+str(fclt_end))
                     if not os.path.isfile(plot_fname):
@@ -494,8 +492,6 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
             # Plot observation + analysis + models @ all lead times
             asubset = data2plot.loc[stndt]
             if not asubset.empty:
-                # plot_fname = settings['plot_dir'] + event_name + '/upper-air/' + thisdt.strftime(
-                #     '%Y%m%dT%H%MZ') + '_' + str(stn_id) + '_observation-analysis-models-all.png'
                 plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
                 if not os.path.isfile(plot_fname):
@@ -512,13 +508,13 @@ if __name__ == '__main__':
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For testing
-        start_dt = dt.datetime.utcnow() - dt.timedelta(days=10)
+        start_dt = now - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
         # For testing
-        end_dt = dt.datetime.utcnow()
+        end_dt = now
 
     try:
         domain_str = sys.argv[3]

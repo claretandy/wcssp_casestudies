@@ -457,6 +457,27 @@ def poly2cube(shpfile, attribute, cube):
     return ocube
 
 
+def domainClip(cube, domain):
+    '''
+    Clips a cube according to a bounding box
+    :param cube: An iris cube
+    :param domain: list containing xmin, ymin, xmax, ymax or dictionary defining each
+    :return: iris cube containing the clipped domain
+    '''
+
+    if isinstance(domain, dict):
+        lonce = iris.coords.CoordExtent('longitude', domain['xmin'], domain['xmax'])
+        latce = iris.coords.CoordExtent('latitude', domain['ymin'], domain['ymax'])
+    else:
+        xmin, ymin, xmax, ymax = domain
+        lonce = iris.coords.CoordExtent('longitude', xmin, xmax)
+        latce = iris.coords.CoordExtent('latitude', ymin, ymax)
+
+    cube_cropped = cube.intersection(lonce, latce)
+
+    return cube_cropped
+
+
 def cube2gdalds(cube):
     '''
     :param cube: A 2D cube with bounds
@@ -1259,6 +1280,11 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
     # Now do the moo select
     print('Extracting from MASS to: ', ofile)
 
+    # If now is <15 hours since the initialisation time, there's a chance it is not on MASS yet, so don't write a '*.notarchived' file
+    # NB: The SEA suite takes between 6 and 12 hours to run on research queues
+    init_time = dt.datetime.strptime(os.path.basename(ofile).split('_')[0], '%Y%m%dT%H%MZ')
+    now_time = dt.datetime.strptime(nowstamp, '%Y%m%d%H%M%S%f')
+
     tmpfile = os.path.dirname(ofile) + '/tmp' + nowstamp + '.pp'
     not_archived = ofile.replace('.nc', '.notarchived')
 
@@ -1291,7 +1317,8 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
     if os.path.isfile(ofile):
         ofilelist.append(ofile)
     else:
-        open(not_archived, 'a').close()
+        if init_time < (now_time - dt.timedelta(hours=15)):
+            open(not_archived, 'a').close()
 
     os.remove(queryfn)
     if os.path.isfile(tmpfile):
@@ -1764,6 +1791,22 @@ def accum_6hr(cube, coord, name='6hourly'):
 def accum_3hr(cube, coord, name='3hourly'):
     add_categorised_coord(cube, name, coord, lambda coord, x: 0 if x < 3 else 1 if x < 6 else 2 if x < 9 else 3 if x < 12 else 4 if x < 15 else 5 if x < 18 else 6 if x < 21 else 7)
 
+def add_time_coords(cube):
+    '''
+    Adds some standard time coordinates to a cube for aggregation
+    :param cube: An iris cube
+    :return: An iris cube with more time coords
+    '''
+    # Add day of year, hour of day, category of 12hr or 6hr
+    iris.coord_categorisation.add_day_of_year(cube, 'time', name='day_of_year')
+    add_hour_of_day(cube, cube.coord('time'))
+    am_or_pm(cube, cube.coord('hour'))
+    accum_6hr(cube, cube.coord('hour'))
+    accum_3hr(cube, cube.coord('hour'))
+
+    return cube
+
+
 def plot_country_etc(ax):
 
     import cartopy.feature as cfeature
@@ -1942,7 +1985,14 @@ def send_to_ftp(filelist, ftp_path, settings, removeold=False):
 
     ftpfilecheck = ftp_details.copy()
     ftpfilecheck.extend(['-ls', ftp_path])
-    result = subprocess.check_output(ftpfilecheck)
+    attempts = 0
+    while attempts < 5:
+        try:
+            result = subprocess.check_output(ftpfilecheck)
+            break
+        except:
+            attempts += 1
+
     ftpfilelist = str(result).lstrip('\'b').rstrip('\\n\\n\'').split('\\n')
 
     if removeold:

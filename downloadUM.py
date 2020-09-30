@@ -1,12 +1,10 @@
 import os, sys
 import location_config as config
 import datetime as dt
-import numpy as np
 import std_functions as sf
 from ftplib import FTP
 import glob
-import iris
-import pdb
+
 
 def get_ftp_flist(domain, event_name, settings):
     '''
@@ -121,87 +119,6 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
         ofilelist = [fn for fn in ofilelist if region_type in fn]
 
     return ofilelist
-
-
-def loadUM(start, end, event_name, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False):
-    '''
-    Loads all the available UM data for the specified period, model_id, variables and subsets by bbox
-    :param start: datetime object
-    :param end: datetime object
-    :param bbox: list of bounding box coordinates [xmin, ymin, xmax, ymax]
-    :param event_name: string. Format is <region_name>/<date>_<event_name> or 'RealTime'
-    :param settings: settings from the config file
-    :param region_type: String. Either 'all', 'event', 'region', or 'tropics'
-    :param model_id: Either not specified (i.e. 'all') or a string or a list of strings that matches ['analysis',
-            'ga7', 'km4p4', 'km1p5']
-    :param var: Either not specified (i.e. 'all') or a string or a list of strings that matches names in
-            sf.get_default_stash_proc_codes()['name']
-    :param checkftp: boolean. If True, the script will check on the ftp site for files not currently in the local
-            filelist
-    :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
-            If False, it returns the full cube
-    :return: Cubelist of all variables and init_times
-    '''
-
-    full_file_list = get_local_flist(start, end, event_name, settings, region_type=region_type)
-    file_vars = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list]))
-    file_model_ids = list(set([os.path.basename(fn).split('_')[-4] for fn in full_file_list]))
-    # print(file_vars)
-
-    if isinstance(var, str):
-        var = [var]
-
-    if isinstance(model_id, str):
-        model_id = [model_id]
-
-    if var == ['all']:
-        # Gets all available
-        vars = file_vars
-    else:
-        # subset file_vars according to the list given
-        vars = [fv for v in var for fv in file_vars if v in fv]
-    # print(vars)
-
-    if model_id == ['all']:
-        # Get all available
-        model_ids = file_model_ids
-    else:
-        model_ids = [fmi for m in model_id for fmi in file_model_ids if m in fmi]
-
-    if bbox and not isinstance(bbox, dict):
-        bbox = {'xmin': bbox[0], 'ymin': bbox[1], 'xmax': bbox[2], 'ymax': bbox[3]}
-
-    cube_dict = {}
-
-    for model_id in model_ids:
-
-        mod_dict = {}
-        for var in vars:
-
-            print('   Loading:', model_id, var)
-            these_files = [x for x in full_file_list if var in x and model_id in x]
-            # print(these_files)
-
-            cubes = iris.load(these_files)
-            ocubes = iris.cube.CubeList([])
-            for cube in cubes:
-                if bbox:
-                    cube = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
-                if timeclip:
-                    cube = sf.periodConstraint(cube, start, end)
-                ocubes.append(cube)
-
-            mod_dict[var] = ocubes
-
-        cube_dict[model_id] = mod_dict
-
-    return cube_dict
-    # if len(vars) == 1 and len(model_ids) == 1:
-    #     return cube_dict[vars[0]][model_ids[0]]
-    # elif len(model_ids) == 1 and len(vars) > 1:
-    #     return cube_dict[list(cube_dict.keys())[0]]
-    # else:
-    #     return cube_dict
 
 
 def get_local_path(event_name, settings, model_id='*'):

@@ -88,7 +88,7 @@ def post_process(start, end, filelist, bboxes, event_name, row, settings):
 
 def domain_size_decider(row, model_id, regbbox, eventbbox, event_name):
     '''
-    Decides, using the stashdf row (from std_stashcodes.csv), whether we are subsetting using the event_domain, the
+    Decides, using the stashdf row (from std_stashcodes.csv), whether we are subsetting using the bbox, the
     regional bounding box or the global tropics
     :param row: pandas Series. A subset taken from sf.get_default_stash_proc_codes
     :param model_id: string. The model identifier. Could be anyone of 'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5',
@@ -189,7 +189,7 @@ def main(start, end, event_domain, event_name):
 
 if __name__ == '__main__':
 
-    # extractUM.py ${start} ${end} ${event_domain} ${eventname}
+    # extractUM.py ${start} ${end} ${bbox} ${eventname}
 
     try:
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')

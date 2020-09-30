@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import datetime as dt
 import matplotlib.colors as colors
-from make_html import create_summary_html
+from make_summary_html import create_summary_html
 import std_functions as sf
 import pdb
 

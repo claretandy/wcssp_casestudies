@@ -151,7 +151,7 @@ def writeHTML(ifiles, local_dir, template_file, out_html_file, dt_startdt, dt_en
     os.chmod(out_html_file, 0o777)
     
     # Copy the css file for the page style
-    shutil.copyfile('style_gpm.css', local_dir + 'style_gpm.css')
+    shutil.copyfile('templates/gpm.css', local_dir + 'gpm.css')
 
     # Make the symlink point to the most recently processed period
     olink = local_dir + 'gpm_' + timeperiod + '_current.html'
