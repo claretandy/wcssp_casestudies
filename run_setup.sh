@@ -17,6 +17,8 @@ else
   conda install -c conda-forge -n scitools wget # Possibly not required anymore
   conda install -c conda-forge -n scitools PIL # Possibly not required anymore
   conda install -n scitools sphinx # For documentation
+  conda install -c conda-forge -n scitools gdal
+  conda install -c pyviz hvplot
   # conda install -n scitools flask # For creating web pages with jinja2
   # For access to ERA5 data
   # ERA5 access also requires registration at https://cds.climate.copernicus.eu/

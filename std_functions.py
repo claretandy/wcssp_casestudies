@@ -185,11 +185,6 @@ def getModelID_byDatetime(thisdate, domain='SEAsia', searchtxt=False):
     return {"jobid": jobid, "modellist":modellist}
 
 
-def make_time_func(t1m, t2m):
-    def tfunc(cell):
-        return t1m <= cell.point <= t2m
-    return tfunc
-
 def make_timeseries(start, end, freq):
     '''
     Makes a timeseries between the start and end with timestamps on common valid hours separated by freq
@@ -220,15 +215,14 @@ def make_timeseries(start, end, freq):
 
 def periodConstraint(cube, t1, t2):
     # Constrains the cube according to min and max datetimes
-    #print(t1, ' to ', t2)
-    timeUnits = cube.coord('time').units
-    t1n = timeUnits.date2num(t1)
-    t2n = timeUnits.date2num(t2)
+    def make_time_func(t1m, t2m):
+        def tfunc(cell):
+            return t1m <= cell.point <= t2m
+        return tfunc
+
     tfunc = make_time_func(t1, t2)
     tconst = iris.Constraint(time=tfunc)
-    #print(cube.coord('time'))
     ocube = cube.extract(tconst)
-    # pdb.set_trace()
 
     return(ocube)
 
@@ -449,10 +443,15 @@ def poly2cube(shpfile, attribute, cube):
     # fieldnames = [field.name for field in veclyr.schema]
     # print(fieldnames)
     # print(ds.GetGeoTransform())
-    gdal.RasterizeLayer(ds, [1], veclyr, options=["ATTRIBUTE="+attribute+""])
+
+    if attribute == '':
+        gdal.RasterizeLayer(ds, [1], veclyr)
+    else:
+        gdal.RasterizeLayer(ds, [1], veclyr, options=["ATTRIBUTE=" + attribute + ""])
 
     # 3. Convert the resulting gdal dataset back to a cube
     ocube = geotiff2cube(ds)
+    ds = None
 
     return ocube
 
@@ -1826,6 +1825,51 @@ def plot_country_etc(ax):
     gl.yformatter = LATITUDE_FORMATTER
     gl.xlabel_style = {'size': 8}
     gl.ylabel_style = {'size': 8}
+
+
+def plot_cube(cube, ofile=None):
+
+    import matplotlib.pyplot as plt
+    import iris.plot as iplt
+    import cartopy.feature as cfeature
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
+    fig = plt.figure(dpi=96)
+
+    pcm = iplt.pcolormesh(cube)
+    plt.title(cube.name())
+    plt.xlabel('longitude / degrees')
+    plt.ylabel('latitude / degrees')
+    var_plt_ax = plt.gca()
+
+    borderlines = cfeature.NaturalEarthFeature(
+        category='cultural',
+        name='admin_0_boundary_lines_land',
+        scale='50m',
+        facecolor='none')
+    var_plt_ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
+    var_plt_ax.coastlines(resolution='50m', color='black')
+    gl = var_plt_ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
+    # gl.xlabels_top = False
+    # gl.ylabels_left = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabel_style = {'size': 8}
+    gl.ylabel_style = {'size': 8}
+
+    vleft, vbottom, vwidth, vheight = var_plt_ax.get_position().bounds
+    plt.gcf().subplots_adjust(top=vbottom + vheight, bottom=vbottom + 0.04,
+                              left=vleft, right=vleft + vwidth)
+    cbar_axes = fig.add_axes([vleft, vbottom - 0.02, vwidth, 0.02])
+    cbar = plt.colorbar(pcm, cax=cbar_axes, orientation='horizontal', extend='both') # norm=norm, boundaries=bounds,
+    # cbar.set_label(these_units)
+    cbar.ax.tick_params(length=0)
+
+    if ofile:
+        fig.savefig(ofile, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
 
 
 def plot_compare(cube1, cube2, filename=None):
