@@ -33,6 +33,7 @@ from iris.coord_categorisation import add_categorised_coord
 import re
 import std_functions as sf
 import load_data
+import location_config as config
 
 
 def plotGPM(cube_dom, outdir, domain, overwrite, accum='12hr'):
@@ -343,15 +344,30 @@ def mkOutDirs(dt_startdt, dt_enddt, outdir):
             os.makedirs(this_odir)
 
 
-def main(dt_start, dt_end, event_name, organisation, bbox=None):
+def main(start, end, event_name, bbox, organisation):
+
     '''
     Loads data and runs all the precip plotting routines
     :param dt_start: datetime
     :param dt_end: datetime
     :param event_name: String. Format <region>/<date>_<event_location_or_name> E.g. 'PeninsulaMalaysia/20200520_Johor'
+    :param bbox: List. Format [xmin, ymin, xmax, ymax]
     :param organisation: string.
     :return: lots of plots
     '''
+
+    plot_types = ['postage', 'gpm_realtime', 'regional_scale_pluswinds']
+    # Set some location-specific defaults
+    settings = config.load_location_settings(organisation)
+
+    # Set model ids to plot
+    model_ids = ['analysis', 'ga7', 'km4p4'] # 'km1p5'
+
+    # Load model data
+    model_data = load_data.unified_model(start, end, event_name, settings, bbox=bbox, region_type='event', model_id='all', var='precip', checkftp=False, timeclip=True)
+
+    # Load GPM IMERG
+    load_data.gpm_imerg(dt_start, dt_end, latency=)
 
     # Set some things at the start ...
     overwrite = False
@@ -405,23 +421,22 @@ if __name__ == '__main__':
         end = dt.datetime.utcnow()
 
     try:
-        model_ids = sys.argv[3]
-        model_ids = [x for x in model_ids.split(',')]
-    except:
-        # For testing (global domain because we're looking at the global context of a particular case study)
-        model_ids = ['ga','km4p4','km1p5']
-
-    try:
-        event_name = sys.argv[4]
+        event_name = sys.argv[3]
     except:
         # For testing
         event_name = 'monitoring/realtime'
+
+    try:
+        bbox = sys.argv[4]
+    except:
+        # For testing
+        bbox = [100, 0, 110, 10]
 
     try:
         organisation = sys.argv[5]
     except:
         organisation = 'UKMO'
 
-    main(start, end, model_ids, event_name, organisation)
+    main(start, end, event_name, bbox, organisation)
 
 

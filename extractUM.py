@@ -130,7 +130,7 @@ def domain_size_decider(row, model_id, regbbox, eventbbox, event_name):
     return {'tropics': tropics, 'region': region, 'event': event}
 
 
-def main(start, end, event_domain, event_name):
+def main(start, end, event_domain, event_name, model_ids=None):
 
     '''
 
@@ -157,7 +157,8 @@ def main(start, end, event_domain, event_name):
     # Gets the large scale domain name (either 'SEAsia', 'Africa', or 'global')
     domain = sf.getDomain_bybox(event_domain)
     regbbox = sf.getBBox_byRegionName(domain)
-    model_ids = sf.getModels_bybox(event_domain)['model_list']
+    if not model_ids:
+        model_ids = sf.getModels_bybox(event_domain)['model_list']
 
     # Note that the event_name follows the format region/casestudy_name
     if event_name == 'RealTime':
@@ -216,4 +217,10 @@ if __name__ == '__main__':
         # For testing
         event_name = 'RealTime'
 
-    main(start_dt, end_dt, event_domain, event_name)
+    try:
+        model_ids = [sys.argv[5]]
+    except:
+        # For testing
+        model_ids = None
+
+    main(start_dt, end_dt, event_domain, event_name, model_ids=model_ids)

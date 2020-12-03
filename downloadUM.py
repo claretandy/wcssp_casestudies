@@ -104,8 +104,7 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
 
     ofilelist = []
     for it in init_times:
-
-        if event_name == 'RealTime':
+        if event_name in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
             region_type = 'all'
             search_pattern = local_path + it.strftime('%Y%m/') + it.strftime('%Y%m%dT%H%MZ') + '*'
         else:
@@ -123,7 +122,7 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
 
 def get_local_path(event_name, settings, model_id='*'):
 
-    if event_name == 'RealTime':
+    if event_name in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
         local_path = settings['um_path'] + 'RealTime/' + model_id + '/'
     else:
         local_path = settings['um_path'] + 'CaseStudyData/' + event_name + '/'

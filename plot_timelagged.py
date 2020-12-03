@@ -328,7 +328,7 @@ def main(dt_start, dt_end, timeagg, plotdomain, statdomain, organisation, region
             print("Overwrite: ", overwrite)
             # start, end, stash, plotdomain, searchtxt = None, lbproc = 0, overwrite = False
             try:
-                modelcubes[mod] = sf.loadModelData(start, end, stash, plotdomain, mod, lbproc, aggregate=True, overwrite=overwrite)
+                modelcubes[mod] = sf.loadModelData(start, end, stash, plotdomain, settings, mod, lbproc, aggregate=True, overwrite=overwrite)
             except:
                 continue
         

@@ -132,7 +132,7 @@ def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
         try:
             outjobid = allavail_jobid[-1]
         except:
-            pdb.set_trace()
+            outjobid = None
     elif choice == 'most_common':
         outjobid = most_common(allavail_jobid)
     elif choice == 'first':
@@ -255,7 +255,7 @@ def check_time_fully_within(cube, start=None, end=None, timeagg=None):
 
 
 
-def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggregate=True, totals=True, overwrite=False):
+def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbproc=0, aggregate=True, totals=True, overwrite=False):
     """
     Loads all available model runs and clips data:
         - spatially (within lat/on box specified by plotdomain) and
@@ -1827,17 +1827,27 @@ def plot_country_etc(ax):
     gl.ylabel_style = {'size': 8}
 
 
-def plot_cube(cube, ofile=None):
+def plot_cube(cube, title=None, stretch=None, ofile=None):
 
     import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    import matplotlib as mpl
     import iris.plot as iplt
     import cartopy.feature as cfeature
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
-    fig = plt.figure(dpi=96)
+    mpl.rcParams["figure.figsize"] = [12.8, 9.6]
+    fig = plt.figure(dpi=200)
 
-    pcm = iplt.pcolormesh(cube)
-    plt.title(cube.name())
+    if stretch == 'low':
+        pcm = iplt.pcolormesh(cube, norm=colors.PowerNorm(gamma=0.2))
+    else:
+        pcm = iplt.pcolormesh(cube)
+        
+    if title:
+        plt.title(title)
+    else:
+        plt.title(cube.name())
     plt.xlabel('longitude / degrees')
     plt.ylabel('latitude / degrees')
     var_plt_ax = plt.gca()
@@ -1850,7 +1860,7 @@ def plot_cube(cube, ofile=None):
     var_plt_ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
     var_plt_ax.coastlines(resolution='50m', color='black')
     gl = var_plt_ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
-    # gl.xlabels_top = False
+    gl.xlabels_top = False
     # gl.ylabels_left = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER

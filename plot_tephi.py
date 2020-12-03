@@ -103,7 +103,7 @@ def tephi_plot(station, date, input, plot_fname):
 
     plt.close(fig)
 
-def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id='all'):
+def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id=['all']):
     """
     Looks in the data directory for UM model data, and returns
     vertical profiles for the time period and locations specified

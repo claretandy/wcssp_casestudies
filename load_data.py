@@ -44,8 +44,8 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
     '''
 
     full_file_list = get_local_flist(start, end, event_name, settings, region_type=region_type)
-    file_vars = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list]))
-    file_model_ids = list(set([os.path.basename(fn).split('_')[-4] for fn in full_file_list]))
+    file_vars = list(set([os.path.basename(fn).split('_')[-2] for fn in full_file_list]))
+    file_model_ids = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list]))
     # print(file_vars)
 
     if isinstance(var, str):
