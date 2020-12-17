@@ -1315,9 +1315,10 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
 
     if os.path.isfile(ofile):
         ofilelist.append(ofile)
-    else:
-        if init_time < (now_time - dt.timedelta(hours=15)):
-            open(not_archived, 'a').close()
+    # else:
+        # # This adds a 'not archived' empty file
+        # if init_time < (now_time - dt.timedelta(hours=15)):
+        #     open(not_archived, 'a').close()
 
     os.remove(queryfn)
     if os.path.isfile(tmpfile):

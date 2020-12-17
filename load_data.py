@@ -3,6 +3,7 @@ import os
 from datetime import timedelta
 import iris
 import location_config as config
+from iris.experimental.equalise_cubes import equalise_attributes
 import std_functions as sf
 from downloadUM import get_local_flist
 import downloadSoundings
@@ -91,7 +92,12 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                     cube = sf.periodConstraint(cube, start, end)
                 ocubes.append(cube)
 
-            mod_dict[var] = ocubes
+            try:
+                equalise_attributes(ocubes)
+                ocube = ocubes.concatenate_cube()
+                mod_dict[var] = ocube
+            except:
+                mod_dict[var] = ocubes
 
         cube_dict[model_id] = mod_dict
 
@@ -106,6 +112,7 @@ def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False):
     :param settings: settings from the config file
     :param latency: Choose from 'NRTearly', 'NRTlate', or 'production'
     :param bbox: Optional. List of bounding box coordinates [xmin, ymin, xmax, ymax], or a dictionary with keys=[xmin, ymin, xmax, ymax]. If set, the cube returned will be clipped to these coordinates.
+    :param quality: boolean (optional). Do we want to return the quality flag (True) or the actual data (False)
     :return: cube
     '''
 

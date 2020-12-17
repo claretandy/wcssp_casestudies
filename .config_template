@@ -1,0 +1,19 @@
+########
+# This is a template file that you will need to put in the directory ABOVE the code
+#   e.g. if the code is in: /path/to/code/
+#        then the .config file needs to have this path: /path/to/.config
+# Please edit each item below (guidance given on each line) so that it works with your local file system and passwords
+########
+organisation=UKMO # Currently supports [UKMO, PAGASA, BMKG, MMD, Andy-MacBook]
+scratchdir=/scratch/myusername/ # Location for temporary files
+datadir=/my_data_directory/wcssp_casestudies/Data/ # This needs to be a large storage disk (e.g. ~1TB)
+plot_dir=/my_data_directory/wcssp_casestudies/Plots/ # Same location, this is where all the plots are kept
+web_dir=/my_home_directory/public_html/ # If you have a web server setup, specify the location of it here
+url_base=https://www-hc/~hadhy/wcssp_casestudies/ # If you have a web server setup, this is the URL
+synop_station_list=./SampleData/synop/BMKG/Master.csv # SYNOP station list (not essential)
+synop_wildcard=*.json # SYNOP station list format (not essential)
+synop_frequency=3 # SYNOP station list frequency (not essential)
+gpm_username=me@email.com # The email address that you have registered at https://registration.pps.eosdis.nasa.gov/registration/
+ukmo_ftp_url=ftp.metoffice.gov.uk # This is fixed
+ukmo_ftp_user=username # The username given to you by UKMO
+ukmo_ftp_pass=password # The password given to you by UKMO

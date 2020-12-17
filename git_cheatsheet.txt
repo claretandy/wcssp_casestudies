@@ -47,7 +47,7 @@ git branch <name of a new branch>
 git checkout <name of new branch>
 
 # Link the local branch to an upstream branch
-git push --set-upstream origin myfirstbranch
+git push --set-upstream origin <name of new branch>
 
 # The following gives you a summary of what branch is being used:
 git status

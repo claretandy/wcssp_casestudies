@@ -14,48 +14,67 @@ conda activate scitools
 ######################################################################################################################
 # Change things in here for each case study
 organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
-start='202005190000' # Format YYYYMMDDHHMM
-end='202005200000' # Format YYYYMMDDHHMM
+start='202005190000' # Format YYYYMMDDHHMM or 'realtime'
+end='202005200000' # Format YYYYMMDDHHMM or 'realtime'
 #station_id=48650 #98222 # TODO : Remove the dependence on this
 bbox='99,0.5,106,7.5' # xmin, ymin, xmax, ymax
 event_location_name='Johor' # A short name to decribe the location of the event
 event_region_name='PeninsulaMalaysia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
+jobs='extractUM downloadGPM downloadUM plot_tephi' # Which scripts to run? Possible values:
+# extractUM downloadGPM downloadUM plot_tephi plot_precip plot_walkercirculation plot_synop make_summary_html
 ######################################################################################################################
 
 # Set the eventname automatically so it is a standard format of region/date_eventlocation
 eventname=${event_region_name}'/'$(echo ${end} | awk '{print substr($0,0,8)}')'_'${event_location_name}
 
-# If running from inside the Met Office, extract data for this case study and share on FTP
-#if [ $organisation == 'UKMO' ]; then
-#  python extractUM.py ${start} ${end} ${bbox} ${eventname}
-#fi
+for j in ${jobs[@]}; do
 
-# Run scripts to plot case study data
-# Download GPM IMERG data
-#python downloadGPM.py auto ${start} ${end} ${organisation}
+    # If running from inside the Met Office, extract data for this case study and share on FTP
+    if [ ${organisation} == 'UKMO' ] && [ ${j} == 'extractUM' ]; then
+      python extractUM.py ${start} ${end} ${bbox} ${eventname}
+    fi
 
-# Plot GPM animation for different time aggregations
-#python nrt_plots_v3_casestudies.py 'NRTlate' ${start} ${end} ${bbox} ${eventname} ${organisation}
+    # Download GPM IMERG data
+    if [ ${j} == 'downloadGPM' ]; then
+      python downloadGPM.py auto ${start} ${end} ${organisation}
+    fi
 
-# Get UM model data from FTP
-# Can also be run in realtime as a cronjob:
-# python downloadUM.py
-#python downloadUM.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+    # Download UM data
+    if [ ${j} == 'downloadUM' ]; then
+      python downloadUM.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+    fi
 
-# Plot Walker Circulation
-python plot_walkercirculation.py ${start} ${end} 'analysis' ${eventname} ${organisation}
+    # Plot Precipitation data
+    if [ ${j} == 'plot_precip' ]; then
+      # TODO make this work for multiple plots
+      python plot_precip.py ${start} ${end} ${eventname} ${bbox} ${organisation}
+    fi
 
-## Plot postage stamps of GPM vs models
-# TODO : make this script work in this environment - could also be adapted for other satellite obs / analysis
-#python plot_timelagged.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+    # Plot postage stamps of GPM vs models
+#    if [ ${j} == 'plot_timelagged' ]; then
+#      # TODO : merge this script into plot_precip
+#      # python plot_timelagged.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+#    fi
 
-## Plot SYNOP data from each organisation vs models
-# TODO : remove the dependence on station_id
-#python plot_synop.py ${organisation} ${start} ${end} ${station_id} # Note: station_id is optional
+    # Plot Walker Circulation
+    if [ ${j} == 'plot_walkercirculation' ]; then
+      python plot_walkercirculation.py ${start} ${end} 'analysis' ${eventname} ${organisation}
+    fi
 
-## Plot Upper Air soundings for each organisation vs models
-python plot_tephi.py ${start} ${end} ${event_domain} ${eventname} ${organisation}
+    # Plot Upper Air soundings for each organisation vs models (includes download)
+    if [ ${j} == 'plot_tephi' ]; then
+      python plot_tephi.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+    fi
 
-# Make an html page summarising all of the output plots
-python make_summary_html.py ${organisation} # TODO use code from plot_timelagged to auto-generate a summary html page
+    # Plot SYNOP data from each organisation vs models
+    if [ ${j} == 'plot_synop' ]; then
+      python plot_synop.py ${organisation} ${start} ${end} # ${station_id} # Note: station_id is optional
+    fi
 
+    # Make an html page summarising all of the output plots
+#    if [ ${j} == 'make_summary_html' ]; then
+#      # TODO use code from plot_timelagged to auto-generate a summary html page
+#      python make_summary_html.py ${organisation}
+#    fi
+
+done

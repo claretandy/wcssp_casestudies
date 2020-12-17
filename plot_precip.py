@@ -27,13 +27,11 @@ import os.path
 import shutil
 import iris.analysis as ia
 import datetime as dt
-# from datetime import timedelta, date, datetime
-import glob
-from iris.coord_categorisation import add_categorised_coord
 import re
-import std_functions as sf
 import load_data
 import location_config as config
+import std_functions as sf
+import run_html as html
 
 
 def plotGPM(cube_dom, outdir, domain, overwrite, accum='12hr'):
@@ -343,6 +341,60 @@ def mkOutDirs(dt_startdt, dt_enddt, outdir):
             print('Creating ' + this_odir)
             os.makedirs(this_odir)
 
+def plot_postage(start, end, model_ids, event_name, bbox, settings, ofiles):
+    '''
+    Plots GPM IMERG vs model lead times for various time aggregations
+    :param start:
+    :param end:
+    :param event_name:
+    :param bbox:
+    :param settings:
+    :param ofiles: current list of output files
+    :return: List of output files created
+    '''
+    # plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
+    #                                          station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
+
+    gpmdata = load_data.gpm_imerg(start, end, settings, latency='NRTlate', bbox=bbox)
+
+    return ofiles
+
+
+def plot_gpm(start, end, event_name, bbox, settings, ofiles):
+    '''
+    Plots GPM IMERG NRT_late and production for various time aggregations
+    :param start:
+    :param end:
+    :param event_name:
+    :param bbox:
+    :param settings:
+    :param ofiles: current list of output files
+    :return: List of output files created
+    '''
+    # plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models', station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
+    gpmdata = load_data.gpm_imerg(start, end, settings, latency='NRTlate', bbox=bbox)
+
+    return ofiles
+
+
+def plot_regional_plus_winds(start, end, model_ids, event_name, bbox, settings, ofiles):
+    '''
+    Plots GPM IMERG NRT_late (or production) with analysis winds vs model for various time slices
+    :param start:
+    :param end:
+    :param event_name:
+    :param bbox:
+    :param settings:
+    :param ofiles: current list of output files
+    :return: List of output files created
+    '''
+    # Load model data
+    model_data = load_data.unified_model(start, end, event_name, settings, bbox=bbox, region_type='event',
+                                         model_id='all', var='precip', checkftp=False, timeclip=True)
+    # plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models', station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
+
+    return ofiles
+
 
 def main(start, end, event_name, bbox, organisation):
 
@@ -356,18 +408,27 @@ def main(start, end, event_name, bbox, organisation):
     :return: lots of plots
     '''
 
-    plot_types = ['postage', 'gpm_realtime', 'regional_scale_pluswinds']
     # Set some location-specific defaults
     settings = config.load_location_settings(organisation)
 
     # Set model ids to plot
     model_ids = ['analysis', 'ga7', 'km4p4'] # 'km1p5'
 
+    # Make an empty list for storing precip png plots
+    ofiles = []
+
+    # Run plotting functions
+    ofiles = plot_postage(start, end, model_ids, event_name, bbox, settings, ofiles)
+    ofiles = plot_gpm(start, end, event_name, bbox, settings, ofiles)
+    ofiles = plot_regional_plus_winds(start, end, model_ids, event_name, bbox, settings, ofiles)
+
+    html.create(ofiles)
+
     # Load model data
     model_data = load_data.unified_model(start, end, event_name, settings, bbox=bbox, region_type='event', model_id='all', var='precip', checkftp=False, timeclip=True)
 
     # Load GPM IMERG
-    load_data.gpm_imerg(dt_start, dt_end, latency=)
+    load_data.gpm_imerg(start, end, latency='nrt_late')
 
     # Set some things at the start ...
     overwrite = False
@@ -438,5 +499,3 @@ if __name__ == '__main__':
         organisation = 'UKMO'
 
     main(start, end, event_name, bbox, organisation)
-
-

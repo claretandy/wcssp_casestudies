@@ -171,14 +171,14 @@ if __name__ == '__main__':
     try:
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
-        # For testing
-        start_dt = dt.datetime(2020, 5, 19, 0)
+        # For realtime
+        start_dt = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
-        # For testing
-        end_dt = dt.datetime(2020, 5, 20, 0)
+        # For realtime
+        end_dt = dt.datetime.utcnow()
 
     try:
         domain_str = sys.argv[3]
@@ -191,9 +191,9 @@ if __name__ == '__main__':
         event_name = sys.argv[4]
     except:
         # For testing
-        event_name = 'PeninsulaMalaysia/20200520_Johor'
+        # event_name = 'PeninsulaMalaysia/20200520_Johor'
         # or
-        # event_name = 'RealTime'
+        event_name = 'realtime'
 
     try:
         organisation = sys.argv[5]
