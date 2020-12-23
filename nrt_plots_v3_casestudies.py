@@ -245,7 +245,7 @@ if __name__ == '__main__':
     try:
         plotdomain = [float(x) for x in sys.argv[4].split(',')] # xmin,ymin,xmax,ymax
     except:
-        # Assume a big SEAsia domain
+        # Assume a big SEAsia bbox
         plotdomain = [91, -10, 120, 25]
 
     try:

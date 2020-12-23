@@ -76,7 +76,7 @@ def plotGPM(cube_dom, outdir, domain, overwrite, accum='12hr'):
     print(accum + ' Accumulation')
     this_title = accum + ' Accumulation (mm)'
     ofilelist = []
-    # print(np.nanmin(cube_dom.data))
+    # print(np.nanmin(cube.data))
 
     if accum == '24hr':
         # Aggregate by day_of_year.

@@ -4,6 +4,7 @@ import datetime as dt
 import std_functions as sf
 from ftplib import FTP
 import glob
+import pdb
 
 
 def get_ftp_flist(domain, event_name, settings):
@@ -101,10 +102,10 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
     # we are going to use glob to get all the local files
     init_times = sf.make_timeseries(start - dt.timedelta(days=5), end, 6)
     local_path = get_local_path(event_name, settings)
-
+    first_bit = event_name.split('_')[0]
     ofilelist = []
     for it in init_times:
-        if event_name in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
+        if first_bit in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
             region_type = 'all'
             search_pattern = local_path + it.strftime('%Y%m/') + it.strftime('%Y%m%dT%H%MZ') + '*'
         else:
@@ -122,7 +123,9 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
 
 def get_local_path(event_name, settings, model_id='*'):
 
-    if event_name in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
+    first_bit = event_name.split('_')[0]
+
+    if first_bit in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
         local_path = settings['um_path'] + 'RealTime/' + model_id + '/'
     else:
         local_path = settings['um_path'] + 'CaseStudyData/' + event_name + '/'

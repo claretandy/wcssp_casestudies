@@ -2,12 +2,15 @@ import glob
 import os
 from datetime import timedelta
 import iris
+import cf_units
 import location_config as config
 from iris.experimental.equalise_cubes import equalise_attributes
 import std_functions as sf
 from downloadUM import get_local_flist
 import downloadSoundings
 import downloadGPM
+import pdb
+
 
 def wyoming_soundings(start_dt, end_dt, bbox, settings):
     '''
@@ -24,7 +27,7 @@ def wyoming_soundings(start_dt, end_dt, bbox, settings):
     return data
 
 
-def unified_model(start, end, event_name, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False):
+def unified_model(start, end, event_name, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False, aggregate=True, totals=True):
     '''
     Loads *already downloaded* UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
@@ -47,7 +50,6 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
     full_file_list = get_local_flist(start, end, event_name, settings, region_type=region_type)
     file_vars = list(set([os.path.basename(fn).split('_')[-2] for fn in full_file_list]))
     file_model_ids = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list]))
-    # print(file_vars)
 
     if isinstance(var, str):
         var = [var]
@@ -61,7 +63,6 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
     else:
         # subset file_vars according to the list given
         vars = [fv for v in var for fv in file_vars if v in fv]
-    # print(vars)
 
     if model_id == ['all']:
         # Get all available
@@ -81,38 +82,108 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
 
             print('   Loading:', model_id, var)
             these_files = [x for x in full_file_list if var in x and model_id in x]
-            # print(these_files)
+            try:
+                cubes = iris.load(these_files)
+            except:
+                print('Failed to load files into a cubelist')
+                continue
 
-            cubes = iris.load(these_files)
             ocubes = iris.cube.CubeList([])
             for cube in cubes:
+
+                # Firstly, try to convert units
+                try:
+                    if cube.units == cf_units.Unit('kg m-2 s-1'):
+                        cube.convert_units('kg m-2 h-1')
+                except:
+                    print("Can\'t change units")
+
                 if bbox:
-                    cube = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
+                    # Clip the model output to a bounding box
+                    try:
+                        cube = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
+                        cube.attributes['bboxclipped'] = 'True'
+                    except:
+                        continue
+                else:
+                    cube.attributes['bboxclipped'] = 'False'
+
                 if timeclip:
-                    cube = sf.periodConstraint(cube, start, end)
+                    # Clip the model output to the given time bounds
+                    #  ... but only if the data is fully within the period between start datetime and end datetime
+                    timechk = sf.check_time_fully_within(cube, start=start, end=end)
+                    if not timechk:
+                        continue
+                    try:
+                        cube = sf.periodConstraint(cube, start, end)
+                        cube.attributes['timeclipped'] = 'True'
+                    except:
+                        continue
+                else:
+                    cube.attributes['timeclipped'] = 'False'
+
+                if aggregate:
+                    # Aggregate the model output for the time bounds given
+                    try:
+                        cube = cube.collapsed('time', iris.analysis.MEAN)
+                        cube.attributes['aggregated'] = 'True'
+                    except:
+                        print('Aggregate failed:', model_id)
+                        cube.attributes['aggregated'] = 'False'
+                        pass
+                    if totals:
+                        diff_hrs = (end - start).total_seconds() // 3600
+                        cube.data = cube.data * diff_hrs
+                        cube.attributes['units_note'] = 'Values represent total accumulated over the aggregation period'
+                    else:
+                        cube.attributes['units_note'] = 'Values represent mean rate over the aggregation period'
+                else:
+                    cube.attributes['aggregated'] = 'False'
+
+                cube.attributes['title'] = model_id + '_' + var
                 ocubes.append(cube)
 
-            try:
+            if model_id != 'analysis':
+                mod_dict[var] = ocubes
+            else:
+                # With analysis data, we don't have a forecast lead time dimension, so we can concatenate cubes together nicely into a cube
                 equalise_attributes(ocubes)
                 ocube = ocubes.concatenate_cube()
+                if aggregate:
+                    # Aggregate the analysis data for the time bounds given
+                    try:
+                        ocube = ocube.collapsed('time', iris.analysis.MEAN)
+                        ocube.attributes['aggregated'] = 'True'
+                    except:
+                        print('Aggregate failed:', model_id)
+                        ocube.attributes['aggregated'] = 'False'
+                        pass
+                    if totals:
+                        diff_hrs = (end - start).total_seconds() // 3600
+                        ocube.data = ocube.data * diff_hrs
+                        ocube.attributes['units_note'] = 'Values represent total accumulated over the aggregation period'
+                    else:
+                        ocube.attributes['units_note'] = 'Values represent mean rate over the aggregation period'
+                else:
+                    ocube.attributes['aggregated'] = 'False'
+                ocube.attributes['title'] = model_id + '_' + var
                 mod_dict[var] = ocube
-            except:
-                mod_dict[var] = ocubes
 
         cube_dict[model_id] = mod_dict
 
     return cube_dict
 
 
-def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False):
+def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False, aggregate=False):
     '''
     Loads *already downloaded* GPM IMERG data (30-minute precipitation from satellite) and returns a cube
     :param start: datetime object
     :param end: datetime object
     :param settings: settings from the config file
-    :param latency: Choose from 'NRTearly', 'NRTlate', or 'production'
+    :param latency: Choose from 'NRTearly', 'NRTlate', 'production' or None (choose the longest latency)
     :param bbox: Optional. List of bounding box coordinates [xmin, ymin, xmax, ymax], or a dictionary with keys=[xmin, ymin, xmax, ymax]. If set, the cube returned will be clipped to these coordinates.
     :param quality: boolean (optional). Do we want to return the quality flag (True) or the actual data (False)
+    :param aggregate: boolean (optional). If True, the function will return an aggregated 2D array, collapsed over time. For precip, this will be a total of precipitation during the period, for quality index, it will be a mean.
     :return: cube
     '''
 
@@ -161,14 +232,28 @@ def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False):
         print('concatenate_cube failed')
         cube = newcubelist.concatenate()[0]
 
+    # Clip the cube to start and end
+    cube = sf.periodConstraint(cube, start, end)
+
     if bbox:
         cube = sf.domainClip(cube, bbox)
+
+    if aggregate:
+        if quality:
+            cube = cube.collapsed('time', iris.analysis.MEAN)
+        else:
+            cube = cube.collapsed('time', iris.analysis.SUM)
+            cube.data = cube.data / 2.
+        cube.coord('latitude').guess_bounds()
+        cube.coord('longitude').guess_bounds()
 
     cube.attributes['STASH'] = iris.fileformats.pp.STASH(1, 5, 216)
     cube.attributes['data_source'] = 'GPM'
     cube.attributes['product_name'] = 'imerg' if not quality else 'imerg quality flag'
     cube.attributes['latency'] = latency
     cube.attributes['version'] = version
+    cube.attributes['aggregated'] = str(aggregate)
+    cube.attributes['title'] = 'GPM '+latency if not quality else 'GPM '+latency+ ' Quality Flag'
 
     return cube
 

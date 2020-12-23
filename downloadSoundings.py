@@ -50,7 +50,7 @@ def getFields(klist, data):
 
 def getUpperAirStations(event_domain):
     """
-    Uses WMO OSCAR API to get the station IDs for upper air stations within our event domain
+    Uses WMO OSCAR API to get the station IDs for upper air stations within our event bbox
     :param event_domain: list of float or int values ordered as follows: [xmin, ymin, xmax, ymax]
     :param odir: output directory in the local file system
     :return: pandas dataframe containing the data

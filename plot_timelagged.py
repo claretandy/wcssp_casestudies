@@ -24,7 +24,7 @@ Usage: python plot_timelagged.py 201810110000 201810130000 '96, -2, 108, 10' '12
 This script takes as input a start date, an end date, an aggregation period and two bounding boxes.
 The aggregation period refers to the period over which we want to make plots (default = 3 hours).
 The difference between the start and end dates should be a multiple of the aggregation period (e.g. 24 hours would mean 8 plots are created, with aggtime of 3 hours)
-The first bounding box is a plotting domain, the second is a sub-domain on which to calculate statistics.
+The first bounding box is a plotting bbox, the second is a sub-bbox on which to calculate statistics.
 Andy Hartley, October 2018
 '''
 def myround(x, base=3):

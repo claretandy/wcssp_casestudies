@@ -82,7 +82,7 @@ def post_process(start, end, filelist, bboxes, event_name, row, settings):
                 except TypeError:
                     continue
                 except:
-                    print('File either outside domain or time constraints')
+                    print('File either outside bbox or time constraints')
 
     return ofilelist
 
@@ -93,9 +93,9 @@ def domain_size_decider(row, model_id, regbbox, eventbbox, event_name):
     :param row: pandas Series. A subset taken from sf.get_default_stash_proc_codes
     :param model_id: string. The model identifier. Could be anyone of 'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5',
             'phikm1p5', 'global_prods' (global operational), 'africa_prods' (africa operational)
-    :param regbbox: list of floats. Bounding box of the (larger) regional domain. Contains [xmin, ymin, xmax, ymax]
-    :param eventbbox: list of floats. Bounding box of the (smaller) event domain. Contains [xmin, ymin, xmax, ymax]
-    :return: dictionary of domains to use for subsetting. If a domain is set to None, then it is not used for this
+    :param regbbox: list of floats. Bounding box of the (larger) regional bbox. Contains [xmin, ymin, xmax, ymax]
+    :param eventbbox: list of floats. Bounding box of the (smaller) event bbox. Contains [xmin, ymin, xmax, ymax]
+    :return: dictionary of domains to use for subsetting. If a bbox is set to None, then it is not used for this
             stash code / region combination
     '''
 
@@ -110,7 +110,7 @@ def domain_size_decider(row, model_id, regbbox, eventbbox, event_name):
 
         if event_name == 'RealTime':
             '''
-            If the event_name is 'RealTime', then we export the regional domain, but only leave the data on the
+            If the event_name is 'RealTime', then we export the regional bbox, but only leave the data on the
             FTP for a limited time
             '''
             tropics = tropicsbbox if row.share_tropics and model_id in global_models else None
@@ -136,7 +136,7 @@ def main(start, end, event_domain, event_name, model_ids=None):
 
     :param start: datetime
     :param end: datetime
-    :param event_domain: list of floats. Bounding box of the (smaller) event domain. Contains [xmin, ymin, xmax, ymax]
+    :param event_domain: list of floats. Bounding box of the (smaller) event bbox. Contains [xmin, ymin, xmax, ymax]
     :param event_name: string. Format is <region_name>/<date>_<event_name>
     :return: Nothing. Data extracted to:
                 - /scratch for realtime or full model fields
@@ -154,7 +154,7 @@ def main(start, end, event_domain, event_name, model_ids=None):
     # Gets all the stash codes tagged as share
     stashdf = sf.get_default_stash_proc_codes(list_type='share')
 
-    # Gets the large scale domain name (either 'SEAsia', 'Africa', or 'global')
+    # Gets the large scale bbox name (either 'SEAsia', 'Africa', or 'global')
     domain = sf.getDomain_bybox(event_domain)
     regbbox = sf.getBBox_byRegionName(domain)
     if not model_ids:

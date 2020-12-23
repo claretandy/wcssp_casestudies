@@ -223,7 +223,7 @@ def getObsData(start_dt, end_dt, event_domain, settings):
     """
     organisation = settings['organisation']
 
-    # This might be necessary to get a list of upper air stations within the event domain
+    # This might be necessary to get a list of upper air stations within the event bbox
     stations_df = downloadSoundings.getUpperAirStations(event_domain)
 
     if organisation == 'BMKG':
@@ -350,8 +350,8 @@ def getObsData_BMKG(start_dt, end_dt, settings, stations_df):
 
 def plot_station_map(stations, event_domain, map_plot_fname):
     """
-    Plots the locations of upper air stations within the event domain
-    :param stations: pandas dataframe of upper air stations within event domain
+    Plots the locations of upper air stations within the event bbox
+    :param stations: pandas dataframe of upper air stations within event bbox
     :param map_plot_fname: filename for plot output
     :return: File name of resulting plot
     """
@@ -360,7 +360,7 @@ def plot_station_map(stations, event_domain, map_plot_fname):
     if not os.path.isdir(filedir):
         os.makedirs(filedir)
 
-    # Put domain into correct format for plotting
+    # Put bbox into correct format for plotting
     domain = [event_domain[0], event_domain[2], event_domain[1], event_domain[3]]
 
     # Now do the plotting

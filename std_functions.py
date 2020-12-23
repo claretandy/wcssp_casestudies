@@ -27,7 +27,7 @@ def getDomain_bybox(plotdomain):
     elif p1.intersects(tafrica):
         domain = 'TAfrica'
     else:
-        print('The domain does not match any available convective scale models')
+        print('The bbox does not match any available convective scale models')
         domain = 'Global'
 
     return domain
@@ -90,13 +90,13 @@ def getModels_bybox(plotdomain, reg=None):
 
     # Accounts for the fact that the global model matches everything
     domain = domain_list[area_list.index(np.max(area_list))]  # Matches the largest area
-    # domain = Counter(domain_list).most_common()[0][0]
+    # bbox = Counter(domain_list).most_common()[0][0]
 
     if not domain or model_list == []:
-        print('The domain does not match any available convective scale model domains')
+        print('The bbox does not match any available convective scale model domains')
         pdb.set_trace()
 
-    return {"domain" : domain, "model_list": model_list}
+    return {"bbox" : domain, "model_list": model_list}
 
 
 def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
@@ -272,10 +272,10 @@ def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbpro
     :return: CubeList of all available model runs between the start and end
     """
 
-    # 1. Get model domain for the given plotting domain
+    # 1. Get model bbox for the given plotting bbox
     domain = getDomain_bybox(plotdomain)
     if not domain:
-        print("Not loading data because no data in the plotting domain")
+        print("Not loading data because no data in the plotting bbox")
         return None
 
     jobid = getJobID_byDateTime(end, domain=domain)
@@ -303,7 +303,7 @@ def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbpro
     # 3. Loop through data and load into a cube list
     outcubelist = iris.cube.CubeList([])
     for cube in cubelist:
-        # 3A. Subset to plot domain
+        # 3A. Subset to plot bbox
         #print(cube)
         try:
             cube_dclipped = cube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
@@ -354,7 +354,7 @@ def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbpro
                 print('Can\'t add attributes')
             outcubelist.append(cube_tclipped)
         except IndexError:
-            print(model_id, 'not in domain')
+            print(model_id, 'not in bbox')
 
     return(outcubelist)
 
@@ -456,19 +456,19 @@ def poly2cube(shpfile, attribute, cube):
     return ocube
 
 
-def domainClip(cube, domain):
+def domainClip(cube, bbox):
     '''
     Clips a cube according to a bounding box
     :param cube: An iris cube
     :param domain: list containing xmin, ymin, xmax, ymax or dictionary defining each
-    :return: iris cube containing the clipped domain
+    :return: iris cube containing the clipped bbox
     '''
 
-    if isinstance(domain, dict):
-        lonce = iris.coords.CoordExtent('longitude', domain['xmin'], domain['xmax'])
-        latce = iris.coords.CoordExtent('latitude', domain['ymin'], domain['ymax'])
+    if isinstance(bbox, dict):
+        lonce = iris.coords.CoordExtent('longitude', bbox['xmin'], bbox['xmax'])
+        latce = iris.coords.CoordExtent('latitude', bbox['ymin'], bbox['ymax'])
     else:
-        xmin, ymin, xmax, ymax = domain
+        xmin, ymin, xmax, ymax = bbox = [float(b) for b in bbox]
         lonce = iris.coords.CoordExtent('longitude', xmin, xmax)
         latce = iris.coords.CoordExtent('latitude', ymin, ymax)
 
@@ -1370,7 +1370,7 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
 
     odir = pathlib.PurePath(odir,jobid).as_posix()
 
-    # print('Getting model data for ',domain,'; jobid: ',jobid,' .... ')
+    # print('Getting model data for ',bbox,'; jobid: ',jobid,' .... ')
     # print('   ... Saving to: ',odir)
 
     if not pathlib.Path(odir).is_dir():
@@ -1694,7 +1694,7 @@ def gpmLatencyDecider(inlatency, end_date):
 
 def getGPMCube(start, end, latency, plotdomain, settings, aggregate=True):
     '''
-    Creates a mean rainfall rate for the period defined by start and end, clips to a domain, and outputs a cubelist
+    Creates a mean rainfall rate for the period defined by start and end, clips to a bbox, and outputs a cubelist
     containing the data and quality flag
     plotdomain = xmin, ymin, xmax, ymax
     '''
@@ -1889,7 +1889,7 @@ def plot_compare(cube1, cube2, filename=None):
     import matplotlib.colors as colors
     import iris.plot as iplt
 
-    # Get the domain (xmin, xmax, ymin, ymax)
+    # Get the bbox (xmin, xmax, ymin, ymax)
     xmin1, ymin1, xmax1, ymax1 = getCubeBBox(cube1, outtype='list')
     xmin2, ymin2, xmax2, ymax2 = getCubeBBox(cube2, outtype='list')
     domain = [min([xmin1, xmin2]), max([xmax1, xmax2]), min([ymin1, ymin2]), max([ymax1, ymax2])]
