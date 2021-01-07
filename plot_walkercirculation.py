@@ -301,7 +301,7 @@ if __name__ == '__main__':
         model_ids = sys.argv[3]
         model_ids = [x for x in model_ids.split(',')]
     except:
-        # For testing (global domain because we're looking at the global context of a particular case study)
+        # For testing (global bbox because we're looking at the global context of a particular case study)
         model_ids = ['analysis']
 
     try:

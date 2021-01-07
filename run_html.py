@@ -30,7 +30,13 @@ def parse_filename(ifiles):
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     dict['fclt'] = sorted(dict['fclt'], key=alphanum_key)
 
-    return dict
+    # Build a page title
+    # Monitoring | Realtime Peninsula Malaysia | Upper Air
+    region_name = list(set([os.path.dirname(f).split('/')[-3] for f in ifiles]))[0].title()
+    location_name = list(set([os.path.dirname(f).split('/')[-2] for f in ifiles]))[0].title().replace('_', ', ').replace('-', ' ')
+    page_title = region_name + ' | ' + location_name + ' | ' + dict['plottype'][0]
+
+    return dict, page_title
 
 def nicenameLUT(keys):
     # Change these nice names to change the names on the page.
@@ -53,8 +59,8 @@ def nicenameLUT(keys):
 def create(ifiles):
     '''
     Uses a jinja2 template file and variables derived from the filenames in ifiles to create a web page
-    :param ifiles: a list of files
-    :return:
+    :param ifiles: a list of files with local paths
+    :return: html, css and js files in the directory above the ifiles
     '''
     # The template file has jinja2 code in it to allow page-specific features to be set by this script
     template_filename = "templates/file_viewer_template.html"
@@ -68,7 +74,7 @@ def create(ifiles):
     # <Valid-time>_<ModelId>_<Location>_<Time-Aggregation>_<Plot-Name>_<Lead-time>.png
     # For example:
     # 20200519T0000Z_All-Models_KUALA-LUMPUR-INTERNATIONAL-AIRPORT-(KLIA)_Instantaneous_tephigram_T+120.png
-    dict = parse_filename(ifiles)
+    dict, page_title = parse_filename(ifiles)
 
     # Get the plot type
     # Assuming we only have 1 plot type per run of this script, but we can have multiple plotnames within it
@@ -92,7 +98,8 @@ def create(ifiles):
         "params": dict,
         "divnames": list(dict.keys()),
         "nicedivnames": nicenameLUT(dict.keys()),
-        "proc_time": dt.datetime.utcnow().strftime("%H:%M %d/%m/%Y UTC")
+        "proc_time": dt.datetime.utcnow().strftime("%H:%M %d/%m/%Y UTC"),
+        "page_title": page_title
     }
 
     script_path = os.path.dirname(os.path.abspath(__file__))

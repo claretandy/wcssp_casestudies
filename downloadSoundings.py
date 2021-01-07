@@ -5,6 +5,7 @@ import location_config as config
 from pathlib import Path
 import pandas as pd
 import json
+import std_functions as sf
 import numpy as np
 import pdb
 
@@ -50,7 +51,7 @@ def getFields(klist, data):
 
 def getUpperAirStations(event_domain):
     """
-    Uses WMO OSCAR API to get the station IDs for upper air stations within our event domain
+    Uses WMO OSCAR API to get the station IDs for upper air stations within our event bbox
     :param event_domain: list of float or int values ordered as follows: [xmin, ymin, xmax, ymax]
     :param odir: output directory in the local file system
     :return: pandas dataframe containing the data
@@ -85,13 +86,16 @@ def getUpperAirStations(event_domain):
 
     return df
 
-def getWyomingData(current_dt, stn_id, odir, incr=1):
+def getWyomingData(current_dt, stn_id, odir, incr=1, download=True):
     """
-    Queries sounding data from University of Wyoming for a given station ID and datetime. Increment is included to allow for searching within a range around the datetime. If the data already exists locally it won't be downloaded again.
+    Queries sounding data from University of Wyoming for a given station ID and datetime.
+    Increment is included to allow for searching within a range around the datetime.
+    If the data already exists locally it won't be downloaded again.
     :param current_dt: python datetime format
-    :param stn_id:
-    :param odir:
-    :param incr:
+    :param stn_id: Integer. WMO station ID
+    :param odir: String. Output directory
+    :param incr: Integer. For the current_dt, we can query a range. This determines the size of the time window
+    :param download: Boolean. If True, it will query the Wyoming site for data, if False, it will only use local data
     :return: pandas dataframe
     """
 
@@ -106,9 +110,9 @@ def getWyomingData(current_dt, stn_id, odir, incr=1):
           '&STNM=' + str(stn_id)
 
     if os.path.isfile(outcsv):
-        print('Getting file from disk')
+        print('Getting file from disk for ' + str(stn_id) + ' @ ' + current_dt.strftime('%Y%m%d %H:%M'))
         df = pd.read_csv(outcsv, parse_dates=['datetimeUTC'], dtype={'station_id':str})
-    else:
+    elif download:
         try:
             fn, bla = urllib.request.urlretrieve(url, file_name)
         except urllib.error.HTTPError:
@@ -136,36 +140,50 @@ def getWyomingData(current_dt, stn_id, odir, incr=1):
             print('unable to read the downloaded file')
             return df
 
+        # Reads the observation time from the file
+        try:
+            with open(file_name, 'r') as f:
+                for line in f:
+                    if 'Observation time' in line:
+                        obs_dt_str = line.split(': ')[1].rstrip('\n')
+                        obs_dt = dt.datetime.strptime(obs_dt_str, '%y%m%d/%H%M')
+        except:
+            print('unable to read the obs time')
+            return df
+
         if data:
-            print('Saving sounding data from Wyoming for ' + str(stn_id) + ' @ ' + current_dt.strftime('%Y%m%d %H:%M'))
+            print('Saving sounding data from Wyoming for ' + str(stn_id) + ' @ ' + obs_dt.strftime('%Y%m%d %H:%M'))
             df = pd.DataFrame([x.split() for x in data if (not '----' in x) and (not 'hPa' in x)])
             new_header = df.iloc[0]  # grab the first row for the header
             df = df[1:]  # take the data less the header row
             df.columns = new_header  # set the header row as the df header
-            df.insert(0, "datetimeUTC", current_dt, allow_duplicates=True)
+            df.insert(0, "datetimeUTC", obs_dt, allow_duplicates=True)
             df.datetimeUTC = pd.to_datetime(df.datetimeUTC)
             df.insert(0, "station_id", str(stn_id), allow_duplicates=True)
             df.to_csv(outcsv, index=False)
 
         # Delete the downloaded text file
         os.remove(file_name)
+    else:
+        print('No file available locally and downloads set to False')
+        return df
 
     return df
 
-def main(start_dt, end_dt, event_domain, settings):
+def main(start_dt, end_dt, bbox, settings, download=True):
     """
-    This function queries the WMO API "OSCAR" that stores information on locations of all types of weather station. This API allows us to query by location using the event_domain that we use in other parts of this code repository. Once we have a list of stations, we then send a request to the University of Wyoming for a particular datetime and station. This is intended as a backup in case soundings are not available locally.
+    This function queries the WMO API "OSCAR" that stores information on locations of all types of weather station. This API allows us to query by location using the bbox that we use in other parts of this code repository. Once we have a list of stations, we then send a request to the University of Wyoming for a particular datetime and station. This is intended as a backup in case soundings are not available locally.
     :param start_dt: datetime object
     :param end_dt: datetime object
-    :param event_domain: list containing float values of [xmin, ymin, xmax, ymax]
+    :param bbox: list containing float values of [xmin, ymin, xmax, ymax]
     :param settings: settings read from the config file
     :return: Dictionary of 'data': pandas dataframe of the sonde data ; and 'metadata': pandas dataframe of the station metadata
     """
 
     # Search for sounding data at these intervals (in hours)
     # Note 1: It seems as though most sondes are reported at 00 and 12 UTC, but some local variations may occur
-    # Note 2: if your start_dt is not 00UTC or 12UTC, this value should be 1 to make sure that you don't miss any sondes
-    incr = 6
+    # Note 2: if your start_dt is not 00UTC or 12UTC, the incr value should be 1 hour to make sure that you don't miss any sondes
+    incr = 6 # Hours
 
     # Set up the output directory for storing the data
     odir = Path(settings['datadir']).as_posix() + '/upper-air/wyoming/'
@@ -173,7 +191,7 @@ def main(start_dt, end_dt, event_domain, settings):
         os.makedirs(odir)
 
     # Get a pandas dataframe of stations (plus some metadata) for this bounding box from the WMO OSCAR API
-    station_list = getUpperAirStations(event_domain)
+    station_list = getUpperAirStations(bbox)
 
     # Create an empty pandas dataframe for storing the output
     odf = pd.DataFrame()
@@ -184,22 +202,34 @@ def main(start_dt, end_dt, event_domain, settings):
         stn_id = row['wigosStationIdentifier']
 
         # Loop through all datetimes between start and end at a frequency of the increment
-        current_dt = start_dt
-        while current_dt <= end_dt:
+        datetimes = sf.make_timeseries(start_dt, end_dt, incr)
+        # current_dt = start_dt
+        # while current_dt <= end_dt:
+        for current_dt in datetimes:
 
             # This actually gets the data ...
-            df = getWyomingData(current_dt, stn_id, odir, incr=incr)
+            df = getWyomingData(current_dt, stn_id, odir, incr=incr, download=download)
             if not df.empty:
                 odf = odf.append(df, ignore_index=True)
 
-            current_dt += dt.timedelta(hours=incr)
+            # current_dt += dt.timedelta(hours=incr)
 
     return {'data': odf, 'metadata': station_list}
 
 if __name__ == '__main__':
 
-    start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%dT%H%MZ')
-    end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%dT%H%MZ')
+    now = dt.datetime.utcnow()
+
+    try:
+        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%dT%H%MZ')
+    except:
+        start_dt = now - dt.timedelta(days=10)
+
+    try:
+        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%dT%H%MZ')
+    except:
+        end_dt = now
+
     stn_id = sys.argv[3]
     organisation = sys.argv[4]
 

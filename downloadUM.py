@@ -1,12 +1,11 @@
 import os, sys
 import location_config as config
 import datetime as dt
-import numpy as np
 import std_functions as sf
 from ftplib import FTP
 import glob
-import iris
 import pdb
+
 
 def get_ftp_flist(domain, event_name, settings):
     '''
@@ -103,11 +102,10 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
     # we are going to use glob to get all the local files
     init_times = sf.make_timeseries(start - dt.timedelta(days=5), end, 6)
     local_path = get_local_path(event_name, settings)
-
+    first_bit = event_name.split('_')[0]
     ofilelist = []
     for it in init_times:
-
-        if event_name == 'RealTime':
+        if first_bit in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
             region_type = 'all'
             search_pattern = local_path + it.strftime('%Y%m/') + it.strftime('%Y%m%dT%H%MZ') + '*'
         else:
@@ -123,90 +121,11 @@ def get_local_flist(start, end, event_name, settings, region_type='all'):
     return ofilelist
 
 
-def loadUM(start, end, event_name, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False):
-    '''
-    Loads all the available UM data for the specified period, model_id, variables and subsets by bbox
-    :param start: datetime object
-    :param end: datetime object
-    :param bbox: list of bounding box coordinates [xmin, ymin, xmax, ymax]
-    :param event_name: string. Format is <region_name>/<date>_<event_name> or 'RealTime'
-    :param settings: settings from the config file
-    :param region_type: String. Either 'all', 'event', 'region', or 'tropics'
-    :param model_id: Either not specified (i.e. 'all') or a string or a list of strings that matches ['analysis',
-            'ga7', 'km4p4', 'km1p5']
-    :param var: Either not specified (i.e. 'all') or a string or a list of strings that matches names in
-            sf.get_default_stash_proc_codes()['name']
-    :param checkftp: boolean. If True, the script will check on the ftp site for files not currently in the local
-            filelist
-    :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
-            If False, it returns the full cube
-    :return: Cubelist of all variables and init_times
-    '''
-
-    full_file_list = get_local_flist(start, end, event_name, settings, region_type=region_type)
-    file_vars = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list]))
-    file_model_ids = list(set([os.path.basename(fn).split('_')[-4] for fn in full_file_list]))
-    # print(file_vars)
-
-    if isinstance(var, str):
-        var = [var]
-
-    if isinstance(model_id, str):
-        model_id = [model_id]
-
-    if var == ['all']:
-        # Gets all available
-        vars = file_vars
-    else:
-        # subset file_vars according to the list given
-        vars = [fv for v in var for fv in file_vars if v in fv]
-    # print(vars)
-
-    if model_id == ['all']:
-        # Get all available
-        model_ids = file_model_ids
-    else:
-        model_ids = [fmi for m in model_id for fmi in file_model_ids if m in fmi]
-
-    if bbox and not isinstance(bbox, dict):
-        bbox = {'xmin': bbox[0], 'ymin': bbox[1], 'xmax': bbox[2], 'ymax': bbox[3]}
-
-    cube_dict = {}
-
-    for model_id in model_ids:
-
-        mod_dict = {}
-        for var in vars:
-
-            print('   Loading:', model_id, var)
-            these_files = [x for x in full_file_list if var in x and model_id in x]
-            # print(these_files)
-
-            cubes = iris.load(these_files)
-            ocubes = iris.cube.CubeList([])
-            for cube in cubes:
-                if bbox:
-                    cube = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
-                if timeclip:
-                    cube = sf.periodConstraint(cube, start, end)
-                ocubes.append(cube)
-
-            mod_dict[var] = ocubes
-
-        cube_dict[model_id] = mod_dict
-
-    return cube_dict
-    # if len(vars) == 1 and len(model_ids) == 1:
-    #     return cube_dict[vars[0]][model_ids[0]]
-    # elif len(model_ids) == 1 and len(vars) > 1:
-    #     return cube_dict[list(cube_dict.keys())[0]]
-    # else:
-    #     return cube_dict
-
-
 def get_local_path(event_name, settings, model_id='*'):
 
-    if event_name == 'RealTime':
+    first_bit = event_name.split('_')[0]
+
+    if first_bit in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME', 'monitoring/realtime']:
         local_path = settings['um_path'] + 'RealTime/' + model_id + '/'
     else:
         local_path = settings['um_path'] + 'CaseStudyData/' + event_name + '/'
@@ -214,7 +133,7 @@ def get_local_path(event_name, settings, model_id='*'):
     return local_path
 
 
-def main(start, end, event_domain, event_name, organisation):
+def main(start, end, bbox, event_name, organisation):
     '''
     This function is callable from the command line. It simply checks on the ftp for data relating to an event, and
     downloads it if it doesn't exist on the local datadir.
@@ -222,7 +141,7 @@ def main(start, end, event_domain, event_name, organisation):
     The RealTime folder should contain files from the last ~12 model runs. Older files will be deleted!
     :param start: datetime
     :param end: datetime
-    :param event_domain:
+    :param bbox:
     :param event_name:
     :param organisation:
     :return: a list of files that are available locally following download
@@ -230,7 +149,7 @@ def main(start, end, event_domain, event_name, organisation):
 
     settings = config.load_location_settings(organisation)
 
-    domain = sf.getDomain_bybox(event_domain)
+    domain = sf.getDomain_bybox(bbox)
 
     # What files exist locally?
     local_files = get_local_flist(start, end, event_name, settings)
@@ -255,14 +174,14 @@ if __name__ == '__main__':
     try:
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
-        # For testing
-        start_dt = dt.datetime(2020, 5, 19, 0)
+        # For realtime
+        start_dt = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
-        # For testing
-        end_dt = dt.datetime(2020, 5, 20, 0)
+        # For realtime
+        end_dt = dt.datetime.utcnow()
 
     try:
         domain_str = sys.argv[3]
@@ -275,9 +194,9 @@ if __name__ == '__main__':
         event_name = sys.argv[4]
     except:
         # For testing
-        event_name = 'PeninsulaMalaysia/20200520_Johor'
+        # event_name = 'PeninsulaMalaysia/20200520_Johor'
         # or
-        # event_name = 'RealTime'
+        event_name = 'realtime'
 
     try:
         organisation = sys.argv[5]

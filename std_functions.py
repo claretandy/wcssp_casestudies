@@ -14,9 +14,9 @@ from dateutil.relativedelta import relativedelta
 import location_config as config
 import pdb
 
-def getDomain_bybox(plotdomain):
+def getDomain_bybox(bbox):
 
-    xmin, ymin, xmax, ymax = plotdomain
+    xmin, ymin, xmax, ymax = bbox
     p1 = Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
 
     seasia  = Polygon([(90, -18), (90, 30), (154, 30), (154, -18)])
@@ -27,7 +27,7 @@ def getDomain_bybox(plotdomain):
     elif p1.intersects(tafrica):
         domain = 'TAfrica'
     else:
-        print('The domain does not match any available convective scale models')
+        print('The bbox does not match any available convective scale models')
         domain = 'Global'
 
     return domain
@@ -90,13 +90,13 @@ def getModels_bybox(plotdomain, reg=None):
 
     # Accounts for the fact that the global model matches everything
     domain = domain_list[area_list.index(np.max(area_list))]  # Matches the largest area
-    # domain = Counter(domain_list).most_common()[0][0]
+    # bbox = Counter(domain_list).most_common()[0][0]
 
     if not domain or model_list == []:
-        print('The domain does not match any available convective scale model domains')
+        print('The bbox does not match any available convective scale model domains')
         pdb.set_trace()
 
-    return {"domain" : domain, "model_list": model_list}
+    return {"bbox" : domain, "model_list": model_list}
 
 
 def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
@@ -132,7 +132,7 @@ def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
         try:
             outjobid = allavail_jobid[-1]
         except:
-            pdb.set_trace()
+            outjobid = None
     elif choice == 'most_common':
         outjobid = most_common(allavail_jobid)
     elif choice == 'first':
@@ -185,11 +185,6 @@ def getModelID_byDatetime(thisdate, domain='SEAsia', searchtxt=False):
     return {"jobid": jobid, "modellist":modellist}
 
 
-def make_time_func(t1m, t2m):
-    def tfunc(cell):
-        return t1m <= cell.point <= t2m
-    return tfunc
-
 def make_timeseries(start, end, freq):
     '''
     Makes a timeseries between the start and end with timestamps on common valid hours separated by freq
@@ -218,17 +213,19 @@ def make_timeseries(start, end, freq):
     # Return a sorted list
     return sorted(outlist)
 
-def periodConstraint(cube, t1, t2):
+def periodConstraint(cube, t1, t2, greedy=False):
     # Constrains the cube according to min and max datetimes
-    #print(t1, ' to ', t2)
-    timeUnits = cube.coord('time').units
-    t1n = timeUnits.date2num(t1)
-    t2n = timeUnits.date2num(t2)
-    tfunc = make_time_func(t1, t2)
+    def make_time_func(t1m, t2m, greedy=False):
+        def tfunc(cell):
+            if greedy:
+                return t1m <= cell.point <= t2m
+            else:
+                return t1m < cell.point <= t2m
+        return tfunc
+
+    tfunc = make_time_func(t1, t2, greedy=greedy)
     tconst = iris.Constraint(time=tfunc)
-    #print(cube.coord('time'))
     ocube = cube.extract(tconst)
-    # pdb.set_trace()
 
     return(ocube)
 
@@ -261,7 +258,7 @@ def check_time_fully_within(cube, start=None, end=None, timeagg=None):
 
 
 
-def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggregate=True, totals=True, overwrite=False):
+def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbproc=0, aggregate=True, totals=True, overwrite=False):
     """
     Loads all available model runs and clips data:
         - spatially (within lat/on box specified by plotdomain) and
@@ -278,10 +275,10 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
     :return: CubeList of all available model runs between the start and end
     """
 
-    # 1. Get model domain for the given plotting domain
+    # 1. Get model bbox for the given plotting bbox
     domain = getDomain_bybox(plotdomain)
     if not domain:
-        print("Not loading data because no data in the plotting domain")
+        print("Not loading data because no data in the plotting bbox")
         return None
 
     jobid = getJobID_byDateTime(end, domain=domain)
@@ -309,7 +306,7 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
     # 3. Loop through data and load into a cube list
     outcubelist = iris.cube.CubeList([])
     for cube in cubelist:
-        # 3A. Subset to plot domain
+        # 3A. Subset to plot bbox
         #print(cube)
         try:
             cube_dclipped = cube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
@@ -360,7 +357,7 @@ def loadModelData(start, end, stash, plotdomain, searchtxt=None, lbproc=0, aggre
                 print('Can\'t add attributes')
             outcubelist.append(cube_tclipped)
         except IndexError:
-            print(model_id, 'not in domain')
+            print(model_id, 'not in bbox')
 
     return(outcubelist)
 
@@ -449,12 +446,38 @@ def poly2cube(shpfile, attribute, cube):
     # fieldnames = [field.name for field in veclyr.schema]
     # print(fieldnames)
     # print(ds.GetGeoTransform())
-    gdal.RasterizeLayer(ds, [1], veclyr, options=["ATTRIBUTE="+attribute+""])
+
+    if attribute == '':
+        gdal.RasterizeLayer(ds, [1], veclyr)
+    else:
+        gdal.RasterizeLayer(ds, [1], veclyr, options=["ATTRIBUTE=" + attribute + ""])
 
     # 3. Convert the resulting gdal dataset back to a cube
     ocube = geotiff2cube(ds)
+    ds = None
 
     return ocube
+
+
+def domainClip(cube, bbox):
+    '''
+    Clips a cube according to a bounding box
+    :param cube: An iris cube
+    :param domain: list containing xmin, ymin, xmax, ymax or dictionary defining each
+    :return: iris cube containing the clipped bbox
+    '''
+
+    if isinstance(bbox, dict):
+        lonce = iris.coords.CoordExtent('longitude', bbox['xmin'], bbox['xmax'])
+        latce = iris.coords.CoordExtent('latitude', bbox['ymin'], bbox['ymax'])
+    else:
+        xmin, ymin, xmax, ymax = bbox = [float(b) for b in bbox]
+        lonce = iris.coords.CoordExtent('longitude', xmin, xmax)
+        latce = iris.coords.CoordExtent('latitude', ymin, ymax)
+
+    cube_cropped = cube.intersection(lonce, latce)
+
+    return cube_cropped
 
 
 def cube2gdalds(cube):
@@ -610,8 +633,6 @@ def getCubeBBox(cube, outtype='polygon'):
         i, j = [0, 1]
     ymin = np.min([bnd[i] for bnd in cube.coord('latitude').bounds])
     ymax = np.max([bnd[j] for bnd in cube.coord('latitude').bounds])
-    # print(cube.coord('latitude').bounds[0], cube.coord('latitude').bounds[-1])
-    # print(ymin, ymax)
 
     if cube.coord('longitude').bounds[0][0] > cube.coord('longitude').bounds[0][1]:
         k, l = [0, 1]
@@ -619,8 +640,6 @@ def getCubeBBox(cube, outtype='polygon'):
         k, l = [1, 0]
     xmin = np.min([bnd[l] for bnd in cube.coord('longitude').bounds])
     xmax = np.max([bnd[k] for bnd in cube.coord('longitude').bounds])
-    # print(cube.coord('longitude').bounds[0], cube.coord('longitude').bounds[-1])
-    # print(xmin, xmax)
 
     if outtype == 'list':
         return [xmin, ymin, xmax, ymax]
@@ -628,6 +647,7 @@ def getCubeBBox(cube, outtype='polygon'):
         return Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
     else:
         return [xmin, ymin, xmax, ymax]
+
 
 def get_fc_length(model_id):
     '''
@@ -1259,6 +1279,11 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
     # Now do the moo select
     print('Extracting from MASS to: ', ofile)
 
+    # If now is <15 hours since the initialisation time, there's a chance it is not on MASS yet, so don't write a '*.notarchived' file
+    # NB: The SEA suite takes between 6 and 12 hours to run on research queues
+    init_time = dt.datetime.strptime(os.path.basename(ofile).split('_')[0], '%Y%m%dT%H%MZ')
+    now_time = dt.datetime.strptime(nowstamp, '%Y%m%d%H%M%S%f')
+
     tmpfile = os.path.dirname(ofile) + '/tmp' + nowstamp + '.pp'
     not_archived = ofile.replace('.nc', '.notarchived')
 
@@ -1290,8 +1315,10 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
 
     if os.path.isfile(ofile):
         ofilelist.append(ofile)
-    else:
-        open(not_archived, 'a').close()
+    # else:
+        # # This adds a 'not archived' empty file
+        # if init_time < (now_time - dt.timedelta(hours=15)):
+        #     open(not_archived, 'a').close()
 
     os.remove(queryfn)
     if os.path.isfile(tmpfile):
@@ -1343,7 +1370,7 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
 
     odir = pathlib.PurePath(odir,jobid).as_posix()
 
-    # print('Getting model data for ',domain,'; jobid: ',jobid,' .... ')
+    # print('Getting model data for ',bbox,'; jobid: ',jobid,' .... ')
     # print('   ... Saving to: ',odir)
 
     if not pathlib.Path(odir).is_dir():
@@ -1665,93 +1692,6 @@ def gpmLatencyDecider(inlatency, end_date):
     return out_latency
 
 
-def getGPMCube(start, end, latency, plotdomain, settings, aggregate=True):
-    '''
-    Creates a mean rainfall rate for the period defined by start and end, clips to a domain, and outputs a cubelist
-    containing the data and quality flag
-    plotdomain = xmin, ymin, xmax, ymax
-    '''
-
-    inpath = settings['gpm_path'] + 'netcdf/imerg/'+latency+'/'
-
-    if start > end:
-        raise ValueError('You provided a start_date that comes after the end_date.')
-
-    # Gets all the filenames that are needed
-    alldatafilelist = [glob.glob((start + dt.timedelta(days=x)).strftime(inpath + '%Y/gpm_imerg_' + latency + '_*_%Y%m%d*.nc')) for x in range(0, 1 + (end - start).days)]
-    datafilelist = [item for sublist in alldatafilelist for item in sublist if not 'quality' in item]
-    qualfilelist = [item for sublist in alldatafilelist for item in sublist if 'quality' in item]
-
-    # Load the files as cubes
-    datacubelist = iris.load(datafilelist)
-    datacube = datacubelist.concatenate_cube()
-    try:
-        qualcubelist = iris.load(qualfilelist)
-        qualcube = qualcubelist.concatenate_cube()
-    except:
-        qualcube = None
-
-    # Clip to bounding box
-    datacube = datacube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
-    try:
-        qualcube = qualcube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
-    except:
-        qualcube = None
-    # Extract time period that we're interested in
-    datacube = periodConstraint(datacube, start, end)
-    if qualcube:
-        qualcube = periodConstraint(qualcube, start, end)
-    # Mask zero in preparation for aggregation
-    if type(datacube.data) == np.ndarray:
-        datacube.data = ma.masked_less(datacube.data, 0)
-    else:
-        datacube.data = ma.masked_less(datacube.data.data, 0)
-
-    if qualcube:
-        if type(qualcube.data) == np.ndarray:
-            qualcube.data = ma.masked_less(qualcube.data, 0)
-        else:
-            qualcube.data = ma.masked_less(qualcube.data.data, 0)
-
-    # Aggregate remaining time periods
-    # NB: GPM data is recorded as a rate in mm/hour at 30 min intervals,
-    #       therefore, when aggregating the precip totals need to be divided by 2
-    if aggregate:
-        datacube = datacube.collapsed('time', iris.analysis.SUM)
-        datacube.data = datacube.data / 2.
-        if qualcube:
-            qualcube = qualcube.collapsed('time', iris.analysis.MEAN)
-            qualcube.coord('latitude').guess_bounds()
-            qualcube.coord('longitude').guess_bounds()
-
-    if not datacube.coord('latitude').has_bounds():
-        datacube.coord('latitude').guess_bounds()
-        datacube.coord('longitude').guess_bounds()
-
-    # Add metadata
-    if qualcube:
-        metalist = [datacube, qualcube]
-    else:
-        metalist = [datacube]
-
-    for cube in metalist:
-        cube.attributes['STASH'] = iris.fileformats.pp.STASH(1, 5, 216)
-        cube.attributes['data_source'] = 'GPM'
-        cube.attributes['product_name'] = 'imerg'
-        cube.attributes['latency'] = latency
-        cube.attributes['version'] = os.path.basename(glob.glob(datafilelist[0])[0]).split('_')[3]
-        cube.attributes['aggregated'] = str(aggregate)
-        cube.attributes['title'] = 'GPM '+latency
-
-    if qualcube:
-        qualcube.attributes['title'] = qualcube.attributes['title'] + ' Quality Flag'
-
-    if qualcube:
-        return(datacube, qualcube)
-    else:
-        return(datacube, None)
-
-
 def add_hour_of_day(cube, coord, name='hour'):
     add_categorised_coord(cube, name, coord, lambda coord, x: coord.units.num2date(x).hour)
 
@@ -1763,6 +1703,22 @@ def accum_6hr(cube, coord, name='6hourly'):
 
 def accum_3hr(cube, coord, name='3hourly'):
     add_categorised_coord(cube, name, coord, lambda coord, x: 0 if x < 3 else 1 if x < 6 else 2 if x < 9 else 3 if x < 12 else 4 if x < 15 else 5 if x < 18 else 6 if x < 21 else 7)
+
+def add_time_coords(cube):
+    '''
+    Adds some standard time coordinates to a cube for aggregation
+    :param cube: An iris cube
+    :return: An iris cube with more time coords
+    '''
+    # Add day of year, hour of day, category of 12hr or 6hr
+    iris.coord_categorisation.add_day_of_year(cube, 'time', name='day_of_year')
+    add_hour_of_day(cube, cube.coord('time'))
+    am_or_pm(cube, cube.coord('hour'))
+    accum_6hr(cube, cube.coord('hour'))
+    accum_3hr(cube, cube.coord('hour'))
+
+    return cube
+
 
 def plot_country_etc(ax):
 
@@ -1785,13 +1741,68 @@ def plot_country_etc(ax):
     gl.ylabel_style = {'size': 8}
 
 
+def plot_cube(cube, title=None, stretch=None, ofile=None):
+
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    import matplotlib as mpl
+    import iris.plot as iplt
+    import cartopy.feature as cfeature
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
+    mpl.rcParams["figure.figsize"] = [12.8, 9.6]
+    fig = plt.figure(dpi=200)
+
+    if stretch == 'low':
+        pcm = iplt.pcolormesh(cube, norm=colors.PowerNorm(gamma=0.2))
+    else:
+        pcm = iplt.pcolormesh(cube)
+        
+    if title:
+        plt.title(title)
+    else:
+        plt.title(cube.name())
+    plt.xlabel('longitude / degrees')
+    plt.ylabel('latitude / degrees')
+    var_plt_ax = plt.gca()
+
+    borderlines = cfeature.NaturalEarthFeature(
+        category='cultural',
+        name='admin_0_boundary_lines_land',
+        scale='50m',
+        facecolor='none')
+    var_plt_ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
+    var_plt_ax.coastlines(resolution='50m', color='black')
+    gl = var_plt_ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
+    gl.xlabels_top = False
+    # gl.ylabels_left = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabel_style = {'size': 8}
+    gl.ylabel_style = {'size': 8}
+
+    vleft, vbottom, vwidth, vheight = var_plt_ax.get_position().bounds
+    plt.gcf().subplots_adjust(top=vbottom + vheight, bottom=vbottom + 0.04,
+                              left=vleft, right=vleft + vwidth)
+    cbar_axes = fig.add_axes([vleft, vbottom - 0.02, vwidth, 0.02])
+    cbar = plt.colorbar(pcm, cax=cbar_axes, orientation='horizontal', extend='both') # norm=norm, boundaries=bounds,
+    # cbar.set_label(these_units)
+    cbar.ax.tick_params(length=0)
+
+    if ofile:
+        fig.savefig(ofile, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
+
 def plot_compare(cube1, cube2, filename=None):
 
     import matplotlib.pyplot as plt
     import matplotlib.colors as colors
     import iris.plot as iplt
 
-    # Get the domain (xmin, xmax, ymin, ymax)
+    # Get the bbox (xmin, xmax, ymin, ymax)
     xmin1, ymin1, xmax1, ymax1 = getCubeBBox(cube1, outtype='list')
     xmin2, ymin2, xmax2, ymax2 = getCubeBBox(cube2, outtype='list')
     domain = [min([xmin1, xmin2]), max([xmax1, xmax2]), min([ymin1, ymin2]), max([ymax1, ymax2])]
@@ -1942,7 +1953,14 @@ def send_to_ftp(filelist, ftp_path, settings, removeold=False):
 
     ftpfilecheck = ftp_details.copy()
     ftpfilecheck.extend(['-ls', ftp_path])
-    result = subprocess.check_output(ftpfilecheck)
+    attempts = 0
+    while attempts < 5:
+        try:
+            result = subprocess.check_output(ftpfilecheck)
+            break
+        except:
+            attempts += 1
+
     ftpfilelist = str(result).lstrip('\'b').rstrip('\\n\\n\'').split('\\n')
 
     if removeold:

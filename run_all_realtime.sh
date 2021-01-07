@@ -15,14 +15,14 @@ conda activate scitools
 # Change things in here for each case study
 
 organisation='UKMO' # Can be  PAGASA, BMKG, MMD, UKMO or Andy-MacBook. Anything else defaults to 'generic'
-start='202005190000' # Format YYYYMMDDHHMM or 'realtime'
-end='202005200000' # Format YYYYMMDDHHMM or 'realtime'
+start='realtime' # Format YYYYMMDDHHMM or 'realtime'
+end='realtime' # Format YYYYMMDDHHMM or 'realtime'
 #station_id=48650 #98222 # TODO : Remove the dependence on this in plot_synop
 bbox='100,0,110,10' # xmin, ymin, xmax, ymax
-event_location_name='Johor' # A short name to decribe the location of the event
-event_region_name='Peninsula-Malaysia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
+event_location_name='Peninsula-Malaysia' # A short name to decribe the location of the event
+event_region_name='SEAsia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
 
-jobs='extractUM downloadGPM downloadUM plot_tephi plot_precip plot_walkercirculation' # Which scripts to run? Possible values:
+jobs='plot_precip plot_tephi plot_walkercirculation' # Which scripts to run? Possible values:
 # extractUM downloadGPM downloadUM plot_tephi plot_precip plot_walkercirculation plot_synop make_summary_html
 
 ######################################################################################################################
@@ -42,14 +42,14 @@ for j in ${jobs[@]}; do
       python extractUM.py ${start} ${end} ${bbox} ${eventname}
     fi
 
+    # If running from a different organisation, download UM data from FTP
+    if [ ${j} == 'downloadUM' ] && [ ${organisation} != 'UKMO' ]; then
+      python downloadUM.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+    fi
+
     # Download GPM IMERG data
     if [ ${j} == 'downloadGPM' ]; then
       python downloadGPM.py auto ${start} ${end} ${organisation}
-    fi
-
-    # Download UM data
-    if [ ${j} == 'downloadUM' ]; then
-      python downloadUM.py ${start} ${end} ${bbox} ${eventname} ${organisation}
     fi
 
     # Plot Precipitation data
@@ -58,14 +58,14 @@ for j in ${jobs[@]}; do
       python plot_precip.py ${start} ${end} ${eventname} ${event_location_name} ${bbox} ${organisation}
     fi
 
-    # Plot Walker Circulation
-    if [ ${j} == 'plot_walkercirculation' ]; then
-      python plot_walkercirculation.py ${start} ${end} 'analysis' ${eventname} ${organisation}
-    fi
-
     # Plot Upper Air soundings for each organisation vs models (includes download)
     if [ ${j} == 'plot_tephi' ]; then
       python plot_tephi.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+    fi
+
+    # Plot Walker Circulation
+    if [ ${j} == 'plot_walkercirculation' ]; then
+      python plot_walkercirculation.py ${start} ${end} 'analysis' ${eventname} ${organisation}
     fi
 
     # Plot SYNOP data from each organisation vs models

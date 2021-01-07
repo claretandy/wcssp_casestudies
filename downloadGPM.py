@@ -10,7 +10,6 @@ from dateutil.relativedelta import relativedelta
 import h5py
 import subprocess
 import location_config as config
-from ftplib import FTP
 
 
 '''
@@ -226,6 +225,15 @@ def get_file(url, odir):
 
 
 def main(latency, start_date, end_date, agency):
+    '''
+    Runs the GPM download code, using username and passwords from the config file
+    :param latency: String. Can be either 'production', 'NRTlate', or 'NRTearly'
+    :param start_date: datetime object
+    :param end_date: datetime object
+    :param agency: String. Can be 'PAGASA', or 'BMKG', or 'MMD', or 'UKMO', or 'Andy-MacBook'
+    :return: Creates daily netcdf files of GPM IMERG on the file system
+    '''
+
     product = 'imerg'  # This shouldn't change
     # change the accounts
     settings = config.load_location_settings(agency)
@@ -336,45 +344,24 @@ def main(latency, start_date, end_date, agency):
                         os.remove(f)
 
 
-def downloadftp(rawdata_dir, server, serverpath, settings):
+def gpm_latency_decider(end_date):
     '''
-    The data is no longer servered by FTP. They now use HTTPS or FTPS. This functional can probably be deleted
+    Assuming we want the best available data, this function chooses the most appropriate product given the time
+    difference between the end datetime and the current datetime
+    :param end:
+    :return:
     '''
-    org = settings["organisation"]
-    try:
-        ftp = FTP(server[0], settings["gpm_username"], settings["gpm_username"])
-        path_on_ftp = serverpath.split('3B-HHR')[0]
-        file_string = serverpath.replace(path_on_ftp, '')
-        ftp.cwd(path_on_ftp)
-        files = ftp.nlst()
-        files = [f for f in files if file_string in f]
-        print(serverpath)
+    now = dt.datetime.utcnow()
+    auto_latency = {'NRTearly': now - dt.timedelta(hours=3),
+                    'NRTlate': now - dt.timedelta(hours=18),
+                    'production': now - relativedelta(months=4)
+                    }
+    best_latency = 'NRTearly'
+    for l in auto_latency.keys():
+        if end_date <= auto_latency[l]:
+            best_latency = l
 
-        for file in files:
-            file_to_write = rawdata_dir + "/" + file
-            if not os.path.isfile(file_to_write):
-                print('Downloading: ', file_to_write)
-                localfile = open(file_to_write, 'wb')
-                ftp.retrbinary('RETR ' + file, localfile.write)
-                localfile.close()
-        ftp.quit()
-
-    except:
-        thiswd = os.getcwd()
-        os.chdir(rawdata_dir)
-        print('    Downloading files from FTP ...')
-
-        downloadstring = {
-            'UKMO': 'export HTTP_PROXY=http://webproxy.metoffice.gov.uk:8080 ; /opt/ukmo/utils/bin/doftp -host ' +
-                    server[0] + ' -user ' + server[1] + ' -pass ' + server[1] + ' -mget ' +
-                    serverpath,
-            'PAGASA': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2]),
-            'BMKG': 'wget --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2]),
-            'MMD': 'wget -q --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2]),
-            'Andy-MacBook': 'wget -q --user={:s} --password={:s} {:s}:"{:s}"'.format(server[1], server[1], server[0], serverpath + '*' + server[2])
-        }
-        os.system(downloadstring[agency])
-        os.chdir(thiswd)
+    return best_latency
 
 
 if __name__ == '__main__':
@@ -395,10 +382,6 @@ if __name__ == '__main__':
     #  NB: 'auto' latency means that the most scientifically robust dataset is chosen
     latency = sys.argv[1]  # Can be either 'production', 'NRTlate' or 'NRTearly' or 'all' or 'auto'
 
-    auto_latency = {'NRTearly': now - dt.timedelta(hours=3),
-                    'NRTlate': now - dt.timedelta(hours=18),
-                    'production': now - relativedelta(months=4)
-                    }
     try:
         start_date = dt.datetime.strptime(sys.argv[2][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
     except IndexError:
@@ -416,10 +399,7 @@ if __name__ == '__main__':
         for l in ['production', 'NRTlate', 'NRTearly']:
             main(l, start_date, end_date, agency)
     elif latency == 'auto':
-        best_latency = 'NRTearly'
-        for l in auto_latency.keys():
-            if end_date <= auto_latency[l]:
-                best_latency = l
+        best_latency = gpm_latency_decider(end_date)
         main(best_latency, start_date, end_date, agency)
     else:
         main(latency, start_date, end_date, agency)

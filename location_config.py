@@ -43,7 +43,7 @@ def load_location_settings(site=get_site_by_ip()):
                 continue
             else:
                 var = line.split('=')[0]
-                val = line.split('=')[1].replace('\n', '')
+                val = line.split('=')[1].replace('\n', '').split('#')[0].strip()
                 if var == 'organisation':
                     # print(val)
                     if val == site:
