@@ -14,9 +14,9 @@ from dateutil.relativedelta import relativedelta
 import location_config as config
 import pdb
 
-def getDomain_bybox(plotdomain):
+def getDomain_bybox(bbox):
 
-    xmin, ymin, xmax, ymax = plotdomain
+    xmin, ymin, xmax, ymax = bbox
     p1 = Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
 
     seasia  = Polygon([(90, -18), (90, 30), (154, 30), (154, -18)])
@@ -213,14 +213,17 @@ def make_timeseries(start, end, freq):
     # Return a sorted list
     return sorted(outlist)
 
-def periodConstraint(cube, t1, t2):
+def periodConstraint(cube, t1, t2, greedy=False):
     # Constrains the cube according to min and max datetimes
-    def make_time_func(t1m, t2m):
+    def make_time_func(t1m, t2m, greedy=False):
         def tfunc(cell):
-            return t1m <= cell.point <= t2m
+            if greedy:
+                return t1m <= cell.point <= t2m
+            else:
+                return t1m < cell.point <= t2m
         return tfunc
 
-    tfunc = make_time_func(t1, t2)
+    tfunc = make_time_func(t1, t2, greedy=greedy)
     tconst = iris.Constraint(time=tfunc)
     ocube = cube.extract(tconst)
 
@@ -630,8 +633,6 @@ def getCubeBBox(cube, outtype='polygon'):
         i, j = [0, 1]
     ymin = np.min([bnd[i] for bnd in cube.coord('latitude').bounds])
     ymax = np.max([bnd[j] for bnd in cube.coord('latitude').bounds])
-    # print(cube.coord('latitude').bounds[0], cube.coord('latitude').bounds[-1])
-    # print(ymin, ymax)
 
     if cube.coord('longitude').bounds[0][0] > cube.coord('longitude').bounds[0][1]:
         k, l = [0, 1]
@@ -639,8 +640,6 @@ def getCubeBBox(cube, outtype='polygon'):
         k, l = [1, 0]
     xmin = np.min([bnd[l] for bnd in cube.coord('longitude').bounds])
     xmax = np.max([bnd[k] for bnd in cube.coord('longitude').bounds])
-    # print(cube.coord('longitude').bounds[0], cube.coord('longitude').bounds[-1])
-    # print(xmin, xmax)
 
     if outtype == 'list':
         return [xmin, ymin, xmax, ymax]
@@ -648,6 +647,7 @@ def getCubeBBox(cube, outtype='polygon'):
         return Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
     else:
         return [xmin, ymin, xmax, ymax]
+
 
 def get_fc_length(model_id):
     '''
@@ -1690,93 +1690,6 @@ def gpmLatencyDecider(inlatency, end_date):
         out_latency = inlatency
 
     return out_latency
-
-
-def getGPMCube(start, end, latency, plotdomain, settings, aggregate=True):
-    '''
-    Creates a mean rainfall rate for the period defined by start and end, clips to a bbox, and outputs a cubelist
-    containing the data and quality flag
-    plotdomain = xmin, ymin, xmax, ymax
-    '''
-
-    inpath = settings['gpm_path'] + 'netcdf/imerg/'+latency+'/'
-
-    if start > end:
-        raise ValueError('You provided a start_date that comes after the end_date.')
-
-    # Gets all the filenames that are needed
-    alldatafilelist = [glob.glob((start + dt.timedelta(days=x)).strftime(inpath + '%Y/gpm_imerg_' + latency + '_*_%Y%m%d*.nc')) for x in range(0, 1 + (end - start).days)]
-    datafilelist = [item for sublist in alldatafilelist for item in sublist if not 'quality' in item]
-    qualfilelist = [item for sublist in alldatafilelist for item in sublist if 'quality' in item]
-
-    # Load the files as cubes
-    datacubelist = iris.load(datafilelist)
-    datacube = datacubelist.concatenate_cube()
-    try:
-        qualcubelist = iris.load(qualfilelist)
-        qualcube = qualcubelist.concatenate_cube()
-    except:
-        qualcube = None
-
-    # Clip to bounding box
-    datacube = datacube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
-    try:
-        qualcube = qualcube.intersection(latitude=(plotdomain[1],plotdomain[3]), longitude=(plotdomain[0],plotdomain[2]))
-    except:
-        qualcube = None
-    # Extract time period that we're interested in
-    datacube = periodConstraint(datacube, start, end)
-    if qualcube:
-        qualcube = periodConstraint(qualcube, start, end)
-    # Mask zero in preparation for aggregation
-    if type(datacube.data) == np.ndarray:
-        datacube.data = ma.masked_less(datacube.data, 0)
-    else:
-        datacube.data = ma.masked_less(datacube.data.data, 0)
-
-    if qualcube:
-        if type(qualcube.data) == np.ndarray:
-            qualcube.data = ma.masked_less(qualcube.data, 0)
-        else:
-            qualcube.data = ma.masked_less(qualcube.data.data, 0)
-
-    # Aggregate remaining time periods
-    # NB: GPM data is recorded as a rate in mm/hour at 30 min intervals,
-    #       therefore, when aggregating the precip totals need to be divided by 2
-    if aggregate:
-        datacube = datacube.collapsed('time', iris.analysis.SUM)
-        datacube.data = datacube.data / 2.
-        if qualcube:
-            qualcube = qualcube.collapsed('time', iris.analysis.MEAN)
-            qualcube.coord('latitude').guess_bounds()
-            qualcube.coord('longitude').guess_bounds()
-
-    if not datacube.coord('latitude').has_bounds():
-        datacube.coord('latitude').guess_bounds()
-        datacube.coord('longitude').guess_bounds()
-
-    # Add metadata
-    if qualcube:
-        metalist = [datacube, qualcube]
-    else:
-        metalist = [datacube]
-
-    for cube in metalist:
-        cube.attributes['STASH'] = iris.fileformats.pp.STASH(1, 5, 216)
-        cube.attributes['data_source'] = 'GPM'
-        cube.attributes['product_name'] = 'imerg'
-        cube.attributes['latency'] = latency
-        cube.attributes['version'] = os.path.basename(glob.glob(datafilelist[0])[0]).split('_')[3]
-        cube.attributes['aggregated'] = str(aggregate)
-        cube.attributes['title'] = 'GPM '+latency
-
-    if qualcube:
-        qualcube.attributes['title'] = qualcube.attributes['title'] + ' Quality Flag'
-
-    if qualcube:
-        return(datacube, qualcube)
-    else:
-        return(datacube, None)
 
 
 def add_hour_of_day(cube, coord, name='hour'):

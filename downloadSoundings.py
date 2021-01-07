@@ -5,6 +5,7 @@ import location_config as config
 from pathlib import Path
 import pandas as pd
 import json
+import std_functions as sf
 import numpy as np
 import pdb
 
@@ -109,7 +110,7 @@ def getWyomingData(current_dt, stn_id, odir, incr=1, download=True):
           '&STNM=' + str(stn_id)
 
     if os.path.isfile(outcsv):
-        print('Getting file from disk')
+        print('Getting file from disk for ' + str(stn_id) + ' @ ' + current_dt.strftime('%Y%m%d %H:%M'))
         df = pd.read_csv(outcsv, parse_dates=['datetimeUTC'], dtype={'station_id':str})
     elif download:
         try:
@@ -139,13 +140,24 @@ def getWyomingData(current_dt, stn_id, odir, incr=1, download=True):
             print('unable to read the downloaded file')
             return df
 
+        # Reads the observation time from the file
+        try:
+            with open(file_name, 'r') as f:
+                for line in f:
+                    if 'Observation time' in line:
+                        obs_dt_str = line.split(': ')[1].rstrip('\n')
+                        obs_dt = dt.datetime.strptime(obs_dt_str, '%y%m%d/%H%M')
+        except:
+            print('unable to read the obs time')
+            return df
+
         if data:
-            print('Saving sounding data from Wyoming for ' + str(stn_id) + ' @ ' + current_dt.strftime('%Y%m%d %H:%M'))
+            print('Saving sounding data from Wyoming for ' + str(stn_id) + ' @ ' + obs_dt.strftime('%Y%m%d %H:%M'))
             df = pd.DataFrame([x.split() for x in data if (not '----' in x) and (not 'hPa' in x)])
             new_header = df.iloc[0]  # grab the first row for the header
             df = df[1:]  # take the data less the header row
             df.columns = new_header  # set the header row as the df header
-            df.insert(0, "datetimeUTC", current_dt, allow_duplicates=True)
+            df.insert(0, "datetimeUTC", obs_dt, allow_duplicates=True)
             df.datetimeUTC = pd.to_datetime(df.datetimeUTC)
             df.insert(0, "station_id", str(stn_id), allow_duplicates=True)
             df.to_csv(outcsv, index=False)
@@ -160,7 +172,7 @@ def getWyomingData(current_dt, stn_id, odir, incr=1, download=True):
 
 def main(start_dt, end_dt, bbox, settings, download=True):
     """
-    This function queries the WMO API "OSCAR" that stores information on locations of all types of weather station. This API allows us to query by location using the event_domain that we use in other parts of this code repository. Once we have a list of stations, we then send a request to the University of Wyoming for a particular datetime and station. This is intended as a backup in case soundings are not available locally.
+    This function queries the WMO API "OSCAR" that stores information on locations of all types of weather station. This API allows us to query by location using the bbox that we use in other parts of this code repository. Once we have a list of stations, we then send a request to the University of Wyoming for a particular datetime and station. This is intended as a backup in case soundings are not available locally.
     :param start_dt: datetime object
     :param end_dt: datetime object
     :param bbox: list containing float values of [xmin, ymin, xmax, ymax]
@@ -190,15 +202,17 @@ def main(start_dt, end_dt, bbox, settings, download=True):
         stn_id = row['wigosStationIdentifier']
 
         # Loop through all datetimes between start and end at a frequency of the increment
-        current_dt = start_dt
-        while current_dt <= end_dt:
+        datetimes = sf.make_timeseries(start_dt, end_dt, incr)
+        # current_dt = start_dt
+        # while current_dt <= end_dt:
+        for current_dt in datetimes:
 
             # This actually gets the data ...
             df = getWyomingData(current_dt, stn_id, odir, incr=incr, download=download)
             if not df.empty:
                 odf = odf.append(df, ignore_index=True)
 
-            current_dt += dt.timedelta(hours=incr)
+            # current_dt += dt.timedelta(hours=incr)
 
     return {'data': odf, 'metadata': station_list}
 

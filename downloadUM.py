@@ -133,7 +133,7 @@ def get_local_path(event_name, settings, model_id='*'):
     return local_path
 
 
-def main(start, end, event_domain, event_name, organisation):
+def main(start, end, bbox, event_name, organisation):
     '''
     This function is callable from the command line. It simply checks on the ftp for data relating to an event, and
     downloads it if it doesn't exist on the local datadir.
@@ -141,7 +141,7 @@ def main(start, end, event_domain, event_name, organisation):
     The RealTime folder should contain files from the last ~12 model runs. Older files will be deleted!
     :param start: datetime
     :param end: datetime
-    :param event_domain:
+    :param bbox:
     :param event_name:
     :param organisation:
     :return: a list of files that are available locally following download
@@ -149,7 +149,7 @@ def main(start, end, event_domain, event_name, organisation):
 
     settings = config.load_location_settings(organisation)
 
-    domain = sf.getDomain_bybox(event_domain)
+    domain = sf.getDomain_bybox(bbox)
 
     # What files exist locally?
     local_files = get_local_flist(start, end, event_name, settings)

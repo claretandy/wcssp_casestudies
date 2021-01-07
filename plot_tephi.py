@@ -10,7 +10,7 @@ import load_data
 import location_config as config
 import iris
 import pandas as pd
-import nrt_plots_v3 as nrtplt
+import plot_precip
 import downloadSoundings
 import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
@@ -18,10 +18,8 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import tephi
-import downloadUM as dum
 import std_functions as sf
 import run_html as html
-
 import pdb
 
 def tephi_plot(station, date, input, plot_fname):
@@ -95,7 +93,6 @@ def tephi_plot(station, date, input, plot_fname):
         tprofile = tpg.plot(temps, color='black', label='Radiosonde')
         tprofile.barbs(tbarbs, color='black', linewidth=0.5)
 
-
     plt.title('Station: '+str(station.wigosStationIdentifier)+'\n'+station['name']+'\n'+station.territory, loc='left')
     # plt.title('Station: ' + str(station.wigosStationIdentifier) + ' \n ' + 'station.name', loc='left')
     plt.title('Valid time\n'+date.strftime('%H:%M (UTC)')+'\n'+date.strftime('%Y-%m-%d'), loc='right')
@@ -103,7 +100,8 @@ def tephi_plot(station, date, input, plot_fname):
 
     plt.close(fig)
 
-def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id=['all']):
+
+def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id='all'):
     """
     Looks in the data directory for UM model data, and returns
     vertical profiles for the time period and locations specified
@@ -128,7 +126,7 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
 
     # Load the model cubes into a dictionary
     print('Loading model data ...')
-    alldata_allmodels = load_data.unified_model(start_dt, end_dt, event_name, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=True)
+    alldata_allmodels = load_data.unified_model(start_dt, end_dt, event_name, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=False, aggregate=False)
 
     # Sets up an empty dataframe to put the data in
     column_names = ['stn_id', 'model_id', 'valid_datetimeUTC', 'fcast_lead_time', 'PRES', 'value', 'variable']
@@ -138,53 +136,76 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
     for m in alldata_allmodels.keys():
 
         alldata = alldata_allmodels[m]
-        myu, = list(set([cube.coord('forecast_reference_time').units for k in alldata.keys() for cube in alldata[k]]))
+        if m == 'analysis':
+            myu, = list(set([alldata[k].coord('forecast_reference_time').units for k in alldata.keys()]))
+        else:
+            # This covers model data that has multiple initialisations
+            myu, = list(set([cube.coord('forecast_reference_time').units for k in alldata.keys() for cube in alldata[k]]))
         # fcrt = np.unique(np.array([cube.coord('forecast_reference_time').points for k in alldata.keys() for cube in alldata[k]]).flatten())
 
         # Sets the start adjusted to every <timestep> hours
         validtimes = sf.make_timeseries(start_dt, end_dt, timestep)
 
-        # Loop through each location
-        for i, row in locations.iterrows():
-            print('   Extracting:', m, row['name'])
-            sample_points = [('latitude', row['latitude']), ('longitude', row['longitude'])]
+        for vt in validtimes:
 
-            # Loop through valid time by <timestep> hour intervals from start to the end, ensuring that 00, 03, 06 etc are selected
-            for vt in validtimes:
-                # print(vt)
-                tcon = iris.Constraint(time=lambda cell: cell.point == vt)
+            tcon = iris.Constraint(time=lambda cell: cell.point == vt)
+
+            # Create an empty dataframe for this model / validtime
+            # Save to a unique file
+
+            # Loop through each location
+            for i, row in locations.iterrows():
+                print('   Extracting:', m, 'for', row['name'])
+                sample_points = [('latitude', row['latitude']), ('longitude', row['longitude'])]
+
                 for k in alldata.keys():
-                    # print(k)
+                    print('   ... extracting:', row['name'], m, vt, k)
                     cubelist = alldata[k]
-                    cubes = [cube for cube in cubelist if myu.date2num(vt) in cube.coord('time').points]
+                    try:
+                        cubes = [cube for cube in cubelist if myu.date2num(vt) in cube.coord('time').points]
+                    except TypeError:
+                        # NB: For analysis data, a merged cube is output (not a cubelist)
+                        cubes = [cubelist]
+                    except:
+                        pdb.set_trace()
+                        continue
 
                     for cube in cubes:
                         # Loops through the different forecast reference times for this variable and model
-                        cube = cube.extract(tcon)
-                        cube = cube.interpolate(sample_points, iris.analysis.Linear())
-                        dfk_cube = pd.DataFrame({'stn_id': row['wigosStationIdentifier'],
-                                            'model_id': m,
-                                            'valid_datetimeUTC': vt,
-                                            'fcast_lead_time': cube.coord('forecast_period').points[0],
-                                            'PRES': cube.coord('pressure').points,
-                                            'value': cube.data.data,
-                                            'variable': k })
-                        df = pd.concat([df, dfk_cube])
+                        if cube:
+                            cube = cube.extract(tcon)
+                            try:
+                                cube = cube.interpolate(sample_points, iris.analysis.Linear())
+                            except:
+                                continue
+                            dfk_cube = pd.DataFrame({'stn_id': row['wigosStationIdentifier'],
+                                                'model_id': m,
+                                                'valid_datetimeUTC': vt,
+                                                'fcast_lead_time': cube.coord('forecast_period').points[0],
+                                                'PRES': cube.coord('pressure').points,
+                                                'value': cube.data.data,
+                                                'variable': k })
+                            df = pd.concat([df, dfk_cube])
 
     # Change the pandas DataFrame to wide format (i.e. variables are now columns)
     df_pivot = df.pivot_table(index=['stn_id', 'model_id', 'valid_datetimeUTC', 'fcast_lead_time', 'PRES'], columns='variable', values='value')
 
     # Calculate RH and Td if missing
     # This gets RH from Q, T and P
+    if not 'specific-humidity-levels' in df_pivot.columns:
+        df_pivot['specific-humidity-levels'] = np.nan
+
     notna = df_pivot['specific-humidity-levels'].notnull() & df_pivot['temp-levels'].notnull() & df_pivot['rh-wrt-water-levels'].isnull()
     q = df_pivot[notna]['specific-humidity-levels'].to_numpy()
     t = df_pivot[notna]['temp-levels'].to_numpy()
     p = df_pivot[notna].index.get_level_values('PRES').to_numpy()
-    df_pivot.loc[notna, 'RELH'] = sf.compute_rh(q, t, p) # es_eqtn='cc1'
+
+    if not df_pivot[notna].empty:
+        df_pivot.loc[notna, 'RELH'] = sf.compute_rh(q, t, p) # es_eqtn='cc1'
 
     # UM Analysis doesn't output specific humidity, but does have RH wrt water and ice
-    hasrh = df_pivot['rh-wrt-water-levels'].notnull() # & df_pivot['rh-wrt-ice-levels'].notnull()
-    df_pivot.loc[hasrh, 'RELH'] = df_pivot[hasrh]['rh-wrt-water-levels'] # + df_pivot[notna]['rh-wrt-ice-levels']
+    hasrh = df_pivot['rh-wrt-water-levels'].notnull() | df_pivot['rh-wrt-ice-levels'].notnull()
+    df_pivot.loc[hasrh, 'RELH'] = df_pivot[hasrh][['rh-wrt-water-levels', 'rh-wrt-ice-levels']].max(axis=1) # + df_pivot[notna]['rh-wrt-ice-levels']
 
     # Now calculate dewpoint temperature
     hasrht = df_pivot['RELH'].notnull() & df_pivot['temp-levels'].notnull()
@@ -197,7 +218,7 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
 
     # Put all the data in the MultiIndex back into the dataframe table
     df_pivot.reset_index(inplace=True)
-    df_pivot = df_pivot.rename(columns={'stn_id':'station_id', 'valid_datetimeUTC':'datetimeUTC', 'temp-levels':'TEMP'})
+    df_pivot = df_pivot.rename(columns={'stn_id': 'station_id', 'valid_datetimeUTC': 'datetimeUTC', 'temp-levels': 'TEMP'})
 
     # Specific Humidity is the same as the mass mixing ration of water vapour to total air
     if 'specific-humidity-levels' in df_pivot.columns:
@@ -243,6 +264,7 @@ def getObsData(start_dt, end_dt, event_domain, settings):
 
     elif organisation == 'UKMO':
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+
     else:
         data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
 
@@ -364,7 +386,7 @@ def plot_station_map(stations, event_domain, map_plot_fname):
     domain = [event_domain[0], event_domain[2], event_domain[1], event_domain[3]]
 
     # Now do the plotting
-    fig = plt.figure(figsize=nrtplt.getFigSize(event_domain), dpi=96)
+    fig = plt.figure(figsize=plot_precip.getFigSize(event_domain), dpi=96)
     pltax = plt.axes(projection=ccrs.PlateCarree())
 
     for i, row in stations.iterrows():
@@ -385,8 +407,8 @@ def plot_station_map(stations, event_domain, map_plot_fname):
     ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
     ax.coastlines(resolution='50m', color='black')
     gl = ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
-    gl.xlabels_top = False
-    gl.ylabels_left = False
+    gl.top_labels = False
+    gl.left_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
     gl.xlabel_style = {'size': 8}
@@ -508,7 +530,7 @@ if __name__ == '__main__':
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For testing
-        start_dt = now - dt.timedelta(days=10)
+        start_dt = now - dt.timedelta(days=1)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')

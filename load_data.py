@@ -44,6 +44,8 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
             filelist
     :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
             If False, it returns the full cube
+    :param aggregate: boolean. Return a collapsed cube aggregated between start and end (True), or return all available timesteps within the period (False)
+    :param totals: boolean. If aggregate=True, returns the total over the aggregation period (True), or the mean (False)
     :return: Cubelist of all variables and init_times
     '''
 
@@ -75,13 +77,14 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
 
     cube_dict = {}
 
-    for model_id in model_ids:
+    for mod in model_ids:
 
         mod_dict = {}
-        for var in vars:
+        for v in vars:
 
-            print('   Loading:', model_id, var)
-            these_files = [x for x in full_file_list if var in x and model_id in x]
+            print('   Loading:', mod, v)
+            these_files = [x for x in full_file_list if v in x and mod in x]
+            # pdb.set_trace()
             try:
                 cubes = iris.load(these_files)
             except:
@@ -90,7 +93,7 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
 
             ocubes = iris.cube.CubeList([])
             for cube in cubes:
-
+                # pdb.set_trace()
                 # Firstly, try to convert units
                 try:
                     if cube.units == cf_units.Unit('kg m-2 s-1'):
@@ -98,7 +101,7 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                 except:
                     print("Can\'t change units")
 
-                if bbox:
+                if bbox and (not region_type == 'region'):
                     # Clip the model output to a bounding box
                     try:
                         cube = cube.intersection(latitude=(bbox['ymin'], bbox['ymax']), longitude=(bbox['xmin'], bbox['xmax']))
@@ -128,7 +131,7 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                         cube = cube.collapsed('time', iris.analysis.MEAN)
                         cube.attributes['aggregated'] = 'True'
                     except:
-                        print('Aggregate failed:', model_id)
+                        # print('Aggregate failed:', mod)
                         cube.attributes['aggregated'] = 'False'
                         pass
                     if totals:
@@ -140,11 +143,18 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                 else:
                     cube.attributes['aggregated'] = 'False'
 
-                cube.attributes['title'] = model_id + '_' + var
+                cube.attributes['title'] = mod + '_' + v
+
+                if not cube.coord('latitude').has_bounds():
+                    cube.coord('latitude').guess_bounds()
+
+                if not cube.coord('longitude').has_bounds():
+                    cube.coord('longitude').guess_bounds()
+
                 ocubes.append(cube)
 
-            if model_id != 'analysis':
-                mod_dict[var] = ocubes
+            if not mod == 'analysis':
+                mod_dict[v] = ocubes
             else:
                 # With analysis data, we don't have a forecast lead time dimension, so we can concatenate cubes together nicely into a cube
                 equalise_attributes(ocubes)
@@ -155,7 +165,7 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                         ocube = ocube.collapsed('time', iris.analysis.MEAN)
                         ocube.attributes['aggregated'] = 'True'
                     except:
-                        print('Aggregate failed:', model_id)
+                        print('Aggregate failed:', mod)
                         ocube.attributes['aggregated'] = 'False'
                         pass
                     if totals:
@@ -166,10 +176,18 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                         ocube.attributes['units_note'] = 'Values represent mean rate over the aggregation period'
                 else:
                     ocube.attributes['aggregated'] = 'False'
-                ocube.attributes['title'] = model_id + '_' + var
-                mod_dict[var] = ocube
 
-        cube_dict[model_id] = mod_dict
+                ocube.attributes['title'] = mod + '_' + v
+
+                # Set Bounds
+                ocube.coord('latitude').bounds = None
+                ocube.coord('latitude').guess_bounds(1.0)
+                ocube.coord('longitude').bounds = None
+                ocube.coord('longitude').guess_bounds(1.0)
+
+                mod_dict[v] = ocube
+
+        cube_dict[mod] = mod_dict
 
     return cube_dict
 

@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <title>GPM Precipitation | South East Asia</title>
+        <title>{{ page_title }}</title>
         <link rel="stylesheet" type="text/css" href="file_viewer.css">
 
         <script>
@@ -262,7 +262,7 @@
             <INPUT TYPE="submit" Value="  +  " onClick="change_speed(-delay_step)\;return false">
             </FORM>
 <!--            <div class="imgdiv">-->
-            <IMG NAME="animation" SRC="{{ imgs[params["model"][0]] | last }}" ALT="[jsMoviePlayer]" style="float:center;width:60%;height:60%;object-fit:cover;">
+            <IMG class="center-fit" NAME="animation" SRC="{{ imgs[params["model"][0]] | last }}" ALT="[jsMoviePlayer]"> <!--style="float:center;width:60%;height:60%;object-fit:cover;"-->
 <!--            </div>-->
 
             <p id="demo">A Paragraph</p>
