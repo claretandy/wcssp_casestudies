@@ -305,10 +305,11 @@ def plotOneModel(gpmdict, modelcubes, model2plot, timeagg, plotdomain, ofile):
     return ofile
 
 
-def plotRegionalPrecipWind(analysis_data, region_bbox, settings, pstart, pend, time_tups, ofiles):
+def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, settings, pstart, pend, time_tups, ofiles):
     '''
 
     :param analysis_data:
+    :param gpm_data:
     :param region_bbox:
     :param settings:
     :param pstart:
@@ -320,6 +321,22 @@ def plotRegionalPrecipWind(analysis_data, region_bbox, settings, pstart, pend, t
 
     cubex850_alltime = analysis_data['Uwind-levels'].extract(iris.Constraint(pressure=850.))
     cubey850_alltime = analysis_data['Vwind-levels'].extract(iris.Constraint(pressure=850.))
+
+    # First, make sure that we have data for the last of the 4 plots
+    last_start, last_end = time_tups[-1]
+    diff_hrs = (last_end - last_start).total_seconds()//3600
+    # Get the length of all the input data
+    gpmdata_ss = sf.periodConstraint(gpm_data, last_start, last_end)
+    cubex850 = sf.periodConstraint(cubex850_alltime, last_start, last_end)
+    cubey850 = sf.periodConstraint(cubey850_alltime, last_start, last_end)
+    try:
+        gpm_len_hrs = np.round(gpmdata_ss.coord('time').bounds[-1][1] - gpmdata_ss.coord('time').bounds[0][0])
+        cubex_len_hrs = cubex850.coord('time').bounds[-1][1] - cubex850.coord('time').bounds[0][0]
+        cubey_len_hrs = cubey850.coord('time').bounds[-1][1] - cubey850.coord('time').bounds[0][0]
+    except:
+        return ofiles
+    if (diff_hrs != gpm_len_hrs) or (diff_hrs != cubex_len_hrs) or (diff_hrs != cubey_len_hrs):
+        return ofiles
 
     # Create a figure
     contour_levels = {'3-hrs': [0.0, 0.3, 0.75, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 1000.0],
@@ -348,17 +365,30 @@ def plotRegionalPrecipWind(analysis_data, region_bbox, settings, pstart, pend, t
     # Set the map projection
     crs_latlon = ccrs.PlateCarree()
 
-    # Loop through time_ups
+    # Loop through time_tups
     for tt in time_tups:
 
         i = time_tups.index(tt) + 1
 
         # Subset the GPM data
-        gpmdata_ss = load_data.gpm_imerg(tt[0], tt[1], settings, bbox=region_bbox, aggregate=True)
+        try:
+            gpmdata_ss = sf.periodConstraint(gpm_data, tt[0], tt[1])
+            gpmdata_ss = gpmdata_ss.collapsed('time', iris.analysis.SUM)
+            gpmdata_ss.data = gpmdata_ss.data / 2.
+            gpmdata_ss.coord('latitude').guess_bounds()
+            gpmdata_ss.coord('longitude').guess_bounds()
+        except:
+            print('Error getting GPM data')
+            continue
 
         # Get the wind speed and line width
         cubex850 = sf.periodConstraint(cubex850_alltime, tt[0], tt[1])
         cubey850 = sf.periodConstraint(cubey850_alltime, tt[0], tt[1])
+
+        if (not cubex850) or (not cubey850) :
+            print('Error getting analysis data')
+            continue
+
         Y = np.repeat(cubex850.coord('latitude').points[..., np.newaxis], cubex850.shape[1], axis=1)
         X = np.repeat(cubex850.coord('longitude').points[np.newaxis, ...], cubex850.shape[0], axis=0)
         U = cubex850.data
@@ -382,21 +412,16 @@ def plotRegionalPrecipWind(analysis_data, region_bbox, settings, pstart, pend, t
         ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
         ax.coastlines(resolution='50m', color='black')
         gl = ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
+        gl.top_labels = False
         if i == 1:
-            gl.top_labels = False
             gl.bottom_labels = False
             gl.right_labels = False
         elif i == 2:
-            gl.top_labels = False
             gl.bottom_labels = False
-            gl.right_labels = False
             gl.left_labels = False
         elif i == 3:
-            gl.top_labels = False
             gl.right_labels = False
         else:
-            gl.top_labels = False
-            gl.right_labels = False
             gl.left_labels = False
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
@@ -463,7 +488,7 @@ def gpm_imerg_get_all(start, end, bbox, settings):
 
 def get_time_segments(start, end, ta, max_plot_freq=12):
     '''
-    Generates a list of tuples of start and end datetimes. The size of the range is calculated either from ta (time aggregation period), or max_plot_freq, whichever is the smallest
+    Generates a list of tuples of start and end datetimes. The frequency (i.e. gap between tuples) is calculated either from ta (time aggregation period), or max_plot_freq, whichever is the smallest. For example, if ta=24 and max_plot_freq=12, then each tuple will be 24 hours from start to end, but that will be repeated every 12 hours.
     :param start: datetime for the start of the case study period
     :param end: datetime for the end of the case study period
     :param ta: integer. Time aggregation period
@@ -561,6 +586,10 @@ def plot_gpm(start, end, timeaggs, event_name, event_location_name, bbox, settin
     gpmdata = addTimeCats(gpmdata)
     timeaggs = [str(t) + '-hrs' for t in timeaggs if type(t) == int]
 
+    # for ta, mod in itertools.product(timeaggs, model_ids):
+    #     for start, end in get_time_segments(case_start, case_end, ta, max_plot_freq):
+    #         print(ta, mod, start, end)
+
     for ta in timeaggs:
 
         ta_ofiles = plotGPM(gpmdata, event_name, event_location_name, bbox, overwrite=False, accum=ta)
@@ -605,16 +634,21 @@ def plot_regional_plus_winds(start, end, model_ids, event_name, event_location_n
         time_tups = get_time_segments(pstart, pend, 6)
 
         # Load the analysis wind data
-        analysis_data = load_data.unified_model(pstart, pend, event_name, settings, bbox=region_bbox, region_type='event', model_id='analysis', var=['Uwind-levels', 'Vwind-levels'], aggregate=False, timeclip=True)['analysis']
+        try:
+            analysis_data = load_data.unified_model(pstart, pend, event_name, settings, bbox=(region_bbox + np.array([-5, -5, 5, 5])).tolist(), region_type='event', model_id='analysis', var=['Uwind-levels', 'Vwind-levels'], aggregate=False, timeclip=True)['analysis']
+        except:
+            continue
 
         # Load the GPM data
-        gpmdata = load_data.gpm_imerg(pstart, pend, settings, bbox=region_bbox)
+        try:
+            gpm_data = load_data.gpm_imerg(pstart, pend, settings, bbox=region_bbox, aggregate=False)
+        except:
+            continue
 
         # Plot GPM & Analysis winds. 2x2 plots, 6-hr time slices
-        ofiles = plotRegionalPrecipWind(analysis_data, region_bbox, settings, pstart, pend, time_tups, ofiles)
+        ofiles = plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, settings, pstart, pend, time_tups, ofiles)
 
         # Plot T+24 for GPM&Analysis vs Model vs Difference (Rows: 4 time slices; Cols: obs, model, diff)
-
 
 
     return ofiles
@@ -669,7 +703,7 @@ if __name__ == '__main__':
         start = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For realtime
-        start = dt.datetime.utcnow() - dt.timedelta(days=10)
+        start = dt.datetime.utcnow() - dt.timedelta(days=2)
 
     try:
         end = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
