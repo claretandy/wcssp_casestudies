@@ -195,13 +195,13 @@ if __name__ == '__main__':
     try:
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
-        # For testing
+        # For realtime data
         start_dt = dt.datetime.now() - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
     except:
-        # For testing
+        # For realtime data
         end_dt = dt.datetime.now()
 
     try:

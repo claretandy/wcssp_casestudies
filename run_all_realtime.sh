@@ -27,6 +27,20 @@ jobs='plot_precip plot_tephi plot_walkercirculation' # Which scripts to run? Pos
 
 ######################################################################################################################
 
+# This reads the .config file to get the location of your code
+# Also, it avoids sharing your local username and paths
+#if [ -n $SLURM_JOB_ID ] ; then
+#code_dir="$( dirname "$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}')" )"
+#else
+#code_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+#fi
+code_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+echo $code_dir
+
+
+#code_dir=$(grep $organisation .config -A 13 | grep code_dir | cut -d= -f2)
+#cd $code_dir
+
 # Set the eventname automatically so it is a standard format of region/date_eventlocation
 thisdate=$(echo ${end} | awk '{print substr($0,0,8)}')
 if [ ${thisdate} == 'realtime' ]; then
@@ -39,38 +53,38 @@ for j in ${jobs[@]}; do
 
     # If running from inside the Met Office, extract data for this case study and share on FTP
     if [ ${organisation} == 'UKMO' ] && [ ${j} == 'extractUM' ]; then
-      python extractUM.py ${start} ${end} ${bbox} ${eventname}
+      python ${code_dir}/extractUM.py ${start} ${end} ${bbox} ${eventname}
     fi
 
     # If running from a different organisation, download UM data from FTP
     if [ ${j} == 'downloadUM' ] && [ ${organisation} != 'UKMO' ]; then
-      python downloadUM.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+      python ${code_dir}/downloadUM.py ${start} ${end} ${bbox} ${eventname} ${organisation}
     fi
 
     # Download GPM IMERG data
     if [ ${j} == 'downloadGPM' ]; then
-      python downloadGPM.py auto ${start} ${end} ${organisation}
+      python ${code_dir}/downloadGPM.py auto ${start} ${end} ${organisation}
     fi
 
     # Plot Precipitation data
     ## Includes: GPM animations, model vs GPM, and GPM+Analysis Winds vs Model(precip+winds)
     if [ ${j} == 'plot_precip' ]; then
-      python plot_precip.py ${start} ${end} ${eventname} ${event_location_name} ${bbox} ${organisation}
+      python ${code_dir}/plot_precip.py ${start} ${end} ${eventname} ${event_location_name} ${bbox} ${organisation}
     fi
 
     # Plot Upper Air soundings for each organisation vs models (includes download)
     if [ ${j} == 'plot_tephi' ]; then
-      python plot_tephi.py ${start} ${end} ${bbox} ${eventname} ${organisation}
+      python ${code_dir}/plot_tephi.py ${start} ${end} ${bbox} ${eventname} ${organisation}
     fi
 
     # Plot Walker Circulation
     if [ ${j} == 'plot_walkercirculation' ]; then
-      python plot_walkercirculation.py ${start} ${end} 'analysis' ${eventname} ${organisation}
+      python ${code_dir}/plot_walkercirculation.py ${start} ${end} 'analysis' ${eventname} ${organisation}
     fi
 
     # Plot SYNOP data from each organisation vs models
     if [ ${j} == 'plot_synop' ]; then
-      python plot_synop.py ${organisation} ${start} ${end} # ${station_id} # Note: station_id is optional
+      python ${code_dir}/plot_synop.py ${organisation} ${start} ${end} # ${station_id} # Note: station_id is optional
     fi
 
     # Make an html page summarising all of the output plots

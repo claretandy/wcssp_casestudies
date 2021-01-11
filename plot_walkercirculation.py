@@ -19,6 +19,7 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import matplotlib.ticker as mticker
 import numpy as np
 import run_html as html
+import load_data
 if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
@@ -222,18 +223,6 @@ def main(start, end, model_ids, event_name, organisation):
     lat_ranges = [(-5,5), (5,15), (-10,10)]
 
     for model_id in model_ids:
-        # TODO This only works in the Met Office with analysis data at the moment, so I'll need to replace this with something like:
-        # dum.loadUM
-        if model_id == 'analysis':
-            u_files = sf.selectAnalysisDataFromMass(start, end, 15201, lbproc=0, lblev=True)
-            v_files = sf.selectAnalysisDataFromMass(start, end, 15202, lbproc=0, lblev=True)
-            w_files = sf.selectAnalysisDataFromMass(start, end, 15242, lbproc=0, lblev=True)
-        else:
-            # This will only work for the global operational forecast (model_id = 'opfc')
-            init_times = sf.getInitTimes(start, end, 'Global', model_id=model_id)
-            u_files = sf.selectModelDataFromMASS(init_times, 15201, lbproc=0, lblev=True, plotdomain=[-180,-90,180,90], searchtxt=model_id)
-            v_files = sf.selectModelDataFromMASS(init_times, 15202, lbproc=0, lblev=True, plotdomain=[-180, -90, 180, 90], searchtxt=model_id)
-            w_files = sf.selectModelDataFromMASS(init_times, 15242, lbproc=0, lblev=True, plotdomain=[-180, -90, 180, 90], searchtxt=model_id)
 
         analysis_datetimes = sf.make_timeseries(start, end, analysis_incr)
 
@@ -242,21 +231,14 @@ def main(start, end, model_ids, event_name, organisation):
             # Format this datetime
             this_dt_fmt = this_dt.strftime('%Y%m%dT%H%MZ')
 
-            # Subset filelists for this_dt
-            try:
-                u_file, = [fn for fn in u_files if this_dt_fmt in fn]
-                v_file, = [fn for fn in v_files if this_dt_fmt in fn]
-                w_file, = [fn for fn in w_files if this_dt_fmt in fn]
-            except:
-                continue
+            print('Walker Circulation plotting:',this_dt_fmt)
+            data = load_data.unified_model(this_dt - dt.timedelta(hours=24), this_dt, 'RealTime', settings, region_type='tropics', model_id=model_id, var=['Uwind-levels', 'Vwind-levels', 'Wwind-levels'], aggregate=True, totals=False)
+            k = list(data.keys())[0] # Gets the model_id recorded in the data dictionary
+            u = data[k]['Uwind-levels']
+            v = data[k]['Vwind-levels']
+            w = data[k]['Wwind-levels']
 
-            # Make sure we have files for each variable, if we do, then load them and run the plotting code
-            if u_file and v_file and w_file:
-                print('Walker Circulation plotting:',this_dt_fmt)
-                u = iris.load_cube(u_file)
-                v = iris.load_cube(v_file)
-                w = iris.load_cube(w_file)
-
+            if u and v and w:
                 for lats in lat_ranges:
 
                     # Make nice strings of the lat min and max
@@ -264,8 +246,6 @@ def main(start, end, model_ids, event_name, organisation):
                     lat1 = str(abs(lats[1])) + 'S' if lats[1] < 0 else str(abs(lats[1])) + 'N'
 
                     # Set the output file
-                    # ofile = settings['plot_dir'] + event_name + '/walker_tropics/' + this_dt_fmt + '_' + model_id + '_walker.png'
-                    # <Valid-time>_<ModelId>_<Location>_<Time-Aggregation>_<Plot-Name>_<Lead-time>.png
                     ofile = sf.make_outputplot_filename(event_name, this_dt_fmt, model_id, 'Tropics-'+lat0+'-to-'+lat1,
                                                         'Instantaneous', 'large-scale', 'walker-circulation', 'T+0')
 

@@ -26,6 +26,7 @@ import location_config as config
 import std_functions as sf
 import run_html as html
 import itertools
+from downloadUM import get_local_flist
 import pdb
 
 def getFigSize(bbox):
@@ -183,11 +184,11 @@ def plotGPM(cube, event_name, event_location_name, bbox, overwrite=False, accum=
     return ofilelist
 
 
-def plotOneModel(gpmdict, modelcubes, model2plot, timeagg, plotdomain, ofile):
+def plotPostageOneModel(gpmdict, modelcubes, model2plot, timeagg, plotdomain, ofile):
     # Plot GPM against all lead times from one model
 
     try:
-        m = [i for i, x in enumerate(modelcubes) if x][0]
+        m = [i for i, x in enumerate(modelcubes) if x and i>0][0] # i>0 because sometimes the first record doesn't have the correct time span
         myu = modelcubes[m].coord('time').units
         daterange = [x.strftime('%Y%m%dT%H%MZ') for x in
                      myu.num2date(modelcubes[m].coord('time').bounds[0])]
@@ -540,7 +541,10 @@ def plot_postage(case_start, case_end, timeaggs, model_ids, event_name, event_lo
     model_ids = [x for x in model_ids if x != 'analysis']
 
     for ta, mod in itertools.product(timeaggs, model_ids):
-        for start, end in get_time_segments(case_start, case_end, ta, max_plot_freq):
+
+        time_segs = get_time_segments(case_start, case_end, ta, max_plot_freq)
+
+        for start, end in time_segs:
             print(ta, mod, start, end)
 
             # Load GPM IMERG data
@@ -551,7 +555,7 @@ def plot_postage(case_start, case_end, timeaggs, model_ids, event_name, event_lo
 
             # Do the plotting for each
             plot_fname = sf.make_outputplot_filename(event_name, end.strftime('%Y%m%dT%H%MZ'), mod, event_location_name, str(ta)+'-hrs', 'Precipitation', 'Postage-Stamps', 'All-FCLT')
-            pngfile = plotOneModel(gpmdict, modelcubes, mod, ta, bbox, plot_fname)
+            pngfile = plotPostageOneModel(gpmdict, modelcubes, mod, ta, bbox, plot_fname)
             ofiles.append(pngfile)
 
     return ofiles
@@ -678,9 +682,9 @@ def main(start, end, event_name, event_location_name, bbox, organisation):
     start = start.replace(hour=0, minute=0, second=0, microsecond=0)
     end = (end + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Set model ids to plot (by getting all the available data)
-    model_data = load_data.unified_model(start, end, event_name, settings, bbox=bbox, region_type='event', model_id='all', var='precip', checkftp=False, timeclip=True)
-    model_ids = list(model_data.keys())  # ['analysis', 'ga7', 'km4p4', 'km1p5']
+    # Set model ids to plot (by checking the available data on disk)
+    full_file_list = get_local_flist(start, end, event_name, settings, region_type='event')
+    model_ids = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list])) # ['analysis', 'ga7', 'km4p4', 'km1p5']
 
     # Time aggregation periods for all plots
     timeaggs = [3, 6, 12, 24]  # 72, 96, 120
@@ -703,7 +707,7 @@ if __name__ == '__main__':
         start = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For realtime
-        start = dt.datetime.utcnow() - dt.timedelta(days=2)
+        start = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
         end = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
