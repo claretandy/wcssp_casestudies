@@ -20,11 +20,24 @@ If you do not want to develop or write any code, you can simply follow these ste
     ```commandline
     . run_setup.sh
     ```
-3. Edit the case study details in run_all.sh (following the instructions in the top of the file) and then run it
+3. Create a .config file. Copy the file .config_template and replace settings as instructed within the file. In order to be able to run the 'runall.sh' script, you will need to have a .config file in the directory above where the code sits, and create a symbolic link to it from the code directory. E.g. 
+    ```commandline
+    /path/to/code/run_all.sh
+    /path/to/.config
+    ```
+    To create the symbolic link, run this …
+    ```commandline
+    cd /path/to/code
+    cp .config_template ../.config
+    ln -s /path/to/.config .config
+    ```
+4. Edit the case study details in run_all.sh (following the instructions in the top of the file) and then run it
     ```commandline
     . run_all.sh
     ```
 
+
+ 
 
 ## Develop and contributing code 
 

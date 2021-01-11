@@ -380,19 +380,19 @@ if __name__ == '__main__':
     now = dt.datetime.utcnow()
 
     #  NB: 'auto' latency means that the most scientifically robust dataset is chosen
-    latency = sys.argv[1]  # Can be either 'production', 'NRTlate' or 'NRTearly' or 'all' or 'auto'
+    latency = 'auto'  # Can be either 'production', 'NRTlate' or 'NRTearly' or 'all' or 'auto'
 
     try:
-        start_date = dt.datetime.strptime(sys.argv[2][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
+        start_date = dt.datetime.strptime(os.environ['start'][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
     except IndexError:
         start_date = now.date() - dt.timedelta(days=7)
 
     try:
-        end_date = dt.datetime.strptime(sys.argv[3][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
+        end_date = dt.datetime.strptime(os.environ['end'][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
     except IndexError:
         end_date = now.date()
 
-    agency = sys.argv[4]  # UKMO or PAGASA or BMKG or MMD or Andy-MacBook
+    agency = os.environ['organisation']  # UKMO or PAGASA or BMKG or MMD or Andy-MacBook
 
     # Decide which latency to run the program with
     if latency == 'all':

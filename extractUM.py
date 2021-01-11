@@ -193,32 +193,32 @@ if __name__ == '__main__':
     # extractUM.py ${start} ${end} ${bbox} ${eventname}
 
     try:
-        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
+        start_dt = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
     except:
         # For realtime data
         start_dt = dt.datetime.now() - dt.timedelta(days=10)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
+        end_dt = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
     except:
         # For realtime data
         end_dt = dt.datetime.now()
 
     try:
-        domain_str = sys.argv[3]
+        domain_str = os.environ['bbox']
         event_domain = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
         event_domain = [90, -10, 120, 20]
 
     try:
-        event_name = sys.argv[4]
+        event_name = os.environ['eventname']
     except:
         # For testing
         event_name = 'RealTime'
 
     try:
-        model_ids = [sys.argv[5]]
+        model_ids = [os.environ['model_ids']]
     except:
         # For testing
         model_ids = None

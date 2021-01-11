@@ -4,7 +4,7 @@
 #        then the .config file needs to have this path: /path/to/.config
 # Please edit each item below (guidance given on each line) so that it works with your local file system and passwords
 ########
-organisation=UKMO # Currently supports [UKMO, PAGASA, BMKG, MMD, Andy-MacBook]
+organisation=UKMO # Currently supports [UKMO, PAGASA, BMKG, MMD, Andy-MacBook, generic]
 scratchdir=/scratch/myusername/ # Location for temporary files
 datadir=/my_data_directory/wcssp_casestudies/Data/ # This needs to be a large storage disk (e.g. ~1TB)
 plot_dir=/my_data_directory/wcssp_casestudies/Plots/ # Same location, this is where all the plots are kept

@@ -541,32 +541,32 @@ if __name__ == '__main__':
 
     now = dt.datetime.utcnow()
     try:
-        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
+        start_dt = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
     except:
         # For testing
         start_dt = now - dt.timedelta(days=10)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
+        end_dt = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
     except:
         # For testing
         end_dt = now
 
     try:
-        domain_str = sys.argv[3]
+        domain_str = os.environ['bbox']
         event_domain = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
         event_domain = [90, -10, 120, 10]
 
     try:
-        event_name = sys.argv[4]
+        event_name = os.environ['eventname']
     except:
         # For testing
         event_name = 'monitoring/realtime'
 
     try:
-        organisation = sys.argv[5]
+        organisation = os.environ['organisation']
     except:
         # TODO: Add a function here to determine country / organisation by IP address
         #  For the time being though, Wyoming data is tested with this
