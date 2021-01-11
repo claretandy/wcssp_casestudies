@@ -266,32 +266,32 @@ def main(start, end, model_ids, event_name, organisation):
 if __name__ == '__main__':
 
     try:
-        start = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
+        start = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
     except:
         # For testing
         start = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
-        end = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
+        end = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
     except:
         # For testing
         end = dt.datetime.utcnow()
 
     try:
-        model_ids = sys.argv[3]
+        model_ids = 'analysis'
         model_ids = [x for x in model_ids.split(',')]
     except:
         # For testing (global bbox because we're looking at the global context of a particular case study)
         model_ids = ['analysis']
 
     try:
-        event_name = sys.argv[4]
+        event_name = os.environ['eventname']
     except:
         # For testing
         event_name = 'monitoring/realtime'
 
     try:
-        organisation = sys.argv[5]
+        organisation = os.environ['organisation']
     except:
         organisation = 'UKMO'
 

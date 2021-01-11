@@ -172,26 +172,26 @@ def main(start, end, bbox, event_name, organisation):
 if __name__ == '__main__':
 
     try:
-        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
+        start_dt = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
     except:
         # For realtime
         start_dt = dt.datetime.utcnow() - dt.timedelta(days=10)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')
+        end_dt = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
     except:
         # For realtime
         end_dt = dt.datetime.utcnow()
 
     try:
-        domain_str = sys.argv[3]
+        domain_str = os.environ['bbox']
         event_domain = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
         event_domain = [100, 0, 110, 10]
 
     try:
-        event_name = sys.argv[4]
+        event_name = os.environ['eventname']
     except:
         # For testing
         # event_name = 'PeninsulaMalaysia/20200520_Johor'
@@ -199,7 +199,7 @@ if __name__ == '__main__':
         event_name = 'realtime'
 
     try:
-        organisation = sys.argv[5]
+        organisation = os.environ['organisation']
     except:
         organisation = 'UKMO'
 
