@@ -484,8 +484,12 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                 plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
-                    tephi_plot(station, thisdt, asubset, plot_fname)
-                ofiles.append(plot_fname)
+                    try:
+                        tephi_plot(station, thisdt, asubset, plot_fname)
+                    except:
+                        print('Unable to plot', plot_fname)
+                if os.path.isfile(plot_fname):
+                    ofiles.append(plot_fname)
 
             # Plot observation + analysis
             obsana = ((data2plot.model_id == 'observation') | (data2plot.model_id == 'analysis'))
@@ -494,8 +498,12 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                 plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde+Analysis',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
-                    tephi_plot(station, thisdt, asubset, plot_fname)
-                ofiles.append(plot_fname)
+                    try:
+                        tephi_plot(station, thisdt, asubset, plot_fname)
+                    except:
+                        print('Unable to plot', plot_fname)
+                if os.path.isfile(plot_fname):
+                    ofiles.append(plot_fname)
 
             # Plot observation + analysis + models @ multiple lead times (T+0-24, 24-48, 48-72, 72-96, 96-120)
             fclts = np.arange(0, 120, 24)
@@ -507,9 +515,12 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                     plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+'+str(fclt_end))
                     if not os.path.isfile(plot_fname):
-                        tephi_plot(station, thisdt, asubset, plot_fname)
-
-                    ofiles.append(plot_fname)
+                        try:
+                            tephi_plot(station, thisdt, asubset, plot_fname)
+                        except:
+                            print('Unable to plot', plot_fname)
+                    if os.path.isfile(plot_fname):
+                        ofiles.append(plot_fname)
 
             # Plot observation + analysis + models @ all lead times
             asubset = data2plot.loc[stndt]
@@ -517,9 +528,12 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                 plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
                 if not os.path.isfile(plot_fname):
-                    tephi_plot(station, thisdt, asubset, plot_fname)
-
-                ofiles.append(plot_fname)
+                    try:
+                        tephi_plot(station, thisdt, asubset, plot_fname)
+                    except:
+                        print('Unable to plot', plot_fname)
+                if os.path.isfile(plot_fname):
+                    ofiles.append(plot_fname)
 
     html.create(ofiles)
 
@@ -530,7 +544,7 @@ if __name__ == '__main__':
         start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%d%H%M')
     except:
         # For testing
-        start_dt = now - dt.timedelta(days=1)
+        start_dt = now - dt.timedelta(days=10)
 
     try:
         end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%d%H%M')

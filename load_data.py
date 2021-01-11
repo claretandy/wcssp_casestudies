@@ -113,15 +113,16 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
 
                 if timeclip:
                     # Clip the model output to the given time bounds
-                    #  ... but only if the data is fully within the period between start datetime and end datetime
-                    timechk = sf.check_time_fully_within(cube, start=start, end=end)
-                    if not timechk:
-                        continue
                     try:
                         cube = sf.periodConstraint(cube, start, end)
                         cube.attributes['timeclipped'] = 'True'
                     except:
                         continue
+                    #  ... but only if the data is fully within the period between start datetime and end datetime
+                    timechk = sf.check_time_fully_within(cube, start=start, end=end)
+                    if not timechk:
+                        continue
+
                 else:
                     cube.attributes['timeclipped'] = 'False'
 
@@ -162,10 +163,11 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                 if aggregate:
                     # Aggregate the analysis data for the time bounds given
                     try:
+                        # pdb.set_trace()
                         ocube = ocube.collapsed('time', iris.analysis.MEAN)
                         ocube.attributes['aggregated'] = 'True'
                     except:
-                        print('Aggregate failed:', mod)
+                        # print('Aggregate failed:', mod)
                         ocube.attributes['aggregated'] = 'False'
                         pass
                     if totals:
@@ -180,10 +182,12 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
                 ocube.attributes['title'] = mod + '_' + v
 
                 # Set Bounds
-                ocube.coord('latitude').bounds = None
-                ocube.coord('latitude').guess_bounds(1.0)
-                ocube.coord('longitude').bounds = None
-                ocube.coord('longitude').guess_bounds(1.0)
+                if not ocube.coord('latitude').has_bounds():
+                    ocube.coord('latitude').bounds = None
+                    ocube.coord('latitude').guess_bounds(1.0)
+                if not ocube.coord('longitude').has_bounds():
+                    ocube.coord('longitude').bounds = None
+                    ocube.coord('longitude').guess_bounds(1.0)
 
                 mod_dict[v] = ocube
 
