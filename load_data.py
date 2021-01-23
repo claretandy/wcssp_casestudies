@@ -27,13 +27,12 @@ def wyoming_soundings(start_dt, end_dt, bbox, settings):
     return data
 
 
-def unified_model(start, end, event_name, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False, aggregate=True, totals=True):
+def unified_model(start, end, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False, aggregate=True, totals=True):
     '''
     Loads *already downloaded* UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
-    :param end: datetime object
-    :param event_name: string. Format is <region_name>/<date>_<event_name> (e.g. 'Java/20190101_ColdSurge') or 'RealTime'
-    :param settings: settings from the config file
+    :param end: datetime object    :param settings: settings from the config file
+    :param settings: dictionary of settings
     :param bbox: Optional. list of bounding box coordinates [xmin, ymin, xmax, ymax]
     :param region_type: String. Either 'all', 'event' (smallest box), 'region', or 'tropics' (largest box)
     :param model_id: Either not specified (i.e. 'all') or a string or a list of strings that matches ['analysis',
@@ -48,10 +47,9 @@ def unified_model(start, end, event_name, settings, bbox=None, region_type='even
     :param totals: boolean. If aggregate=True, returns the total over the aggregation period (True), or the mean (False)
     :return: Cubelist of all variables and init_times
     '''
-
-    full_file_list = get_local_flist(start, end, event_name, settings, region_type=region_type)
-    file_vars = list(set([os.path.basename(fn).split('_')[-2] for fn in full_file_list]))
-    file_model_ids = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list]))
+    full_file_list = get_local_flist(start, end, settings, region_type=region_type)
+    file_vars = list(set([os.path.basename(fn).split('_')[2] for fn in full_file_list]))
+    file_model_ids = list(set([os.path.basename(fn).split('_')[1] for fn in full_file_list]))
 
     if isinstance(var, str):
         var = [var]
@@ -259,6 +257,10 @@ def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False, aggr
 
     if bbox:
         cube = sf.domainClip(cube, bbox)
+    elif settings['bbox']:
+        cube = sf.domainClip(cube, settings['bbox'])
+    else:
+        print('   Loading Global GPM data')
 
     if aggregate:
         if quality:

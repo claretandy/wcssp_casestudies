@@ -206,21 +206,32 @@ def make_symlinks(ofiles):
         os.symlink(cf, symfile)
 
 
-def main(start, end, model_ids, event_name, organisation):
+def main():
     '''
     Runs code to plot the large scale tropical circulation using the UM analysis
-    :param start: datetime. Event start
-    :param end: datetime. Event end
-    :param model_ids: list. Could include 'analysis' or 'opfc'
-    :param event_name: string. e.g. 'monitoring/realtime'
-    :param organisation: 'UKMO' or other
-    :return: png files in the plot directory for the event_name
+    start: datetime. Event start
+    end: datetime. Event end
+    model_ids: list. Could include 'analysis' or 'opfc'
+    event_name: string. e.g. 'monitoring/realtime'
+    organisation: 'UKMO' or other
+    returns: png files in the plot directory for the region_name
     '''
 
+    try:
+        organisation = os.environ['organisation']
+    except:
+        organisation = config.get_site_by_ip()
+
     settings = config.load_location_settings(organisation)
+    start = settings['start']
+    end = settings['end']
+    region_name = settings['region_name']
+    location_name = settings['location_name']
+
     analysis_incr = 6
+    model_ids = ['analysis']
     ofiles = []
-    lat_ranges = [(-5,5), (5,15), (-10,10)]
+    lat_ranges = [(-5, 5), (5, 15), (-10, 10)]
 
     for model_id in model_ids:
 
@@ -232,8 +243,11 @@ def main(start, end, model_ids, event_name, organisation):
             this_dt_fmt = this_dt.strftime('%Y%m%dT%H%MZ')
 
             print('Walker Circulation plotting:',this_dt_fmt)
-            data = load_data.unified_model(this_dt - dt.timedelta(hours=24), this_dt, 'RealTime', settings, region_type='tropics', model_id=model_id, var=['Uwind-levels', 'Vwind-levels', 'Wwind-levels'], aggregate=True, totals=False)
-            k = list(data.keys())[0] # Gets the model_id recorded in the data dictionary
+            data = load_data.unified_model(this_dt - dt.timedelta(hours=24), this_dt, settings, region_type='tropics', model_id=model_id, var=['Uwind-levels', 'Vwind-levels', 'Wwind-levels'], aggregate=True, totals=False)
+            try:
+                k = list(data.keys())[0] # Gets the model_id recorded in the data dictionary
+            except:
+                continue
             u = data[k]['Uwind-levels']
             v = data[k]['Vwind-levels']
             w = data[k]['Wwind-levels']
@@ -246,7 +260,7 @@ def main(start, end, model_ids, event_name, organisation):
                     lat1 = str(abs(lats[1])) + 'S' if lats[1] < 0 else str(abs(lats[1])) + 'N'
 
                     # Set the output file
-                    ofile = sf.make_outputplot_filename(event_name, this_dt_fmt, model_id, 'Tropics-'+lat0+'-to-'+lat1,
+                    ofile = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, model_id, 'Tropics-'+lat0+'-to-'+lat1,
                                                         'Instantaneous', 'large-scale', 'walker-circulation', 'T+0')
 
                     try:
@@ -265,34 +279,4 @@ def main(start, end, model_ids, event_name, organisation):
 
 if __name__ == '__main__':
 
-    try:
-        start = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
-    except:
-        # For testing
-        start = dt.datetime.utcnow() - dt.timedelta(days=10)
-
-    try:
-        end = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
-    except:
-        # For testing
-        end = dt.datetime.utcnow()
-
-    try:
-        model_ids = 'analysis'
-        model_ids = [x for x in model_ids.split(',')]
-    except:
-        # For testing (global bbox because we're looking at the global context of a particular case study)
-        model_ids = ['analysis']
-
-    try:
-        event_name = os.environ['eventname']
-    except:
-        # For testing
-        event_name = 'monitoring/realtime'
-
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = 'UKMO'
-
-    main(start, end, model_ids, event_name, organisation)
+    main()

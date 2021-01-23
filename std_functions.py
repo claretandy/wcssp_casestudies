@@ -14,7 +14,7 @@ from dateutil.relativedelta import relativedelta
 import location_config as config
 import pdb
 
-def getDomain_bybox(bbox):
+def getModelDomain_bybox(bbox):
 
     xmin, ymin, xmax, ymax = bbox
     p1 = Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
@@ -54,7 +54,7 @@ def getModels_bybox(plotdomain, reg=None):
     p1 = Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymin)])
 
     if not reg:
-        reg = getDomain_bybox(plotdomain)
+        reg = getModelDomain_bybox(plotdomain)
 
     domain_dict = {
         'SEAsia' : {
@@ -113,7 +113,8 @@ def getJobID_byDateTime(thisdate, domain='SEAsia', choice='newest'):
                          'u-bw324': [dt.datetime(2020, 8, 15, 0, 0), dt.datetime.now()]
                          }
     elif domain == 'TAfrica':
-        dtrng_byjobid = {'u-ao907': [dt.datetime(2017, 7, 30, 12, 0), dt.datetime(2019, 4, 1, 0)],
+        dtrng_byjobid = {'u-ao907': [dt.datetime(2017, 7, 30, 12, 0), dt.datetime(2018, 10, 9, 0)],
+                         'psuite42': [dt.datetime(2018, 10, 9, 6, 0), dt.datetime(2019, 3, 11, 18)],
                          'opfc': [dt.datetime(2019, 4, 1, 0), dt.datetime.now()]
                          }
     elif domain == 'Global':
@@ -157,7 +158,8 @@ def getModelID_byJobID(jobid, searchtxt=None):
                  'u-bn272': ['SEA5_n1280_ga7', 'SEA5_km4p4_ra2t', 'SEA5_indkm1p5_ra2t', 'SEA5_malkm1p5_ra2t', 'SEA5_phikm1p5_ra2t', 'SEA5_viekm1p5_ra2t'],
                  'u-bw324': ['SEA5_n1280_ga7', 'SEA5_km4p4_ra2t', 'SEA5_indkm1p5_ra2t', 'SEA5_malkm1p5_ra2t',
                                 'SEA5_phikm1p5_ra2t', 'SEA5_viekm1p5_ra2t'],
-                 'opfc': ['africa_prods', 'global_prods']
+                 'opfc': ['africa_prods', 'global_prods'],
+                 'psuite42': ['africa_prods', 'global_prods']
         }
 
     if not searchtxt:
@@ -267,7 +269,7 @@ def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbpro
     :param end: datetime
     :param stash: string (short format e.g. 4203)
     :param plotdomain: list (format [xmin, ymin, xmax, ymax] each value is a float)
-    :param searchtxt: string (optional). Name of the model (e.g. km4p4, km1p5, ga6, ga7, opfc, etc)
+    :param searchtxt: string (optional). Name of the model (e.g. km4p4, km1p5, ga6, ga7, opfc, psuite42 etc)
     :param lbproc: int (optional). Assumes we want 0 (instantaneous data), but 128, 4096 and 8192 are also possible
     :param aggregate: boolean. Aggregate over the start-end period or not?
     :param totals: boolean. Do the values represent the total accumulated over the aggregation period?
@@ -276,7 +278,7 @@ def loadModelData(start, end, stash, plotdomain, settings, searchtxt=None, lbpro
     """
 
     # 1. Get model bbox for the given plotting bbox
-    domain = getDomain_bybox(plotdomain)
+    domain = getModelDomain_bybox(plotdomain)
     if not domain:
         print("Not loading data because no data in the plotting bbox")
         return None
@@ -666,6 +668,8 @@ def get_fc_length(model_id):
     elif 'prod' in model_id:
         fcl = 168 # Operational Global
         # fcl = 54 # 2 and a bit days (Operational TAfrica)
+    elif 'psuite' in model_id:
+        fcl = 54
     else:
         print('Guessing the forecast length as 120 hours')
         fcl = 120
@@ -683,8 +687,6 @@ def get_default_stash_proc_codes(list_type='long'):
 
     if list_type in ['long', 'short', 'profile', 'share']:
         list_type = list_type + '_list'
-    else:
-        return 'List type does not exist'
 
     df = pd.read_csv('std_stashcodes.csv')
     outdf = df[df[list_type]]
@@ -697,6 +699,7 @@ def get_fc_InitHours(jobid):
     initdict = {
         'analysis' : [0, 6, 12, 18],
         'opfc' : [0,6,12,18],
+        'psuite42': [6, 18],
         'u-ao907'   : [0,12],
         'u-ai613'   : [0,12],
         'u-ao347'   : [0,12],
@@ -842,7 +845,8 @@ def get_lbproc_by_stash(stash, jobid):
                        'u-bn272': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205, 21100, 21104],
                        'u-bw324': [4201, 4202, 4203, 4204, 5201, 5202, 5205, 5206, 5216, 5226, 9202, 9203, 9204, 9205,
                                    21100, 21104],
-                       'opfc'   : []
+                       'opfc'   : [],
+                       'psuite42': [4201]
                        }
 
     lbproc4096_avail = {'u-ai613': [],
@@ -852,7 +856,8 @@ def get_lbproc_by_stash(stash, jobid):
                         'u-ba482': [20080],
                         'u-bn272': [20080],
                         'u-bw324': [20080],
-                        'opfc'   : []
+                        'opfc'   : [],
+                        'psuite42': []
                         }
 
     lbproc8192_avail = {'u-ai613': [],
@@ -862,7 +867,8 @@ def get_lbproc_by_stash(stash, jobid):
                         'u-ba482': [3463, 20080],
                         'u-bn272': [3463, 20080],
                         'u-bw324': [3463, 20080],
-                        'opfc': []
+                        'opfc': [],
+                        'psuite42': []
                         }
 
     # 4201, 4202, 5201, 5202, 5226, 23
@@ -873,7 +879,8 @@ def get_lbproc_by_stash(stash, jobid):
                         'u-ba482': [],
                         'u-bn272': [],
                         'u-bw324': [],
-                        'opfc'   : []
+                        'opfc'   : [],
+                        'psuite42': []
                         }
 
     oproc = []
@@ -1050,21 +1057,15 @@ def accumulated2sequential(accum_cubefile, returncube=False):
     ]
 
     cube = iris.load_cube(accum_cubefile)
-    try:
-        already_processed = cube.attributes['Processed_accumulated'] in ['True', 'true', 'TRUE']
-    except KeyError:
-        already_processed = False
+    srcStash = cube.attributes['STASH']
+    dstStash = [sconv[1] for sconv in stash_convert if sconv[0] == srcStash]
+    dstStash = srcStash if dstStash == [] else dstStash[0]
+    ofile = accum_cubefile.replace(str(srcStash[1]) + str(srcStash[2]), str(dstStash[1]) + str(dstStash[2]))
 
-    if already_processed:
+    if os.path.isfile(ofile):
         newcube = cube
         ofile = accum_cubefile
     else:
-        srcStash = cube.attributes['STASH']
-        dstStash = [sconv[1] for sconv in stash_convert if sconv[0] == srcStash]
-        dstStash = srcStash if dstStash == [] else dstStash[0]
-
-        latcoord = cube.coord('latitude')
-        loncoord = cube.coord('longitude')
 
         # Make time coord
         myu = cube.coord('time').units
@@ -1085,7 +1086,6 @@ def accumulated2sequential(accum_cubefile, returncube=False):
             if i == 0:
                 lastslice = slice0
                 continue
-            # print(i, repr(x_slice))
             slicedata = x_slice.data - lastslice
             newdata.append(slicedata)
             lastslice = x_slice.data
@@ -1101,8 +1101,6 @@ def accumulated2sequential(accum_cubefile, returncube=False):
         newcube.attributes['STASH'] = dstStash
         newcube.attributes['Processed_accumulated'] = 'True'
 
-        # pdb.set_trace()
-        ofile = accum_cubefile.replace(str(srcStash[1])+str(srcStash[2]), str(dstStash[1])+str(dstStash[2]))
         iris.save(newcube, ofile, zlib=True)
 
     if returncube:
@@ -1202,7 +1200,7 @@ def selectAnalysisDataFromMass(start_dt, end_dt, stash, lbproc=0, lblev=False, o
 
             try:
                 # Now do the moo select
-                print('Extracting from MASS: ', it, '; stash: ', str(stash))
+                print('Extracting Operational Analysis from MASS:', it, '; stash:', str(stash), '; to:', ofile)
                 getresult = subprocess.check_output(['moo', 'select', '-q', '-f', '-C', queryfn, collection, tmpfile])
                 cube = iris.load_cube(tmpfile)
                 iris.save(cube, ofile, zlib=True)
@@ -1290,8 +1288,11 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
     if os.path.isfile(ofile):
         os.remove(ofile)
 
+    # Write an empty file so that other instances of this script know that something is happening, and can jump to the next file
+    pathlib.Path(ofile).touch()
+
     attempts = 0
-    while (not os.path.isfile(ofile)) and (not os.path.isfile(not_archived)) and (attempts < 3):
+    while (os.stat(ofile).st_size == 0) and (attempts < 3):
 
         try:
             getresult = subprocess.run(['moo', 'select', '-q', '-f', '-C', queryfn, collection, tmpfile], stdout=subprocess.DEVNULL)
@@ -1313,8 +1314,10 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
 
         attempts += 1
 
-    if os.path.isfile(ofile):
+    if os.stat(ofile).st_size > 0:
         ofilelist.append(ofile)
+    else:
+        os.remove(ofile)
     # else:
         # # This adds a 'not archived' empty file
         # if init_time < (now_time - dt.timedelta(hours=15)):
@@ -1327,7 +1330,7 @@ def run_MASS_select(nowstamp, queryfn, collection, ofile, ofilelist):
     return ofilelist
 
 
-def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdomain=None, lbproc=None, lblev=False, choice='newest', searchtxt=None, returncube=False, overwrite=False):
+def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdomain=None, lbproc=None, lblev=False, choice='newest', modelid_searchtxt=None, returncube=False, overwrite=False):
 
     '''
     *** This function only works inside the Met Office (UKMO) ***
@@ -1341,7 +1344,7 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
     :param lblev: Either True, False or a list of levels. Best to get all relevant levels, then subset, so set to True
     :param choice: string. Choose from ['newest', 'most_common', 'first']. Indicates how to select the jobid when more
             than one exists in the list. Default is 'newest'
-    :param searchtxt: string (or list). Allows you to subset the list of available model_ids. Most likely options:
+    :param modelid_searchtxt: string (or list). Allows you to subset the list of available model_ids. Most likely options:
             'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5', 'phikm1p5', 'global_prods' (global operational),
             'africa_prods' (africa operational)
     :param returncube: boolean. Returns an iris.cube.CubeList object of the extracted data
@@ -1363,8 +1366,12 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
 
     if jobid == 'opfc':
         # Operational model MASS path
-        moddomain = searchtxt.split('_')[0] # either africa_prods or global_prods
+        moddomain = modelid_searchtxt.split('_')[0] # either africa_prods or global_prods
         collection = 'moose:/opfc/atm/'+moddomain+'/prods/year.pp'
+    elif 'psuite' in jobid:
+        # Operational model MASS path
+        moddomain = modelid_searchtxt.split('_')[0]  # either africa_prods or global_prods
+        collection = 'moose:/opfc/atm/' + moddomain + '/prods/' + jobid + '.pp'
     else:
         collection = 'moose:/devfc/'+jobid+'/field.pp'
 
@@ -1392,19 +1399,19 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
             # TODO: May need to combine these two functions in the end
             modellist= getModels_bybox(plotdomain)['model_list']
             thesemodels = getModelID_byJobID(jobid, searchtxt=modellist)
-            if searchtxt:
-                thesemodels = [mod for mod in thesemodels if searchtxt in mod]
+            if modelid_searchtxt:
+                thesemodels = [mod for mod in thesemodels if modelid_searchtxt in mod]
         else:
-            thesemodels = getModelID_byJobID(jobid, searchtxt=searchtxt)
+            thesemodels = getModelID_byJobID(jobid, searchtxt=modelid_searchtxt)
 
         for thismodel in thesemodels:
-            # pdb.set_trace()
+
             it = it_dt.strftime('%Y%m%dT%H%MZ')
             print(it, thismodel, sep=': ')
 
             # Make sure we get the correct stash code for precip depending on the model
             if str(stash) in ['4201', '4203', '5216', '5226']:
-                stash = getPrecipStash(thismodel, type='short')
+                stash = getPrecipStash(thismodel, lbproc=lbproc, type='short')
 
             if jobid == 'opfc':
                 # Replace collection path with correct year
@@ -1481,6 +1488,13 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
                     except:
                         print('No model data for ' + it)
 
+    if str(stash) == '4201':
+        new_ofilelist = []
+        for ofile in ofilelist:
+            new_ofile = accumulated2sequential(ofile)
+            new_ofilelist.append(new_ofile)
+        ofilelist = new_ofilelist
+
     if returncube:
         # Possibly throw in a merge or concatenate_cube here ...
         return(ocubes)
@@ -1490,8 +1504,10 @@ def selectModelDataFromMASS(init_times, stash, odir='', domain='SEAsia', plotdom
 
 def getPrecipStash(model_id, lbproc=None, type='long'):
 
+    if isinstance(lbproc, list):
+        lbproc = lbproc[0]
+
     if "africa_prods" in model_id and lbproc == 128:
-        # pdb.set_trace()
         outstash = 'm01s04i201' # this is the only stash in op_tafr that has lbproc=128
     elif not ("ga" in model_id or "global" in model_id):
         outstash = 'm01s04i203' # Large scale rain rate
@@ -1894,16 +1910,16 @@ def make_nice_filename(file):
 
     return file_nice
 
-def make_outputplot_filename(event_name, validtime, modelid, location, timeagg, plottype, plotname, fclt, outtype='filesystem'):
+def make_outputplot_filename(region_name, location_name, validtime, modelid, timeagg, plottype, plotname, fclt, outtype='filesystem'):
     '''
     Given inputs, creates a filename in the standard format so it can be put into a webpage. This is important because the html creation code uses the values in the filename to create the menu structure
     Filename format:
     # <Plot-type>/<Valid-time>_<ModelId>_<Location>_<Time-Aggregation>_<Plot-Name>_<Lead-time>.png
     validtime_modelid_location_timeagg_plottype_forecastleadtime.png
-    :param event_name: string. Usual format: region/event (e.g. PeninsulaMalaysia/20200520_Johor )
-    :param validtime: string. Formatted datetime
+    :param region_name: string. General region, in which multiple locations might exist. E.g. East Africa, SE Asia, etc
+    :param location_name: string. Location of a zoom within the region, such as a case study location. E.g. Lake Victoria, Peninsular Malaysia, etc
+    :param validtime: datetime. Time stamp for the file
     :param modelid: string. Name of the model or observation
-    :param location: string. Place name. If it contains spaces, fill with a '-' (NOT an underscore as this will mess up the webpage creation)
     :param timeagg: string. Time averaging period. This is most likely to be 'instantaneous', although it could also be '3hr', '6hr' etc
     :param plottype: string. A unique identifier for type of plot. This is typical the directory name e.g. precipitation
     :param plotname: string. A unique identifier for name of the plot within the plot type. e.g. precipitation-circulation, precipitation-postage-stamps, walker-circulation, etc
@@ -1913,11 +1929,13 @@ def make_outputplot_filename(event_name, validtime, modelid, location, timeagg, 
     '''
 
     settings = config.load_location_settings()
-    location = location.replace(' ', '-')
-    location = location.replace('/', '|')
-    base = event_name + '/' + plottype + '/' + validtime + '_' + modelid + '_' + location + '_' + timeagg + '_' + plotname + '_' + fclt + '.png'
+    region_name = region_name.replace(' ', '-').replace('_', '-').replace('/', '-')
+    location_name = location_name.replace(' ', '-').replace('_', '-').replace('/', '-')
+    timedir = validtime.strftime('%Y%m')
+    timestamp = validtime.strftime('%Y%m%dT%H%MZ')
+    base = region_name + '/' + location_name + '/' + plottype + '/' + timedir + '/' + timestamp + '_' + modelid + '_' + location_name + '_' + timeagg + '_' + plotname + '_' + fclt + '.png'
     if outtype == 'filesystem':
-        ofile = settings['plot_dir'] + base
+        ofile = settings['plot_dir'].rstrip('/') + '/' + base
 
         # Make sure that the dir exists
         odir = os.path.dirname(ofile)
@@ -1925,7 +1943,7 @@ def make_outputplot_filename(event_name, validtime, modelid, location, timeagg, 
             os.makedirs(odir)
 
     elif outtype == 'url':
-        ofile = settings['url_base'] + base
+        ofile = settings['url_base'].rstrip('/') + '/' + base
     else:
         return 'Didn\'t recognise outtype: ' + outtype
 
@@ -2001,3 +2019,38 @@ def send_to_ftp(filelist, ftp_path, settings, removeold=False):
                 print('There was a problem sending', file_nice, 'to the FTP site')
         else:
             print(file_nice, 'already exists on FTP site')
+
+
+def get_time_segments(start, end, ta, max_plot_freq=12):
+    '''
+    Generates a list of tuples of start and end datetimes. The frequency (i.e. gap between tuples) is calculated either from ta (time aggregation period), or max_plot_freq, whichever is the smallest. For example, if ta=24 and max_plot_freq=12, then each tuple will be 24 hours from start to end, but that will be repeated every 12 hours.
+    :param start: datetime for the start of the case study period
+    :param end: datetime for the end of the case study period
+    :param ta: integer. Time aggregation period
+    :param max_plot_freq: integer. Maximum time difference between plots
+    :return: list of tuples containing the start and end of each period
+    '''
+    step = min(ta, max_plot_freq)
+    outlist = []
+
+    # Make sure the start is anchored to a multiple of ta
+    ## First, get a list of possible values
+    tmpstart = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    xx = tmpstart
+    poss_values = []
+    while xx < tmpstart + dt.timedelta(days=1):
+        poss_values.append(xx)
+        xx = xx + dt.timedelta(hours=ta)
+    ## Then, find the closest to the start
+    stepstart = tmpstart
+    while (stepstart + dt.timedelta(hours=ta)) <= start:
+        stepstart += dt.timedelta(hours=ta)
+
+    # Now, get the timeseries of tuples
+    stepend = stepstart + dt.timedelta(hours=ta)
+    while stepend <= end:
+        outlist.append((stepstart, stepend))
+        stepstart = stepstart + dt.timedelta(hours=step)
+        stepend = stepstart + dt.timedelta(hours=ta)
+
+    return outlist

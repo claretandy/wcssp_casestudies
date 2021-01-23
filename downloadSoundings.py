@@ -219,20 +219,21 @@ def main(start_dt, end_dt, bbox, settings, download=True):
 if __name__ == '__main__':
 
     now = dt.datetime.utcnow()
+    settings = config.load_location_settings(os.environ['organisation'])
 
     try:
-        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%dT%H%MZ')
+        start_dt = settings['start']
     except:
         start_dt = now - dt.timedelta(days=10)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%dT%H%MZ')
+        end_dt = settings['end']
     except:
         end_dt = now
 
-    stn_id = sys.argv[3]
-    organisation = sys.argv[4]
+    try:
+        bbox = settings['bbox']
+    except:
+        bbox = [100, 0, 110, 10]
 
-    settings = config.load_location_settings(organisation)
-
-    main(start_dt, end_dt, stn_id, settings)
+    main(start_dt, end_dt, bbox, settings)

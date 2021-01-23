@@ -18,7 +18,7 @@ export event_location_name='Peninsula-Malaysia' # A short name to decribe the l
 export event_region_name='SEAsia' # This should be a large region for which you can group events together (e.g. Luzon, Java, Terrengganu)
 
 # Which scripts to run? Space separated names of scripts
-jobs='plot_precip plot_tephi plot_walkercirculation'
+jobs=( plot_precip plot_tephi plot_walkercirculation )
 
 # Possible values:
 # extractUM: UKMO only! Extracts UM data from our archive
@@ -40,7 +40,7 @@ else
 code_dir="$( dirname "$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}')" )"
 fi
 echo $code_dir
-cd $code_dir
+#cd $code_dir
 
 # Set the eventname automatically so it is a standard format of region/date_eventlocation
 thisdate=$(echo ${end} | awk '{print substr($0,0,8)}')
@@ -51,35 +51,35 @@ else
 fi
 
 # Run all the commands requested
-for j in ${jobs[@]}; do
-
+for j in "${jobs[@]}"; do
+  echo ${j}
   if [ $organisation == 'UKMO' ]; then
-    cat <<EOF > wcssp_casestudies_tmp_${j}.sh
+    cat <<EOF > ${code_dir}/batch_output/wcssp_casestudies_tmp_${j}.sh
 #!/bin/bash -l
 #SBATCH --qos=long
 #SBATCH --mem=20000
 #SBATCH --ntasks=2
-#SBATCH --output=/scratch/hadhy/seasia/batch_out/wcssp_casestudies_tmp_${j}_%j_%N.out
+#SBATCH --output=batch_output/wcssp_casestudies_tmp_${j}_%j_%N.out
 #SBATCH --time=4320
-
 
 conda activate scitools
 
 echo ${j}
-
+cd ${code_dir}
 python ${code_dir}/${j}.py
 
 EOF
 
-    echo "Running: wcssp_casestudies_tmp_${j}.sh"
-    sbatch wcssp_casestudies_tmp_${j}.sh
+    echo "Running: batch_output/wcssp_casestudies_tmp_${j}.sh"
+    sbatch ${code_dir}/batch_output/wcssp_casestudies_tmp_${j}.sh
     sleep 10
 
   else
 
     echo ${j}
-    python ${code_dir}/${j}.py
+    python ${j}.py
 
   fi
 
 done
+

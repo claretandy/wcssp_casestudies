@@ -1,4 +1,4 @@
-import os, sys
+import os
 ####
 # Use this for running on SPICE ...
 import matplotlib
@@ -17,17 +17,15 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 import os.path
-import shutil
 import iris.analysis as ia
 import datetime as dt
-import re
 import load_data
 import location_config as config
 import std_functions as sf
 import run_html as html
 import itertools
 from downloadUM import get_local_flist
-import pdb
+
 
 def getFigSize(bbox):
 
@@ -47,12 +45,12 @@ def getFigSize(bbox):
 
     return ofigsize
 
-def plotGPM(cube, event_name, event_location_name, bbox, overwrite=False, accum='12-hrs'):
+def plotGPM(cube, region_name, location_name, bbox, overwrite=False, accum='12-hrs'):
     '''
     Plots GPM IMERG data for the given location and accumulation period
     :param cube:
-    :param event_name:
-    :param event_location_name:
+    :param region_name:
+    :param location_name:
     :param bbox:
     :param overwrite:
     :param accum:
@@ -87,6 +85,12 @@ def plotGPM(cube, event_name, event_location_name, bbox, overwrite=False, accum=
         cube_dom_acc = cube.aggregated_by(['day_of_year', '3hourly'], iris.analysis.SUM) / 2.
         these_units = 'Accumulated rainfall (mm/3hrs)'
 
+    elif accum == '1-hr':
+        # Aggregate by 3hr period
+        # NB: Data is in mm/hr for each half hour timestep, so divide by 2
+        cube_dom_acc = cube.aggregated_by(['day_of_year', 'hour'], iris.analysis.SUM) / 2.
+        these_units = 'Accumulated rainfall (mm/hr)'
+
     elif accum == '30-mins':
         # Don't aggregate!
         # NB: Data is in mm/hr for each half hour timestep, so divide by 2
@@ -94,7 +98,7 @@ def plotGPM(cube, event_name, event_location_name, bbox, overwrite=False, accum=
         this_title = 'Rate (mm/hr) for 30-min Intervals'
         these_units = 'Accumulated rainfall (mm/hr)'
     else:
-        print('Please specify a different accumulation time. Choose from: 30-mins, 3-hrs, 6-hrs, 12-hrs, 24-hrs')
+        print('Please specify a different accumulation time. Choose from: 30-mins, 1-hr, 3-hrs, 6-hrs, 12-hrs, 24-hrs')
         return
 
     cube_dom_acc.coord('latitude').guess_bounds()
@@ -119,14 +123,10 @@ def plotGPM(cube, event_name, event_location_name, bbox, overwrite=False, accum=
         tpt = tu.num2date(tcoord.bounds[0][1]) + dt.timedelta(seconds=1)  # Get the upper bound and nudge it the hour
 
         # Define the correct output dir and filename
-        thisyr = tpt.strftime('%Y')
-        thismon = tpt.strftime('%m')
-        thisday = tpt.strftime('%d')
         timestamp = tpt.strftime('%Y%m%dT%H%MZ')
-        # (event_name, this_dt_fmt, model_id, 'Tropics-' + lat0 + '-to-' + lat1,
-        #  'Instantaneous', 'large-scale', 'walker-circulation', 'T+0')
-        ofile = sf.make_outputplot_filename(event_name, timestamp, 'GPM-IMERG',
-                 event_location_name, accum, 'Precipitation', 'Observed-Timeseries', 'T+0')
+
+        ofile = sf.make_outputplot_filename(region_name, location_name, tpt, 'GPM-IMERG',
+                                            accum, 'Precipitation', 'Observed-Timeseries', 'T+0')
 
         print('Plotting ' + accum + ': ' + timestamp + ' (' + str(i+1) + ' / ' + str(cube_dom_acc.shape[0]) + ')')
 
@@ -149,12 +149,23 @@ def plotGPM(cube, event_name, event_location_name, bbox, overwrite=False, accum=
             var_plt_ax = plt.gca()
 
             var_plt_ax.set_extent([bbox[0], bbox[2], bbox[1], bbox[3]])
+            lakelines = cfeature.NaturalEarthFeature(
+                category='physical',
+                name='lakes',
+                scale='10m',
+                edgecolor='black',
+                alpha=0.5,
+                facecolor='none')
+            var_plt_ax.add_feature(lakelines)
             borderlines = cfeature.NaturalEarthFeature(
                 category='cultural',
                 name='admin_0_boundary_lines_land',
                 scale='50m',
+                linewidth=1,
+                linestyle=(0, (3, 1, 1, 1, 1, 1)),
+                edgecolor='black',
                 facecolor='none')
-            var_plt_ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
+            var_plt_ax.add_feature(borderlines)
             var_plt_ax.coastlines(resolution='50m', color='black')
             gl = var_plt_ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
             gl.top_labels = False
@@ -193,8 +204,7 @@ def plotPostageOneModel(gpmdict, modelcubes, model2plot, timeagg, plotdomain, of
         daterange = [x.strftime('%Y%m%dT%H%MZ') for x in
                      myu.num2date(modelcubes[m].coord('time').bounds[0])]
     except:
-        pdb.set_trace()
-        return
+        return None
 
     odir = os.path.dirname(ofile)
     if not os.path.isdir(odir):
@@ -273,6 +283,8 @@ def plotPostageOneModel(gpmdict, modelcubes, model2plot, timeagg, plotdomain, of
             else:
                 plt.title(postage[i].attributes['title'])
 
+            lakelines = cfeature.NaturalEarthFeature(category='physical', name='lakes', scale='10m', edgecolor=cfeature.COLORS['water'], facecolor='none')
+            ax.add_feature(lakelines)
             borderlines = cfeature.NaturalEarthFeature(category='cultural', name='admin_0_boundary_lines_land', scale='50m', facecolor='none')
             ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
             ax.coastlines(resolution='50m', color='black')
@@ -428,7 +440,7 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, settings, pstar
         gl.yformatter = LATITUDE_FORMATTER
         gl.xlabel_style = {'size': 8}
         gl.ylabel_style = {'size': 8}
-
+        # pdb.set_trace()
         # Overlay wind field
         ax.streamplot(X, Y, U, V, density=1.5, color='k', linewidth=lw)
 
@@ -438,9 +450,12 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, settings, pstar
     colorbar.set_label('6-hr Precipitation Total (mm)')
 
     # Use daterange in the title ...
-    plt.suptitle('UM Analysis 850hPa winds and GPM IMERG Precipitation\n%s to %s' % (pstart.strftime('%Y%m%d %H:%M'), pend.strftime('%Y%m%d %H:%M')), fontsize=18)
+    plt.suptitle('UM Analysis 850hPa winds and GPM IMERG Precipitation\n%s to %s' %
+                 (pstart.strftime('%Y%m%d %H:%M'), pend.strftime('%Y%m%d %H:%M')), fontsize=18)
 
-    ofile = sf.make_outputplot_filename(event_name, pend.strftime('%Y%m%dT%H%MZ'), 'analysis', event_location_name, str(timeagg)+'-hrs', 'Precipitation', 'Regional-850winds', 'T+0')
+    region_name, location_name = [settings['region_name'], settings['location_name']]
+    ofile = sf.make_outputplot_filename(region_name, location_name, pend.strftime('%Y%m%dT%H%MZ'), 'analysis',
+                                        str(timeagg)+'-hrs', 'Precipitation', 'Regional-850winds', 'T+0')
     fig.savefig(ofile, bbox_inches='tight')
     plt.close(fig)
 
@@ -487,50 +502,15 @@ def gpm_imerg_get_all(start, end, bbox, settings):
     return gpmdict
 
 
-def get_time_segments(start, end, ta, max_plot_freq=12):
-    '''
-    Generates a list of tuples of start and end datetimes. The frequency (i.e. gap between tuples) is calculated either from ta (time aggregation period), or max_plot_freq, whichever is the smallest. For example, if ta=24 and max_plot_freq=12, then each tuple will be 24 hours from start to end, but that will be repeated every 12 hours.
-    :param start: datetime for the start of the case study period
-    :param end: datetime for the end of the case study period
-    :param ta: integer. Time aggregation period
-    :param max_plot_freq: integer. Maximum time difference between plots
-    :return: list of tuples containing the start and end of each period
-    '''
-    step = min(ta, max_plot_freq)
-    outlist = []
-
-    # Make sure the start is anchored to a multiple of ta
-    ## First, get a list of possible values
-    tmpstart = start.replace(hour=0, minute=0, second=0, microsecond=0)
-    xx = tmpstart
-    poss_values = []
-    while xx < tmpstart + dt.timedelta(days=1):
-        poss_values.append(xx)
-        xx = xx + dt.timedelta(hours=ta)
-    ## Then, find the closest to the start
-    stepstart = tmpstart
-    while (stepstart + dt.timedelta(hours=ta)) <= start:
-        stepstart += dt.timedelta(hours=ta)
-
-    # Now, get the timeseries of tuples
-    stepend = stepstart + dt.timedelta(hours=ta)
-    while stepend <= end:
-        outlist.append((stepstart, stepend))
-        stepstart = stepstart + dt.timedelta(hours=step)
-        stepend = stepstart + dt.timedelta(hours=ta)
-
-    return outlist
-
-
-def plot_postage(case_start, case_end, timeaggs, model_ids, event_name, event_location_name, bbox, settings, ofiles, max_plot_freq=12):
+def plot_postage(case_start, case_end, timeaggs, model_ids, region_name, location_name, bbox, settings, ofiles, max_plot_freq=12):
     '''
     Plots GPM IMERG (top row) vs model lead times for various time aggregations
     :param case_start: datetime for the start of the case study
     :param case_end: datetime for the end of the case study
     :param timeaggs: list of strings. Usually [3, 6, 12, 24, 48]
     :param model_ids: list of model_id strings
-    :param event_name: string. Usually 'region/date_location'
-    :param event_location_name: string. Usually the 'location' from the event_name string
+    :param region_name: string. Usually a larger region such as SEAsia or EastAfrica
+    :param location_name: string. Usually the location of an event within the larger region
     :param bbox: list of coordinates [xmin, ymin, xmax, ymax]
     :param settings:
     :param ofiles: current list of output files
@@ -542,7 +522,7 @@ def plot_postage(case_start, case_end, timeaggs, model_ids, event_name, event_lo
 
     for ta, mod in itertools.product(timeaggs, model_ids):
 
-        time_segs = get_time_segments(case_start, case_end, ta, max_plot_freq)
+        time_segs = sf.get_time_segments(case_start, case_end, ta, max_plot_freq)
 
         for start, end in time_segs:
             print(ta, mod, start, end)
@@ -551,12 +531,20 @@ def plot_postage(case_start, case_end, timeaggs, model_ids, event_name, event_lo
             gpmdict = gpm_imerg_get_all(start, end, bbox, settings)
 
             # Load model data
-            modelcubes = load_data.unified_model(start, end, event_name, settings, bbox=bbox, region_type='event', model_id=mod, var='precip', checkftp=False, timeclip=True, aggregate=True, totals=True)[mod]['precip']
+            try:
+                modelcubes = load_data.unified_model(start, end, settings, bbox=bbox, region_type='event', model_id=mod, var='precip', checkftp=False, timeclip=True, aggregate=True, totals=True)[mod]['precip']
+            except:
+                continue
 
             # Do the plotting for each
-            plot_fname = sf.make_outputplot_filename(event_name, end.strftime('%Y%m%dT%H%MZ'), mod, event_location_name, str(ta)+'-hrs', 'Precipitation', 'Postage-Stamps', 'All-FCLT')
-            pngfile = plotPostageOneModel(gpmdict, modelcubes, mod, ta, bbox, plot_fname)
-            ofiles.append(pngfile)
+            plot_fname = sf.make_outputplot_filename(region_name, location_name, end.strftime('%Y%m%dT%H%MZ'), mod, str(ta)+'-hrs', 'Precipitation', 'Postage-Stamps', 'All-FCLT')
+
+            try:
+                pngfile = plotPostageOneModel(gpmdict, modelcubes, mod, ta, bbox, plot_fname)
+                if pngfile:
+                    ofiles.append(pngfile)
+            except:
+                pass
 
     return ofiles
 
@@ -572,14 +560,14 @@ def addTimeCats(cube):
     return cube
 
 
-def plot_gpm(start, end, timeaggs, event_name, event_location_name, bbox, settings, ofiles):
+def plot_gpm(start, end, timeaggs, region_name, location_name, bbox, settings, ofiles):
     '''
     Plots GPM IMERG NRT_late and production for various time aggregations
     :param start: datetime
     :param end: datetime
     :param timeaggs: list of integers. Usually [3, 6, 12, 24]
-    :param event_name: string. Formatted either region/datetime_location or monitoring/realtime_location
-    :param event_location_name: string. Just the location name from the above
+    :param region_name: string. Formatted either region/datetime_location or monitoring/realtime_location
+    :param location_name: string. Just the location name from the above
     :param bbox: list of floats or integers. Formatted [xmin, ymin, xmax, ymax]
     :param settings: dictionary. Created by the location_config.load_location_settings() function
     :param ofiles: current list of output files (this function adds to it)
@@ -588,15 +576,11 @@ def plot_gpm(start, end, timeaggs, event_name, event_location_name, bbox, settin
 
     gpmdata = load_data.gpm_imerg(start, end, settings, latency='NRTlate', bbox=bbox, aggregate=False)
     gpmdata = addTimeCats(gpmdata)
-    timeaggs = [str(t) + '-hrs' for t in timeaggs if type(t) == int]
-
-    # for ta, mod in itertools.product(timeaggs, model_ids):
-    #     for start, end in get_time_segments(case_start, case_end, ta, max_plot_freq):
-    #         print(ta, mod, start, end)
+    timeaggs = [tstr.replace('1-hrs','1-hr') for tstr in [str(t) + '-hrs' for t in timeaggs if type(t) == int]]
 
     for ta in timeaggs:
 
-        ta_ofiles = plotGPM(gpmdata, event_name, event_location_name, bbox, overwrite=False, accum=ta)
+        ta_ofiles = plotGPM(gpmdata, region_name, location_name, bbox, overwrite=True, accum=ta)
         try:
             ofiles.extend(ta_ofiles)
         except:
@@ -605,7 +589,7 @@ def plot_gpm(start, end, timeaggs, event_name, event_location_name, bbox, settin
     return ofiles
 
 
-def plot_regional_plus_winds(start, end, model_ids, event_name, event_location_name, bbox, settings, ofiles):
+def plot_regional_plus_winds(start, end, model_ids, region_name, location_name, bbox, settings, ofiles):
     '''
     Plots GPM IMERG NRT_late (or production) with analysis winds vs model for various time slices
     2x2 plots of GPM precip + analysis winds (at 6 hour intervals)
@@ -613,7 +597,8 @@ def plot_regional_plus_winds(start, end, model_ids, event_name, event_location_n
     :param start:
     :param end:
     :param model_ids:
-    :param event_name:
+    :param region_name:
+    :param location_name:
     :param bbox:
     :param settings:
     :param ofiles: current list of output files
@@ -622,24 +607,24 @@ def plot_regional_plus_winds(start, end, model_ids, event_name, event_location_n
 
     # Get the region plot bbox
     # NB: You can add to this by adding your own REGIONAL item to the dictionary in sf.getBBox_byRegionName
-    region_bbox = sf.getBBox_byRegionName(sf.getDomain_bybox(bbox))
+    region_bbox = sf.getBBox_byRegionName(sf.getModelDomain_bybox(bbox))
 
     # Remove 'analysis' from the model list
     model_ids = [m for m in model_ids if not m == 'analysis']
 
     # Get 24-hr time periods (at 6-hr intervals) for each plot
-    plot_bnds = get_time_segments(start, end, 24, max_plot_freq=6)
+    plot_bnds = sf.get_time_segments(start, end, 24, max_plot_freq=6)
 
     for pstart, pend in plot_bnds:
 
         print(pstart, 'to', pend)
 
         # Get 6-hr time periods to cycle through
-        time_tups = get_time_segments(pstart, pend, 6)
+        time_tups = sf.get_time_segments(pstart, pend, 6)
 
         # Load the analysis wind data
         try:
-            analysis_data = load_data.unified_model(pstart, pend, event_name, settings, bbox=(region_bbox + np.array([-5, -5, 5, 5])).tolist(), region_type='event', model_id='analysis', var=['Uwind-levels', 'Vwind-levels'], aggregate=False, timeclip=True)['analysis']
+            analysis_data = load_data.unified_model(pstart, pend, settings, bbox=(region_bbox + np.array([-5, -5, 5, 5])).tolist(), region_type='tropics', model_id='analysis', var=['Uwind-levels', 'Vwind-levels'], aggregate=False, timeclip=True)['analysis']
         except:
             continue
 
@@ -658,85 +643,57 @@ def plot_regional_plus_winds(start, end, model_ids, event_name, event_location_n
     return ofiles
 
 
-def main(start, end, event_name, event_location_name, bbox, organisation):
+def main():
     '''
-    Loads data and runs all the precip plotting routines
-    :param start: datetime for the start of the case study
-    :param end: datetime for the end of the case study
-    :param event_name: String. Format <region>/<date>_<event_location_or_name> E.g. 'PeninsulaMalaysia/20200520_Johor'
-    :param event_location_name: String. Location name for plotting
-    :param bbox: List. Format [xmin, ymin, xmax, ymax]
-    :param organisation: string.
-    :return: lots of plots
+    Loads data and runs all the precip plotting routines. The following variables are picked up from the settings dictionary
+    start: datetime for the start of the case study
+    end: datetime for the end of the case study
+    region_name: String. Larger region E.g. 'SEAsia' or 'EastAfrica'
+    location_name: String. Zoom area within the region. E.g. 'PeninsularMalaysia'
+    bbox: List. Format [xmin, ymin, xmax, ymax]
+    organisation: string.
+    returns: lots of plots
     '''
 
-    # Set some location-specific defaults
+    try:
+        organisation = os.environ['organisation']
+    except:
+        organisation = config.get_site_by_ip()
+
     settings = config.load_location_settings(organisation)
+    start = settings['start']
+    end = settings['end']
+    region_name = settings['region_name']
+    location_name = settings['location_name']
+    bbox = settings['bbox']
 
     # Get the region plot bbox
     # NB: You can add to this by adding your own REGIONAL item to the dictionary in sf.getBBox_byRegionName
-    region_name = sf.getDomain_bybox(bbox)
-    region_bbox = sf.getBBox_byRegionName(region_name)
+    region_bbox = sf.getBBox_byRegionName(sf.getModelDomain_bybox(bbox))
 
     # Make the start at 0000UTC of the first day and the end 0000UTC the last day
     start = start.replace(hour=0, minute=0, second=0, microsecond=0)
     end = (end + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Set model ids to plot (by checking the available data on disk)
-    full_file_list = get_local_flist(start, end, event_name, settings, region_type='event')
-    model_ids = list(set([os.path.basename(fn).split('_')[-3] for fn in full_file_list])) # ['analysis', 'ga7', 'km4p4', 'km1p5']
+    full_file_list = get_local_flist(start, end, settings, region_type='event')
+    model_ids = list(set([os.path.basename(fn).split('_')[1] for fn in full_file_list])) # ['analysis', 'ga7', 'km4p4', 'km1p5']
 
     # Time aggregation periods for all plots
-    timeaggs = [3, 6, 12, 24]  # 72, 96, 120
+    timeaggs = [1, 3, 6, 12, 24]  # 72, 96, 120
 
     # Make an empty list for storing precip png plots
     ofiles = []
 
     # Run plotting functions
-    ofiles = plot_postage(start, end, timeaggs, model_ids, event_name, event_location_name, bbox, settings, ofiles)
-    ofiles = plot_gpm(start, end, timeaggs, event_name, event_location_name, bbox, settings, ofiles)
-    ofiles = plot_gpm(start, end, timeaggs, event_name, region_name, region_bbox, settings, ofiles)
-    ofiles = plot_regional_plus_winds(start, end, model_ids, event_name, event_location_name, bbox, settings, ofiles)
+    ofiles = plot_postage(start, end, timeaggs, model_ids, region_name, location_name, bbox, settings, ofiles)
+    ofiles = plot_gpm(start, end, timeaggs, region_name, location_name, bbox, settings, ofiles)
+    ofiles = plot_gpm(start, end, timeaggs, region_name, location_name, region_bbox, settings, ofiles)
+    ofiles = plot_regional_plus_winds(start, end, model_ids, region_name, location_name, region_bbox, settings, ofiles)
 
     html.create(ofiles)
 
 
 if __name__ == '__main__':
 
-    try:
-        start = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
-    except:
-        # For realtime
-        start = dt.datetime.utcnow() - dt.timedelta(days=10)
-
-    try:
-        end = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
-    except:
-        # For realtime
-        end = dt.datetime.utcnow()
-
-    try:
-        event_name = os.environ['eventname']
-    except:
-        # For realtime
-        event_name = 'monitoring/realtime_Peninsular-Malaysia'
-
-    try:
-        event_location_name = os.environ['event_location_name']
-    except:
-        # For realtime
-        event_location_name = 'Peninsular-Malaysia'
-
-    try:
-        domain_str = os.environ['bbox']
-        bbox = [float(x) for x in domain_str.split(',')]
-    except:
-        # For testing
-        bbox = [100, 0, 110, 10]
-
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = 'UKMO'
-
-    main(start, end, event_name, event_location_name, bbox, organisation)
+    main()

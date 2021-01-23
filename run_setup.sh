@@ -11,6 +11,7 @@ else
   conda create -n scitools python=3.8
 
   # Install some important packages
+  conda install -c conda-forge cftime
   conda install -c conda-forge -n scitools iris
   conda install -c conda-forge -n scitools mo_pack
   conda install -c conda-forge -n scitools h5py

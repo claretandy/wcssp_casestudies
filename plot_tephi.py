@@ -101,13 +101,12 @@ def tephi_plot(station, date, input, plot_fname):
     plt.close(fig)
 
 
-def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_id='all'):
+def getModelData(start_dt, end_dt, bbox, locations, settings, model_id='all'):
     """
     Looks in the data directory for UM model data, and returns
     vertical profiles for the time period and locations specified
     :param start_dt: datetime
     :param end_dt: datetime
-    :param event_name: string name of the events as '<region>/<datetime>_<location>'
     :param bbox: dictionary specifying bounding box that we want to plot
             e.g. {'xmin': 99, 'ymin': 0.5, 'xmax': 106, 'ymax': 7.5}
     :param locations: either a dataframe of stations or a list of lat/lon tuples e.g. [(x1,y1),(x2,y2)]
@@ -126,7 +125,7 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
 
     # Load the model cubes into a dictionary
     print('Loading model data ...')
-    alldata_allmodels = load_data.unified_model(start_dt, end_dt, event_name, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=False, aggregate=False)
+    alldata_allmodels = load_data.unified_model(start_dt, end_dt, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=False, aggregate=False)
 
     # Sets up an empty dataframe to put the data in
     column_names = ['stn_id', 'model_id', 'valid_datetimeUTC', 'fcast_lead_time', 'PRES', 'value', 'variable']
@@ -233,40 +232,40 @@ def getModelData(start_dt, end_dt, event_name, bbox, locations, settings, model_
     return df_pivot
 
 
-def getObsData(start_dt, end_dt, event_domain, settings):
+def getObsData(start_dt, end_dt, bbox, settings):
     """
     Runs functions to get data from each organisation (which might be in different formats)
     :param start_dt: datetime object
     :param end_dt: datetime object
-    :param event_domain: list containing float values of [xmin, ymin, xmax, ymax]
+    :param bbox: list containing float values of [xmin, ymin, xmax, ymax]
     :param settings: settings read from the config file
     :return: pandas dataframe of all stations and all datetimes available
     """
     organisation = settings['organisation']
 
     # This might be necessary to get a list of upper air stations within the event bbox
-    stations_df = downloadSoundings.getUpperAirStations(event_domain)
+    stations_df = downloadSoundings.getUpperAirStations(bbox)
 
     if organisation == 'BMKG':
-        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        data = downloadSoundings.main(start_dt, end_dt, bbox, settings)['data']
         # Replace with the following when available
         # data = getObsData_BMKG(start_dt, end_dt, settings, stations_df)
 
     elif organisation == 'PAGASA':
-        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        data = downloadSoundings.main(start_dt, end_dt, bbox, settings)['data']
         # Replace with the following when available
         # data = getObsData_PAGASA(start_dt, end_dt, settings, stations_df)
 
     elif organisation == 'MMD':
-        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        data = downloadSoundings.main(start_dt, end_dt, bbox, settings)['data']
         # Replace with the following when available
         # data = getObsData_MMD(start_dt, end_dt, settings, stations_df)
 
     elif organisation == 'UKMO':
-        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        data = downloadSoundings.main(start_dt, end_dt, bbox, settings)['data']
 
     else:
-        data = downloadSoundings.main(start_dt, end_dt, event_domain, settings)['data']
+        data = downloadSoundings.main(start_dt, end_dt, bbox, settings)['data']
 
     try:
         return data, stations_df
@@ -432,29 +431,33 @@ def merge_data_for_plotting(obsdata, modeldata):
 
     return result
 
-def main(start_dt, end_dt, event_domain, event_name, organisation):
+def main():
 
-    # For testing
-    # start_dt = dt.datetime(2020, 5, 19, 0)
-    # end_dt = dt.datetime(2020, 5, 20, 0)
-    # event_name = 'PeninsulaMalaysia/20200520_Johor'
-    # bbox = [99, 0.5, 106, 7.5]
-    # organisation = 'UKMO'
+    try:
+        organisation = os.environ['organisation']
+    except:
+        organisation = config.get_site_by_ip()
 
-    # Set some location-specific defaults
     settings = config.load_location_settings(organisation)
+    start_dt = settings['start']
+    end_dt = settings['end']
+    region_name = settings['region_name']
+    location_name = settings['location_name']
+    bbox = settings['bbox']
 
     # Set model ids to plot
     model_ids = ['analysis', 'ga7', 'km4p4']
 
     # Get Data
-    obsdata, stations = getObsData(start_dt, end_dt, event_domain, settings)
-    modeldata = getModelData(start_dt, end_dt, event_name, event_domain, stations, settings, model_id=model_ids)
+    obsdata, stations = getObsData(start_dt, end_dt, bbox, settings)
+    modeldata = getModelData(start_dt, end_dt, bbox, stations, settings, model_id=model_ids)
     data2plot = merge_data_for_plotting(obsdata, modeldata)
 
     # Plot map of stations
     map_plot_fname = settings['plot_dir'] + event_name + '/upper-air/station_map.png'
-    plot_station_map(stations, event_domain, map_plot_fname)
+    sf.make_outputplot_filename(region_name, location_name, start_dt.strftime('%Y%m%dT%H%MZ'), 'Radiosonde',
+                                'Station Map', 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
+    plot_station_map(stations, bbox, map_plot_fname)
 
     # Output list of filenames for html page
     ofiles = []
@@ -481,7 +484,7 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
             # Plot just the observation
             asubset = data2plot.loc[stndt & (data2plot.model_id == 'observation')]
             if not asubset.empty:
-                plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde',
+                plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'Radiosonde',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
                     try:
@@ -495,7 +498,7 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
             obsana = ((data2plot.model_id == 'observation') | (data2plot.model_id == 'analysis'))
             asubset = data2plot.loc[stndt & obsana]
             if not asubset.empty:
-                plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'Radiosonde+Analysis',
+                plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'Radiosonde+Analysis',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
                     try:
@@ -512,7 +515,7 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
                 fc = (data2plot.fcast_lead_time > fclt_start) & (data2plot.fcast_lead_time <= fclt_end) & (data2plot.model_id != 'analysis')
                 asubset = data2plot.loc[stndt & (fc | obsana)]
                 if not asubset.empty:
-                    plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
+                    plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+'+str(fclt_end))
                     if not os.path.isfile(plot_fname):
                         try:
@@ -525,7 +528,7 @@ def main(start_dt, end_dt, event_domain, event_name, organisation):
             # Plot observation + analysis + models @ all lead times
             asubset = data2plot.loc[stndt]
             if not asubset.empty:
-                plot_fname = sf.make_outputplot_filename(event_name, this_dt_fmt, 'All-Models',
+                plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
                 if not os.path.isfile(plot_fname):
                     try:
@@ -554,10 +557,10 @@ if __name__ == '__main__':
 
     try:
         domain_str = os.environ['bbox']
-        event_domain = [float(x) for x in domain_str.split(',')]
+        bbox = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
-        event_domain = [90, -10, 120, 10]
+        bbox = [90, -10, 120, 10]
 
     try:
         event_name = os.environ['eventname']
@@ -572,4 +575,4 @@ if __name__ == '__main__':
         #  For the time being though, Wyoming data is tested with this
         organisation = 'UKMO'
 
-    main(start_dt, end_dt, event_domain, event_name, organisation)
+    main(start_dt, end_dt, bbox, event_name, organisation)
