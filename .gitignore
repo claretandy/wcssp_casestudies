@@ -4,6 +4,7 @@
 .config
 .DS_Store
 *.RT-H5
+query*
 
 /run_extract_realtime.sh
 /run_extract_event.sh

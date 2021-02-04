@@ -1,14 +1,20 @@
 import glob
-import os
-from datetime import timedelta
+import os, sys
+import datetime as dt
 import iris
+import numpy as np
+import numpy.ma as ma
 import cf_units
 import location_config as config
 from iris.experimental.equalise_cubes import equalise_attributes
 import std_functions as sf
 from downloadUM import get_local_flist
+from extractSatellite import getAutoSatDetails
 import downloadSoundings
 import downloadGPM
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
 import pdb
 
 
@@ -27,11 +33,54 @@ def wyoming_soundings(start_dt, end_dt, bbox, settings):
     return data
 
 
-def unified_model(start, end, settings, bbox=None, region_type='event', model_id='all', var='all', checkftp=False, timeclip=False, aggregate=True, totals=True):
+def satellite_olr(start, end, settings, bbox=None, timeclip=True, aggregate=False, timeseries=False):
+    '''
+    Gets satellite obs from local data store
+    :param start: datetime.
+    :param end: datetime.
+    :param settings: configuration settings
+    :param bbox: list of [xmin, ymin, xmax, ymax]
+    :param timeclip: boolean. Clips the satellite data to the precise start and end times
+    :param aggregate: boolean. If True, creates a time average, if False and timeseries True, returns a time series, but if timeseries False, returns the last image in the time series (i.e. the image closest to the end datetime)
+    :param timeseries: boolean. If True, returns a timeseries, if False, depends on value of aggregate
+    :return: satellite OLR data
+    '''
+    from extractSatellite import getAutoSatDetails
+
+    dir_path = settings['datadir'].rstrip('/') + '/satellite_olr/' + settings['region_name'] + '/' + settings['location_name'] + '/'
+
+    # Get the productid from the bbox
+    satellite, area, area_name, productid, proj4string, img_bnd_coords = getAutoSatDetails(settings['bbox'])
+
+    file_list = []
+    this_date = start
+    # Add and hour on the end datetime to cover the fact that on 00Z, it doesn't pick up the last time slice
+    while this_date <= (end + dt.timedelta(days=1)):
+        file = dir_path + this_date.strftime('%Y%m') + '/' + productid + '_' + this_date.strftime('%Y%m%d') + '.nc'
+        if os.path.isfile(file):
+            file_list.append(file)
+        this_date += dt.timedelta(days=1)
+
+    cubes = iris.load(file_list)
+    cube = cubes.concatenate_cube()
+
+    if timeclip:
+        cube = sf.periodConstraint(cube, start, end, greedy=True)
+
+    if aggregate:
+        cube = cube.collapsed('time', iris.analysis.MEAN)
+    else:
+        if not timeseries:
+            cube = cube[-1,...]
+
+    return cube
+
+
+def unified_model(start, end, settings, bbox=None, region_type='event', model_id=['all'], var='all', checkftp=False, fclt_clip=None, timeclip=False, aggregate=True, totals=True):
     '''
     Loads *already downloaded* UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
-    :param end: datetime object    :param settings: settings from the config file
+    :param end: datetime object
     :param settings: dictionary of settings
     :param bbox: Optional. list of bounding box coordinates [xmin, ymin, xmax, ymax]
     :param region_type: String. Either 'all', 'event' (smallest box), 'region', or 'tropics' (largest box)
@@ -41,6 +90,7 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
             sf.get_default_stash_proc_codes()['name']
     :param checkftp: boolean. If True, the script will check on the ftp site for files not currently in the local
             filelist
+    :param fclt_clip: tuple. If declared, this gives a forecast lead time range to clip to. E.g. (12, 24)
     :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
             If False, it returns the full cube
     :param aggregate: boolean. Return a collapsed cube aggregated between start and end (True), or return all available timesteps within the period (False)
@@ -82,16 +132,24 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
 
             print('   Loading:', mod, v)
             these_files = [x for x in full_file_list if v in x and mod in x]
-            # pdb.set_trace()
+
             try:
                 cubes = iris.load(these_files)
             except:
                 print('Failed to load files into a cubelist')
                 continue
 
+            # Check cubes have loaded correctly
+            attempt_reload = False
+            for cube in cubes:
+                if not cube.coords():
+                    attempt_reload = True
+            if attempt_reload:
+                cubes = iris.load(these_files)
+
             ocubes = iris.cube.CubeList([])
             for cube in cubes:
-                # pdb.set_trace()
+
                 # Firstly, try to convert units
                 try:
                     if cube.units == cf_units.Unit('kg m-2 s-1'):
@@ -109,6 +167,10 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
                 else:
                     cube.attributes['bboxclipped'] = 'False'
 
+                if fclt_clip:
+                    ltcon = iris.Constraint(forecast_period= lambda fp: fclt_clip[0] <= fp < fclt_clip[1])
+                    cube = cube.extract(ltcon)
+
                 if timeclip:
                     # Clip the model output to the given time bounds
                     try:
@@ -117,8 +179,9 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
                     except:
                         continue
                     #  ... but only if the data is fully within the period between start datetime and end datetime
-                    timechk = sf.check_time_fully_within(cube, start=start, end=end)
-                    if not timechk:
+                    try:
+                        timechk = sf.check_time_fully_within(cube, start=start, end=end)
+                    except:
                         continue
 
                 else:
@@ -144,11 +207,14 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
 
                 cube.attributes['title'] = mod + '_' + v
 
-                if not cube.coord('latitude').has_bounds():
-                    cube.coord('latitude').guess_bounds()
+                try:
+                    if not cube.coord('latitude').has_bounds():
+                        cube.coord('latitude').guess_bounds()
 
-                if not cube.coord('longitude').has_bounds():
-                    cube.coord('longitude').guess_bounds()
+                    if not cube.coord('longitude').has_bounds():
+                        cube.coord('longitude').guess_bounds()
+                except:
+                    continue
 
                 ocubes.append(cube)
 
@@ -156,7 +222,11 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
                 mod_dict[v] = ocubes
             else:
                 # With analysis data, we don't have a forecast lead time dimension, so we can concatenate cubes together nicely into a cube
-                equalise_attributes(ocubes)
+                try:
+                    equalise_attributes(ocubes)
+                except:
+                    # If the variable doesn't exist ocubes will be empty and return an error, so just ignore this
+                    continue
                 ocube = ocubes.concatenate_cube()
                 if aggregate:
                     # Aggregate the analysis data for the time bounds given
@@ -217,7 +287,7 @@ def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False, aggr
 
     file_search = inpath + '%Y/gpm_imerg_'+latency+'_*_%Y%m%d.nc' if not quality else inpath + '%Y/gpm_imerg_'+latency+'_*_%Y%m%d_quality.nc'
     numdays = (end - start).days + 1
-    file_list_wildcard = [(start + timedelta(days=x)).strftime(file_search) for x in range(0, numdays)]
+    file_list_wildcard = [(start + dt.timedelta(days=x)).strftime(file_search) for x in range(0, numdays)]
     file_list = []
     for fn in file_list_wildcard:
         file_part = glob.glob(fn.replace('.nc', '_part.nc'))
@@ -271,6 +341,9 @@ def gpm_imerg(start, end, settings, latency=None, bbox=None, quality=False, aggr
         cube.coord('latitude').guess_bounds()
         cube.coord('longitude').guess_bounds()
 
+    # Mask very low or zero values
+    cube.data = ma.masked_less(cube.data, 0.6)
+    # Set some metadata
     cube.attributes['STASH'] = iris.fileformats.pp.STASH(1, 5, 216)
     cube.attributes['data_source'] = 'GPM'
     cube.attributes['product_name'] = 'imerg' if not quality else 'imerg quality flag'

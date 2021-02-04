@@ -93,8 +93,6 @@ def get_local_flist(start, end, settings, region_type='all'):
     This script should also cover analysis and forecast model data.
     :param start: datetime object for the start of the event
     :param end: datetime object for the end of the event
-    :param region_name: string. Name for larger region
-    :param location_name. string. Name for a zoom within the region
     :param settings: local settings
     :param region_type: string. Either 'all', 'event', 'region' or 'tropics'
     :return: file list
@@ -104,7 +102,7 @@ def get_local_flist(start, end, settings, region_type='all'):
     # Removes the need for the model_id, which is not so important because
     # we are going to use glob to get all the local files
     init_times = sf.make_timeseries(start - dt.timedelta(days=5), end, 6)
-    local_path = settings['um_path'] + '/' + settings['region_name'] + '/' + settings['location_name'] + '/'
+    local_path = settings['um_path'].rstrip('/') + '/' + settings['region_name'] + '/' + settings['location_name'] + '/'
 
     ofilelist = []
     for it in init_times:
@@ -122,7 +120,7 @@ def get_local_flist(start, end, settings, region_type='all'):
     return ofilelist
 
 
-def main(start, end, bbox, settings):
+def main(start=None, end=None, bbox=None):
     '''
     This function is callable from the command line. It simply checks on the ftp for data relating to an event, and
     downloads it if it doesn't exist on the local datadir.
@@ -131,9 +129,18 @@ def main(start, end, bbox, settings):
     :param start: datetime
     :param end: datetime
     :param bbox:
-    :param settings:
     :return: a list of files that are available locally following download
     '''
+
+    settings = config.load_location_settings()
+    if not start:
+        start = settings['start']
+
+    if not start:
+        end = settings['end']
+
+    if not start:
+        bbox = settings['bbox']
 
     domain = sf.getModelDomain_bybox(bbox)
 
@@ -157,10 +164,4 @@ def main(start, end, bbox, settings):
 
 if __name__ == '__main__':
 
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = 'UKMO'
-
-    settings = config.load_location_settings(organisation)
-    main(settings['start'], settings['end'], settings['bbox'], organisation)
+    main()

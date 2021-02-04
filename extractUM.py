@@ -14,7 +14,7 @@ It should be able to perform two main tasks:
     2. Extract model data for the whole region for the last x days, share by FTP, and delete older data
 '''
 
-def post_process(start, end, filelist, bboxes, row, settings):
+def post_process(start, end, bboxes, scratchfile, row, settings):
     '''
     Make a spatial subset of the files in filelist, and saves into the UM/CaseStudy or UM/RealTime folder
     :param start: datetime
@@ -22,41 +22,46 @@ def post_process(start, end, filelist, bboxes, row, settings):
     :param filelist: list of full resolution files extracted from MASS
     :param bboxes: dictionary of list of floats or integers. Tells the function which regional and/or event domains to
                 use. Domains are formatted either [xmin, ymin, xmax, ymax] or None
-    :param event_name: string. Format is <region_name>/<date>_<region_name>
     :param row: pandas Series. A subset taken from sf.get_default_stash_proc_codes
     :param settings: ready from the .config file
     :return: list of files in the UM/CaseStudy directory to upload to FTP
     '''
 
     odir = settings['um_path'].rstrip('/') + '/' + settings['region_name'] + '/' + settings['location_name']
+
+    ofile = sf.make_nice_filename(os.path.basename(scratchfile))
+    init_dt = dt.datetime.strptime(ofile.split('_')[0], '%Y%m%dT%H%MZ')
+    model_id = os.path.basename(scratchfile).split('_')[1]
+    ofilepath = odir + '/' + init_dt.strftime('%Y%m/') + ofile
+
+    if not os.path.isdir(os.path.dirname(ofilepath)):
+        os.makedirs(os.path.dirname(ofilepath))
+
+    # Loop through the dictionary of regions.
+    # bboxes has 3 keys (tropics, region and event), which either contain a list of bbox coordinates or None
+    # If the item contains coordinates, that means we want to subset it
+    try:
+        icube = iris.load_cube(scratchfile)
+    except:
+        print('Unable to load:', scratchfile)
+        if os.path.isfile(scratchfile):
+            os.remove(scratchfile)
+        return
+
     ofilelist = []
-    for f in filelist:
-        ofile = sf.make_nice_filename(os.path.basename(f))
-        init_dt = dt.datetime.strptime(ofile.split('_')[0], '%Y%m%dT%H%MZ')
-        model_id = os.path.basename(f).split('_')[1]
-        ofilepath = odir + '/' + init_dt.strftime('%Y%m/') + ofile
+    for k, val in bboxes.items():
 
-        if not os.path.isdir(os.path.dirname(ofilepath)):
-            os.makedirs(os.path.dirname(ofilepath))
-
-        # Loop through the dictionary of regions.
-        # bboxes has 3 keys (tropics, region and event), which either contain a list of bbox coordinates or None
-        # If the item contains coordinates, that means we want to subset it
-        try:
-            icube = iris.load_cube(f)
-        except:
-            os.remove(f)
+        if val == 'tropics' and ('ga' in model_id or 'global' in model_id):
+            # No need to process the global model at tropics scale (it's too big)
             continue
 
-        for k, val in bboxes.items():
+        if val:
+            cube = icube.copy()
+            ofile = ofilepath.replace('.nc', '_' + k + '.nc')
 
-            if val == 'tropics' and ('ga' in model_id or 'global' in model_id):
-                # No need to process the global model at tropics scale
-                continue
-
-            if val:
-                cube = icube.copy()
-                ofile = ofilepath.replace('.nc', '_' + k + '.nc')
+            if os.path.isfile(ofile):
+                ofilelist.append(ofile)
+            else:
                 print('Saving:',ofile)
                 if k == 'region':
                     if row.levels:
@@ -79,7 +84,7 @@ def domain_size_decider(row, model_id, regbbox, eventbbox):
     regional bounding box or the global tropics
     :param row: pandas Series. A subset taken from sf.get_default_stash_proc_codes
     :param model_id: string. The model identifier. Could be anyone of 'ga6', 'ga7', 'km4p4', 'indkm1p5', 'malkm1p5',
-            'phikm1p5', 'global_prods' (global operational), 'africa_prods' (africa operational)
+            'phikm1p5', 'global-prods' (global operational), 'africa-prods' (africa operational)
     :param regbbox: list of floats. Bounding box of the (larger) regional bbox. Contains [xmin, ymin, xmax, ymax]
     :param eventbbox: list of floats. Bounding box of the (smaller) event bbox. Contains [xmin, ymin, xmax, ymax]
     :return: dictionary of domains to use for subsetting. If a bbox is set to None, then it is not used for this
@@ -87,9 +92,9 @@ def domain_size_decider(row, model_id, regbbox, eventbbox):
     '''
 
     # Models that have a full global coverage
-    global_models = ['analysis', 'global_prods', 'opfc']
+    global_models = ['analysis', 'global-prods', 'opfc']
     # Models that are likely to have a full regional coverage
-    regional_models = ['analysis', 'ga6', 'ga7', 'km4p4', 'global_prods', 'africa_prods', 'opfc', 'psuite42']
+    regional_models = ['analysis', 'ga6', 'ga7', 'km4p4', 'global', 'africa', 'opfc', 'psuite42']
     # No point sharing global data not in the tropics, and this reduces the data size by 2/3
     tropicsbbox = [-180, -30, 180, 30]
 
@@ -105,26 +110,99 @@ def domain_size_decider(row, model_id, regbbox, eventbbox):
     return {'tropics': tropics, 'region': region, 'event': event}
 
 
-def main(start, end, bbox, event_name, settings, model_ids=None, stash_colname='share_event', ftp_upload=False):
+def check_ofiles(init_times, stash, lbproc, bboxes, model_id, settings):
+    # Does the output file exist?
+    # If yes, add [init_time, stash, lbproc, region_name and location_name] to 'remove_from_scratch'
+    # If no, and scratch file exists, add [init_time, stash, lbproc, region_name and location_name] to 'postprocess'
+    # If no, and scratch file doesn't exist, add [init_time, stash, lbproc, region_name and location_name]
+    #   to 'extract_to_scratch' AND 'postprocess'
 
+    extract_to_scratch = []
+    postprocess = []
+    remove_from_scratch = []
+    to_ftp = []
+
+    stashdf = sf.get_default_stash_proc_codes()
+    record = stashdf[(stashdf['stash'] == int(stash)) & (stashdf['lbproc'] == int(lbproc))]
+    these_boxes = [k for k, v in bboxes.items() if v]
+
+    for it in init_times:
+
+        jobid = sf.getJobID_byDateTime(it, domain=sf.getModelDomain_bybox(settings['bbox']))
+        if model_id == 'analysis':
+            full_model_id = 'analysis'
+        else:
+            full_model_id = sf.getModelID_byDatetime(it, domain=sf.getModelDomain_bybox(settings['bbox']), searchtxt=model_id)['modellist'][0]
+        scratchfile = settings['scratchdir'] + 'ModelData/' + \
+                      jobid + '/' + it.strftime('%Y%m%dT%H%MZ') + '_' + \
+                      full_model_id + '_' + str(stash) + '_' + str(lbproc) + '.nc'
+        umdir = settings['um_path'].rstrip('/') + '/' + settings['region_name'] + '/' + settings['location_name'] + '/' + it.strftime('%Y%m')
+
+        to_process = []
+        for bk in these_boxes:
+            file_nice = umdir + '/' + it.strftime('%Y%m%dT%H%MZ') + '_' + \
+                        full_model_id.replace('_', '-') + '_' + \
+                        record['name'].to_string(index=False).lstrip(' ') + '_' + \
+                        sf.lut_lbproc(int(lbproc)) + '_' + \
+                        bk + '.nc'
+
+            if not os.path.isfile(file_nice):
+                to_process.append(file_nice)
+            else:
+                to_ftp.append(file_nice)
+
+        details = {'it': it, 'stash': stash, 'lbproc': lbproc, 'region_name': settings['region_name'], 'location_name': settings['location_name']}
+        # Do the output files exist?
+        if not to_process:
+            # If yes, add [init_time, stash, lbproc, region_name and location_name] to 'remove_from_scratch'
+            if os.path.isfile(scratchfile):
+                remove_from_scratch.append(scratchfile)
+        else:
+            if os.path.isfile(scratchfile):
+                # If no, and scratch file exists, add [init_time, stash, lbproc, region_name and location_name] to 'postprocess'
+                postprocess.append(scratchfile)
+                remove_from_scratch.append(scratchfile)
+            else:
+                # If no, and scratch file doesn't exist, add [init_time, stash, lbproc, region_name and location_name]
+                #   to 'extract_to_scratch' AND 'postprocess'
+                extract_to_scratch.append(details)
+                postprocess.append(scratchfile)
+                remove_from_scratch.append(scratchfile)
+
+    return extract_to_scratch, postprocess, remove_from_scratch, to_ftp
+
+
+def main(start=None, end=None, region_name=None, location_name=None, bbox=None, model_ids=None, ftp_upload=None):
+    '''
+    Loads data and runs all the precip plotting routines. The following variables are picked up from the settings dictionary
+    :param start: datetime for the start of the case study
+    :param end: datetime for the end of the case study
+    :param region_name: String. Larger region E.g. 'SEAsia' or 'EastAfrica'
+    :param location_name: String. Zoom area within the region. E.g. 'PeninsularMalaysia'
+    :param bbox: List. Format [xmin, ymin, xmax, ymax]
+    :param model_ids: list of model_ids
+    :param ftp_upload: boolean
+    :return lots of plots
     '''
 
-    :param start: datetime
-    :param end: datetime
-    :param bbox: list of floats. Bounding box of the (smaller) event bbox. Contains [xmin, ymin, xmax, ymax]
-    :param event_name: string. Format is <region_name>/<date>_<region_name>
-    :return: Nothing. Data extracted to:
-                - /scratch for realtime or full model fields
-                - /data/users for casestudy data that might be worth keeping for longer
-                - All data sent to FTP
-    '''
-
-    # Checks for common spelling mistakes
-    if any(['RealTime' if x in event_name else None for x in ['realtime', 'Realtime', 'realTime', 'RealTime', 'REALTIME']]):
-        event_name = 'RealTime'
+    settings = config.load_location_settings()
+    if not start:
+        start = settings['start']
+    if not end:
+        end = settings['end']
+    if not region_name:
+        region_name = settings['region_name']
+    if not location_name:
+        location_name = settings['location_name']
+    if not bbox:
+        bbox = settings['bbox']
+    if not model_ids:
+        model_ids = settings['model_ids']
+    if not ftp_upload:
+        ftp_upload = settings['ftp_upload']
 
     # Gets all the stash codes tagged as share
-    stashdf = sf.get_default_stash_proc_codes(list_type=stash_colname)
+    stashdf = sf.get_default_stash_proc_codes(list_type='long')
 
     # Gets the large scale bbox name (either 'SEAsia', 'Africa', or 'global')
     domain = sf.getModelDomain_bybox(bbox)
@@ -133,56 +211,68 @@ def main(start, end, bbox, event_name, settings, model_ids=None, stash_colname='
         model_ids = sf.getModels_bybox(bbox)['model_list']
 
     # Set ftp path etc
-    ftp_path = '/WCSSP/'+event_name+'/'
-    remove_old = False
+    ftp_path = '/WCSSP/'+region_name+'/'+location_name+'/'
+    remove_old = True
     # km1p5 data is too big to send in realtime
     model_ids = [mi for mi in model_ids if not 'km1p5' in mi]
-
-    # if event_name == 'RealTime':
-    #     ftp_path = '/WCSSP/SEAsia/RealTime/'
-    #     remove_old = True
-    #     # km1p5 data is too big to send in realtime
-    #     model_ids = [mi for mi in model_ids if not 'km1p5' in mi]
-    # else:
-    #     ftp_path = '/WCSSP/SEAsia/CaseStudyData/' + event_name
-    #     remove_old = False
 
     for row in stashdf.itertuples(index=False):
 
         # Get the UM analysis data
         bboxes = domain_size_decider(row, 'analysis', regbbox, bbox)
-        ana_start = start - dt.timedelta(days=1)
-        filelist_analysis = sf.selectAnalysisDataFromMass(ana_start, end, row.stash, lbproc=row.lbproc, lblev=row.levels)
-        filelist_analysis = post_process(ana_start, end, filelist_analysis, bboxes, row, settings)
-        if ftp_upload:
-            sf.send_to_ftp(filelist_analysis, ftp_path, settings, removeold=remove_old)
+        ana_start = start.replace(hour=0, minute=0) - dt.timedelta(days=1)
+        ana_times = sf.make_timeseries(ana_start, end, 6)
+        # Checks whether files exist for this combination of region / location / init_time / model_id / stash / lbproc
+        extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(ana_times, row.stash, row.lbproc,
+                                                                                      bboxes, 'analysis', settings)
+        for e2s in extract_to_scratch:
+            filelist_analysis = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash, lbproc=row.lbproc, lblev=row.levels)
+
+        for scratchfile in postprocess:
+            if os.path.isfile(scratchfile):
+                ofilelist = post_process(start, end, bboxes, scratchfile, row, settings)
+                ftp_list.extend(ofilelist)
+
+        for scratchfile in remove_from_scratch:
+            if os.path.isfile(scratchfile):
+                print('   Removing:', scratchfile)
+                os.remove(scratchfile)
+
+        if ftp_upload and ftp_list:
+            sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
 
         # Get the UM model data
         for model_id in model_ids:
             print(model_id, row.stash, row.lbproc)
+
+            # For this model, get all the available start and end datetimes
             init_times = sf.getInitTimes(start, end, domain, model_id=model_id)
+
+            # Decides whether we want tropics, region or event domains for this model_id / stash / lbproc combination
             bboxes = domain_size_decider(row, model_id, regbbox, bbox)
-            filelist_models = sf.selectModelDataFromMASS(init_times, row.stash, lbproc=row.lbproc, lblev=row.levels, domain=sf.getModelDomain_bybox(bbox), plotdomain=bbox, modelid_searchtxt=model_id)
-            filelist_models = post_process(start, end, filelist_models, bboxes, row, settings)
-            if ftp_upload:
-                sf.send_to_ftp(filelist_models, ftp_path, settings, removeold=remove_old)
+
+            # Checks whether files exist for this combination of region / location / init_time / model_id / stash / lbproc
+            extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(init_times, row.stash, row.lbproc, bboxes, model_id, settings)
+
+            for e2s in extract_to_scratch:
+                filelist_models = sf.selectModelDataFromMASS([e2s['it']], e2s['stash'], lbproc=e2s['lbproc'], lblev=row.levels,
+                                                             domain=sf.getModelDomain_bybox(bbox), plotdomain=bbox,
+                                                             modelid_searchtxt=model_id)
+
+            for scratchfile in postprocess:
+                if os.path.isfile(scratchfile):
+                    ofilelist = post_process(start, end, bboxes, scratchfile, row, settings)
+                    ftp_list.extend(ofilelist)
+
+            for scratchfile in remove_from_scratch:
+                if os.path.isfile(scratchfile):
+                    print('   Removing:', scratchfile)
+                    os.remove(scratchfile)
+
+            if ftp_upload and ftp_list:
+                sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
 
 
 if __name__ == '__main__':
 
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = 'UKMO'
-
-    settings = config.load_location_settings(organisation)
-
-    start_dt = settings['start']
-    end_dt = settings['end']
-    bbox = settings['bbox']
-    event_name = settings['region_name']+'/'+settings['location_name']
-    model_ids = settings['model_ids']
-    stash_colname = settings['stash_colname']
-    ftp_upload = settings['ftp_upload']
-
-    main(start_dt, end_dt, bbox, event_name, settings, model_ids=model_ids, stash_colname=stash_colname, ftp_upload=ftp_upload)
+    main()

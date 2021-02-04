@@ -1,31 +1,28 @@
-stash,lbproc,name,long_name,levels,long_list,short_list,profile_list,share_event,share_region,share_tropics,highway
-2205,0,olr-toa,Outgoing Longwave Radiation at the Top of the Atmosphere,False,True,True,False,True,True,False,False
-3225,0,Uwind10m,U-Component of 10m Mean Wind,False,True,True,False,True,False,False,False
-3226,0,Vwind10m,V-Component of 10m Mean Wind,False,True,True,False,True,False,False,False
-3236,0,temp1.5m,1.5m Air Temperature,False,True,True,False,True,False,False,False
-3245,0,rh1.5m,1.5m Relative Humidity,False,True,True,False,True,False,False,False
-3250,0,dewpttemp1.5m,1.5m Dewpoint Temperature,False,True,True,False,True,False,False,False
-4201,128,precip,Precipitation Rate,False,True,True,False,False,False,False,True
-4203,0,precip,Precipitation Rate,False,True,True,False,False,False,False,True
-4203,128,precip,Precipitation Rate,False,True,True,False,True,True,False,True
-5216,0,precip,Precipitation Rate,False,True,True,False,False,False,False,True
-5216,128,precip,Precipitation Rate,False,True,True,False,True,True,False,True
-15201,0,Uwind-levels,U-Component of Wind on Pressure Levels,True,True,True,True,True,False,True,True
-15202,0,Vwind-levels,V-Component of Wind on Pressure Levels,True,True,True,True,True,False,True,True
-15242,0,Wwind-levels,ω-Component of Wind on Pressure Levels,True,True,False,False,True,False,True,True
-16202,0,GeopotentialHt-levels,Geopotential Height on Pressure Levels,True,True,False,True,False,False,False,True
-16203,0,temp-levels,Air Temperature on Pressure Levels,True,True,False,True,True,True,False,True
-16204,0,rh-wrt-ice-levels,Relative Humidity with regard to ice on Pressure Levels,True,True,False,True,True,True,False,True
-16205,0,wetbulb-pot-temp-levels,Wet Bulb Potential Temperature on Pressure Levels,True,True,False,False,False,False,False,False
-16222,0,mslp,Mean Sea Level Pressure,False,True,True,False,True,True,False,False
-16256,0,rh-wrt-water-levels,Relative Humidity with regard to water on Pressure Levels,True,True,False,False,True,True,False,True
-20005,0,divergence,Divergence,False,True,False,False,False,False,False,False
-20006,0,relative-vorticity,Relative Vorticity,False,True,False,False,False,False,False,True
-20080,0,updraft-helicity-2000m-5000m,Updraft Helicity between 2000m and 5000m,False,True,True,False,False,False,False,False
-21100,0,lightning-flashrate,Lightning Flash Rate,False,True,False,False,False,False,False,True
-21104,128,num-of-lightning-flashes,Total Lightning Flashes,False,True,True,False,True,False,False,True
-30204,0,temp-uvgrid-levels,Air Temperature on Pressure Levels (UV grid),True,True,False,True,False,False,False,False
-30205,0,specific-humidity-levels,Specific Humidity on Pressure Levels,True,True,False,True,True,True,False,True
-30206,0,relative-humidity-levels,Relative Humidity on Pressure Levels,True,True,False,True,True,True,False,True
-30208,0,omega-vertwind-levels,ω-Component of Wind on Pressure Levels,True,True,False,False,False,False,False,False
-30294,0,temp-tgrid-levels,Air Temperature on Pressure Levels (T grid),True,True,False,True,False,False,False,False
+stash,lbproc,name,long_name,levels,long_list,short_list,profile_list,share_event,share_region,share_tropics
+2205,0,olr-toa,Outgoing Longwave Radiation at the Top of the Atmosphere,False,False,True,False,True,True,False
+3225,0,Uwind10m,U-Component of 10m Mean Wind,False,False,True,False,True,False,False
+3226,0,Vwind10m,V-Component of 10m Mean Wind,False,False,True,False,True,False,False
+3236,0,temp1.5m,1.5m Air Temperature,False,False,True,False,True,False,False
+3245,0,rh1.5m,1.5m Relative Humidity,False,False,True,False,True,False,False
+3250,0,dewpttemp1.5m,1.5m Dewpoint Temperature,False,False,True,False,True,False,False
+4203,128,precip,Precipitation Rate,False,False,True,False,True,True,False
+5216,128,precip,Precipitation Rate,False,False,True,False,True,True,False
+15201,0,Uwind-levels,U-Component of Wind on Pressure Levels,True,False,True,True,True,False,True
+15202,0,Vwind-levels,V-Component of Wind on Pressure Levels,True,False,True,True,True,False,True
+15242,0,Wwind-levels,ω-Component of Wind on Pressure Levels,True,False,False,False,True,False,True
+16202,0,GeopotentialHt-levels,Geopotential Height on Pressure Levels,True,False,False,True,False,False,False
+16203,0,temp-levels,Air Temperature on Pressure Levels,True,False,False,True,True,True,False
+16204,0,rh-wrt-ice-levels,Relative Humidity with regard to ice on Pressure Levels,True,False,False,True,True,True,False
+16205,0,wetbulb-pot-temp-levels,Wet Bulb Potential Temperature on Pressure Levels,True,False,False,False,False,False,False
+16222,0,mslp,Mean Sea Level Pressure,False,False,True,False,True,True,False
+16256,0,rh-wrt-water-levels,Relative Humidity with regard to water on Pressure Levels,True,False,False,False,True,True,False
+20005,0,divergence,Divergence,False,False,False,False,False,False,False
+20006,0,relative-vorticity,Relative Vorticity,False,False,False,False,False,False,False
+20080,0,updraft-helicity-2000m-5000m,Updraft Helicity between 2000m and 5000m,False,False,True,False,False,False,False
+21100,0,lightning-flashrate,Lightning Flash Rate,False,False,False,False,False,False,False
+21104,128,num-of-lightning-flashes,Total Lightning Flashes,False,True,True,False,True,True,False
+30204,0,temp-uvgrid-levels,Air Temperature on Pressure Levels (UV grid),True,False,False,True,False,False,False
+30205,0,specific-humidity-levels,Specific Humidity on Pressure Levels,True,False,False,True,True,True,False
+30206,0,relative-humidity-levels,Relative Humidity on Pressure Levels,True,False,False,True,True,True,False
+30208,0,omega-vertwind-levels,ω-Component of Wind on Pressure Levels,True,False,False,False,False,False,False
+30294,0,temp-tgrid-levels,Air Temperature on Pressure Levels (T grid),True,False,False,True,False,False,False

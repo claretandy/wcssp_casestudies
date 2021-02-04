@@ -155,8 +155,9 @@ def plotdata(df, station_id, start_date, end_date):
     ax5.legend(prop={'size': 6})
     ax5.xaxis.set_major_formatter(myfmt2)
 
-def main(start_date, end_date, agency, station_id):
-    settings = config.load_location_settings(agency)
+def main(start_date, end_date, station_id):
+
+    settings = config.load_location_settings()
     start_date = datetime.strptime(str(start_date), '%Y%m%d')
     end_date = datetime.strptime(str(end_date), '%Y%m%d')
     station_id = int(station_id)

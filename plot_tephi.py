@@ -101,7 +101,7 @@ def tephi_plot(station, date, input, plot_fname):
     plt.close(fig)
 
 
-def getModelData(start_dt, end_dt, bbox, locations, settings, model_id='all'):
+def getModelData(start_dt, end_dt, bbox, locations, settings, model_id=['all']):
     """
     Looks in the data directory for UM model data, and returns
     vertical profiles for the time period and locations specified
@@ -126,6 +126,8 @@ def getModelData(start_dt, end_dt, bbox, locations, settings, model_id='all'):
     # Load the model cubes into a dictionary
     print('Loading model data ...')
     alldata_allmodels = load_data.unified_model(start_dt, end_dt, settings, bbox=bbox, model_id=model_id, var=vars, timeclip=False, aggregate=False)
+    if not alldata_allmodels.keys():
+        return None
 
     # Sets up an empty dataframe to put the data in
     column_names = ['stn_id', 'model_id', 'valid_datetimeUTC', 'fcast_lead_time', 'PRES', 'value', 'variable']
@@ -321,7 +323,7 @@ def getObsData_PAGASA(start_dt, end_dt, settings, stations_df):
     Column names need to match those output by downloadSoundings.main()
     """
 
-def getObsData_BMKG(start_dt, end_dt, settings, stations_df):
+def getObsData_BMKG(start_dt, end_dt, settings, stations_df, stn_id=None):
     """
     Function for BMKG to edit in order to retrieve local sounding data
     :param start_dt:
@@ -398,12 +400,23 @@ def plot_station_map(stations, event_domain, map_plot_fname):
     ax = plt.gca()
 
     ax.set_extent(domain)
+    lakelines = cfeature.NaturalEarthFeature(
+        category='physical',
+        name='lakes',
+        scale='10m',
+        edgecolor='black',
+        alpha=0.5,
+        facecolor='none')
+    ax.add_feature(lakelines)
     borderlines = cfeature.NaturalEarthFeature(
         category='cultural',
         name='admin_0_boundary_lines_land',
         scale='50m',
+        linewidth=1,
+        linestyle=(0, (3, 1, 1, 1, 1, 1)),
+        edgecolor='black',
         facecolor='none')
-    ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
+    ax.add_feature(borderlines)
     ax.coastlines(resolution='50m', color='black')
     gl = ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
     gl.top_labels = False
@@ -431,31 +444,36 @@ def merge_data_for_plotting(obsdata, modeldata):
 
     return result
 
-def main():
+def main(start_dt=None, end_dt=None, region_name=None, location_name=None, bbox=None, model_ids=None):
 
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = config.get_site_by_ip()
+    settings = config.load_location_settings()
 
-    settings = config.load_location_settings(organisation)
-    start_dt = settings['start']
-    end_dt = settings['end']
-    region_name = settings['region_name']
-    location_name = settings['location_name']
-    bbox = settings['bbox']
-
-    # Set model ids to plot
-    model_ids = ['analysis', 'ga7', 'km4p4']
+    if not start_dt:
+        start_dt = settings['start']
+    if not end_dt:
+        end_dt = settings['end']
+    if not region_name:
+        region_name = settings['region_name']
+    if not location_name:
+        location_name = settings['location_name']
+    if not bbox:
+        bbox = settings['bbox']
+    if not model_ids:
+        model_ids = settings['model_ids']
 
     # Get Data
     obsdata, stations = getObsData(start_dt, end_dt, bbox, settings)
     modeldata = getModelData(start_dt, end_dt, bbox, stations, settings, model_id=model_ids)
+
+    if not isinstance(modeldata, pd.DataFrame):
+        print('No model data is available')
+        return
+
     data2plot = merge_data_for_plotting(obsdata, modeldata)
 
     # Plot map of stations
-    map_plot_fname = settings['plot_dir'] + event_name + '/upper-air/station_map.png'
-    sf.make_outputplot_filename(region_name, location_name, start_dt.strftime('%Y%m%dT%H%MZ'), 'Radiosonde',
+    map_plot_fname = settings['plot_dir'] + region_name + '/' + location_name + '/upper-air/station_map.png'
+    sf.make_outputplot_filename(region_name, location_name, start_dt, 'Radiosonde',
                                 'Station Map', 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
     plot_station_map(stations, bbox, map_plot_fname)
 
@@ -484,7 +502,7 @@ def main():
             # Plot just the observation
             asubset = data2plot.loc[stndt & (data2plot.model_id == 'observation')]
             if not asubset.empty:
-                plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'Radiosonde',
+                plot_fname = sf.make_outputplot_filename(region_name, location_name, thisdt, 'Radiosonde',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
                     try:
@@ -498,7 +516,7 @@ def main():
             obsana = ((data2plot.model_id == 'observation') | (data2plot.model_id == 'analysis'))
             asubset = data2plot.loc[stndt & obsana]
             if not asubset.empty:
-                plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'Radiosonde+Analysis',
+                plot_fname = sf.make_outputplot_filename(region_name, location_name, thisdt, 'Radiosonde+Analysis',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+0')
                 if not os.path.isfile(plot_fname):
                     try:
@@ -515,7 +533,7 @@ def main():
                 fc = (data2plot.fcast_lead_time > fclt_start) & (data2plot.fcast_lead_time <= fclt_end) & (data2plot.model_id != 'analysis')
                 asubset = data2plot.loc[stndt & (fc | obsana)]
                 if not asubset.empty:
-                    plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'All-Models',
+                    plot_fname = sf.make_outputplot_filename(region_name, location_name, thisdt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'T+'+str(fclt_end))
                     if not os.path.isfile(plot_fname):
                         try:
@@ -528,7 +546,7 @@ def main():
             # Plot observation + analysis + models @ all lead times
             asubset = data2plot.loc[stndt]
             if not asubset.empty:
-                plot_fname = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, 'All-Models',
+                plot_fname = sf.make_outputplot_filename(region_name, location_name, thisdt, 'All-Models',
                                              station['name'], 'Instantaneous', 'upper-air', 'tephigram', 'All-FCLT')
                 if not os.path.isfile(plot_fname):
                     try:
@@ -542,37 +560,4 @@ def main():
 
 if __name__ == '__main__':
 
-    now = dt.datetime.utcnow()
-    try:
-        start_dt = dt.datetime.strptime(os.environ['start'], '%Y%m%d%H%M')
-    except:
-        # For testing
-        start_dt = now - dt.timedelta(days=10)
-
-    try:
-        end_dt = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
-    except:
-        # For testing
-        end_dt = now
-
-    try:
-        domain_str = os.environ['bbox']
-        bbox = [float(x) for x in domain_str.split(',')]
-    except:
-        # For testing
-        bbox = [90, -10, 120, 10]
-
-    try:
-        event_name = os.environ['eventname']
-    except:
-        # For testing
-        event_name = 'monitoring/realtime'
-
-    try:
-        organisation = os.environ['organisation']
-    except:
-        # TODO: Add a function here to determine country / organisation by IP address
-        #  For the time being though, Wyoming data is tested with this
-        organisation = 'UKMO'
-
-    main(start_dt, end_dt, bbox, event_name, organisation)
+    main()

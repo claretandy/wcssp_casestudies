@@ -198,8 +198,8 @@ def get_file_list(single_date, url):
     '''
 
     cmd = 'curl -n ' + url
-    args = cmd.split()
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    args_list = cmd.split()
+    p = subprocess.Popen(args_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = p.communicate()[0].decode()
     if stdout[0] == '<':
         print('No imerg files for the given date')
@@ -383,7 +383,7 @@ if __name__ == '__main__':
     #  NB: 'auto' latency means that the most scientifically robust dataset is chosen
     latency = 'auto'  # Can be either 'production', 'NRTlate' or 'NRTearly' or 'all' or 'auto'
 
-    settings = config.load_location_settings(agency)
+    settings = config.load_location_settings()
 
     try:
         start_date = settings['start']

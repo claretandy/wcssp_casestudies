@@ -277,30 +277,31 @@ def plotStationData(df, plotsettings):
 #     fig.xaxis.axis_label = 'Time'
 #     fig.line()
 
-def main(organisation, start_dt, end_dt, station_id):
+def main(start_dt=None, end_dt=None, station_id=None):
     '''
     This controls all the functions that we have written. It should be generic (i.e. works for all NMSs)
-    start_dt: datetime object specifying the start of the period
-    end_dt: datetime object specifying the end of the period
-    station_id: integer relating to a station (we may add in a geographical search later)
-    returns: Lots of plots in a directory and an html page allowing navigation of the plots
+    :param start_dt: datetime object specifying the start of the period
+    :param end_dt: datetime object specifying the end of the period
+    :param station_id: integer relating to a station (we may add in a geographical search later)
+    :return: Lots of plots in a directory and an html page allowing navigation of the plots
 
     TODO: Geographical search of station data. Requires a file that relates station_id to lat/lons
     TODO: Retrieve UM / WRF model data and plot on the same figure (possibly a reduced set of variables)
     TODO: Create a web page of plots to allow easy viewing
     '''
 
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = config.get_site_by_ip()
+    settings = config.load_location_settings()
 
-    settings = config.load_location_settings(organisation)
-    start_dt = settings['start']
-    end_dt = settings['end']
+    settings = config.load_location_settings()
+    if not start_dt:
+        start_dt = settings['start']
+    if not end_dt:
+        end_dt = settings['end']
+
     region_name = settings['region_name']
     location_name = settings['location_name']
     bbox = settings['bbox']
+
 
     # Get the obs data
     for st_id in station_id:

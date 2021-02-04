@@ -1,11 +1,6 @@
 import os, sys
-####
-# Use this for running in the Met Office on SPICE ...
 import matplotlib
-hname = os.uname()[1]
-if not hname.startswith('eld') and not hname.startswith('els') and not hname.startswith('vld'):
-   matplotlib.use('Agg')
-####
+matplotlib.use('Agg')
 import location_config as config
 import std_functions as sf
 import iris
@@ -49,9 +44,9 @@ def getHorizontalData(u, v, equator=(-30,30), plev=850):
 def getHovmollerData(u, v, w, equator=(-5,5)):
 
     plevs = [('pressure', np.arange(1000, 0, -50))]
-    ueq = u.intersection(latitude=equator)
-    veq = v.intersection(latitude=equator)
-    weq = w.intersection(latitude=equator)
+    ueq = u.intersection(latitude=equator, longitude=(0, 360))
+    veq = v.intersection(latitude=equator, longitude=(0, 360))
+    weq = w.intersection(latitude=equator, longitude=(0, 360))
 
     ueq2 = ueq.collapsed('latitude', iris.analysis.MEAN)
     veq2 = veq.collapsed('latitude', iris.analysis.MEAN)
@@ -86,6 +81,7 @@ def getLandFraction(equator):
     leq3 = np.vstack((leq2.data, leq2.data))
 
     return leq3
+
 
 def plot_walker(u, v, w, ofile, lats=(-5,5)):
 
@@ -190,43 +186,47 @@ def make_symlinks(ofiles):
     :return: creates symbolic links in the same location as the files
     '''
 
-    now = dt.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
-    current_files = []
-    while not current_files:
-        current_files = [f for f in ofiles if now.strftime('%Y%m%dT%H%MZ') in f]
-        now = now - dt.timedelta(hours=1)
+    ofiles = sorted(ofiles)
+    latestdt = dt.datetime.strptime(os.path.basename(ofiles[0]).split('_')[0], '%Y%m%dT%H%MZ')
+    latestfile = ofiles[0]
 
-    for cf in current_files:
-        most_recent = os.path.basename(cf).split('_')[0]
-        symfile = cf.replace(most_recent, 'current')
-        try:
-            os.remove(symfile)
-        except:
-            pass
-        os.symlink(cf, symfile)
+    for cf in ofiles:
+        filedt = dt.datetime.strptime(os.path.basename(cf).split('_')[0], '%Y%m%dT%H%MZ')
+        if latestdt < filedt:
+            latestdt = filedt
+            latestfile = cf
+
+    symfile = latestfile.replace(latestdt.strftime('%Y%m%dT%H%MZ'), 'current')
+    try:
+        os.remove(symfile)
+    except:
+        pass
+    os.symlink(latestfile, symfile)
 
 
-def main():
+def main(start=None, end=None, region_name=None, location_name=None, model_ids=None):
     '''
     Runs code to plot the large scale tropical circulation using the UM analysis
-    start: datetime. Event start
-    end: datetime. Event end
-    model_ids: list. Could include 'analysis' or 'opfc'
-    event_name: string. e.g. 'monitoring/realtime'
-    organisation: 'UKMO' or other
-    returns: png files in the plot directory for the region_name
+    :param start: datetime. Event start
+    :param end: datetime. Event end
+    :param region_name:
+    :param location_name:
+    :param model_ids: list. Could include 'analysis' or 'global'
+    :return png files in the plot directory for the region_name
     '''
 
-    try:
-        organisation = os.environ['organisation']
-    except:
-        organisation = config.get_site_by_ip()
+    settings = config.load_location_settings()
 
-    settings = config.load_location_settings(organisation)
-    start = settings['start']
-    end = settings['end']
-    region_name = settings['region_name']
-    location_name = settings['location_name']
+    if not start:
+        start = settings['start']
+    if not end:
+        end = settings['end']
+    if not region_name:
+        region_name = settings['region_name']
+    if not location_name:
+        location_name = settings['location_name']
+    if not model_ids:
+        model_ids = settings['model_ids']
 
     analysis_incr = 6
     model_ids = ['analysis']
@@ -243,11 +243,18 @@ def main():
             this_dt_fmt = this_dt.strftime('%Y%m%dT%H%MZ')
 
             print('Walker Circulation plotting:',this_dt_fmt)
-            data = load_data.unified_model(this_dt - dt.timedelta(hours=24), this_dt, settings, region_type='tropics', model_id=model_id, var=['Uwind-levels', 'Vwind-levels', 'Wwind-levels'], aggregate=True, totals=False)
+            vars = ['Uwind-levels', 'Vwind-levels', 'Wwind-levels']
+            data = load_data.unified_model(this_dt - dt.timedelta(hours=24), this_dt, settings, region_type='tropics', model_id=model_id, var=vars, aggregate=True, totals=False)
             try:
                 k = list(data.keys())[0] # Gets the model_id recorded in the data dictionary
             except:
                 continue
+
+            # Make sure we have data for all vars
+            dks = data[k].keys()
+            if not set(dks).issuperset(set(vars)):
+                continue
+
             u = data[k]['Uwind-levels']
             v = data[k]['Vwind-levels']
             w = data[k]['Wwind-levels']
@@ -255,24 +262,28 @@ def main():
             if u and v and w:
                 for lats in lat_ranges:
 
+
                     # Make nice strings of the lat min and max
                     lat0 = str(abs(lats[0])) + 'S' if lats[0] < 0 else str(abs(lats[0])) + 'N'
                     lat1 = str(abs(lats[1])) + 'S' if lats[1] < 0 else str(abs(lats[1])) + 'N'
 
                     # Set the output file
-                    ofile = sf.make_outputplot_filename(region_name, location_name, this_dt_fmt, model_id, 'Tropics-'+lat0+'-to-'+lat1,
+                    # region_name, location_name, validtime, modelid, timeagg, plottype, plotname, fclt, outtype='filesystem'
+                    ofile = sf.make_outputplot_filename(region_name, location_name, this_dt, model_id, 'Tropics-'+lat0+'-to-'+lat1,
                                                         'Instantaneous', 'large-scale', 'walker-circulation', 'T+0')
 
                     try:
                         if not os.path.isfile(ofile):
+                            print('Plotting:', ofile)
                             plot_walker(u, v, w, ofile, lats=lats)
                         # Append to list of ofiles
                         ofiles.append(ofile)
                     except:
                         continue
 
-    # Make symbolic link to most recent files in ofiles
-    make_symlinks(ofiles)
+    # If this is a realtime plot, make a symbolic link to most recent files in ofiles
+    if end > (dt.datetime.utcnow() - dt.timedelta(days=2)):
+        make_symlinks(ofiles)
 
     # Make the html file so that the images can be viewed
     html.create(ofiles)
