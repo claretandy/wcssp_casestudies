@@ -219,34 +219,38 @@ def main(start=None, end=None, region_name=None, location_name=None, bbox=None, 
     for row in stashdf.itertuples(index=False):
 
         # Get the UM analysis data
-        bboxes = domain_size_decider(row, 'analysis', regbbox, bbox)
-        ana_start = start.replace(hour=0, minute=0) - dt.timedelta(days=1)
-        ana_times = sf.make_timeseries(ana_start, end, 6)
-        # Checks whether files exist for this combination of region / location / init_time / model_id / stash / lbproc
-        extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(ana_times, row.stash, row.lbproc,
-                                                                                      bboxes, 'analysis', settings)
-        for e2s in extract_to_scratch:
-            filelist_analysis = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash, lbproc=row.lbproc, lblev=row.levels)
+        # bboxes = domain_size_decider(row, 'analysis', regbbox, bbox)
+        # ana_start = start.replace(hour=0, minute=0) - dt.timedelta(days=1)
+        # ana_times = sf.make_timeseries(ana_start, end, 6)
+        # # Checks whether files exist for this combination of region / location / init_time / model_id / stash / lbproc
+        # extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(ana_times, row.stash, row.lbproc,
+        #                                                                               bboxes, 'analysis', settings)
+        # for e2s in extract_to_scratch:
+        #     filelist_analysis = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash, lbproc=row.lbproc, lblev=row.levels)
 
-        for scratchfile in postprocess:
-            if os.path.isfile(scratchfile):
-                ofilelist = post_process(start, end, bboxes, scratchfile, row, settings)
-                ftp_list.extend(ofilelist)
-
-        for scratchfile in remove_from_scratch:
-            if os.path.isfile(scratchfile):
-                print('   Removing:', scratchfile)
-                os.remove(scratchfile)
-
-        if ftp_upload and ftp_list:
-            sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
+        # for scratchfile in postprocess:
+        #     if os.path.isfile(scratchfile):
+        #         ofilelist = post_process(start, end, bboxes, scratchfile, row, settings)
+        #         ftp_list.extend(ofilelist)
+        #
+        # for scratchfile in remove_from_scratch:
+        #     if os.path.isfile(scratchfile):
+        #         print('   Removing:', scratchfile)
+        #         os.remove(scratchfile)
+        #
+        # if ftp_upload and ftp_list:
+        #     sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
 
         # Get the UM model data
         for model_id in model_ids:
             print(model_id, row.stash, row.lbproc)
 
             # For this model, get all the available start and end datetimes
-            init_times = sf.getInitTimes(start, end, domain, model_id=model_id)
+            if model_id == 'analysis':
+                ana_start = start.replace(hour=0, minute=0) - dt.timedelta(days=1)
+                init_times = sf.make_timeseries(ana_start, end, 6)
+            else:
+                init_times = sf.getInitTimes(start, end, domain, model_id=model_id)
 
             # Decides whether we want tropics, region or event domains for this model_id / stash / lbproc combination
             bboxes = domain_size_decider(row, model_id, regbbox, bbox)
@@ -255,7 +259,11 @@ def main(start=None, end=None, region_name=None, location_name=None, bbox=None, 
             extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(init_times, row.stash, row.lbproc, bboxes, model_id, settings)
 
             for e2s in extract_to_scratch:
-                filelist_models = sf.selectModelDataFromMASS([e2s['it']], e2s['stash'], lbproc=e2s['lbproc'], lblev=row.levels,
+                if model_id == 'analysis':
+                    filelist_models = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash,
+                                                                      lbproc=row.lbproc, lblev=row.levels)
+                else:
+                    filelist_models = sf.selectModelDataFromMASS([e2s['it']], e2s['stash'], lbproc=e2s['lbproc'], lblev=row.levels,
                                                              domain=sf.getModelDomain_bybox(bbox), plotdomain=bbox,
                                                              modelid_searchtxt=model_id)
 

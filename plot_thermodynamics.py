@@ -28,7 +28,7 @@ def uv_to_speed_dir(u, v):
     U = u.data
     V = v.data
     speed = np.sqrt(U**2 + V**2)
-    lw = 5 * speed / speed.max() # Line width
+    lw = 3 * speed / speed.max() # Line width
 
     speed_cube = u.copy(speed)
 
@@ -73,8 +73,21 @@ def plotOLRPrecipLgtng(pstart, pend, data2plot, bbox, ofile, settings):
               '#ffffff']
 
     bounds = contour_levels['3-hrs']
-    norm = colors.BoundaryNorm(boundaries=bounds, ncolors=len(my_rgb))
-    my_cmap = colors.ListedColormap(my_rgb)
+    pr_norm = colors.BoundaryNorm(boundaries=bounds, ncolors=len(my_rgb))
+    pr_cmap = colors.ListedColormap(my_rgb)
+
+    # Make nice model names for titles
+    nice_models = {'africa-prods': 'UM-TA4',
+                   'global-prods': 'UM-Global'}
+
+    olr_contour_levels = get_contour_levels(data2plot, 'olr', extend='both', level_num=200)
+    lgt_contour_levels = get_contour_levels(data2plot, 'lightning', extend='max', level_num=5)
+
+    # For use with pcolormesh
+    olr_cmap = plt.get_cmap('Greys')
+    olr_norm = colors.BoundaryNorm(olr_contour_levels, ncolors=olr_cmap.N, clip=True)
+    lgt_cmap = plt.get_cmap('viridis')
+    lgt_norm = colors.BoundaryNorm(lgt_contour_levels, ncolors=lgt_cmap.N, clip=True)
 
     fig = plt.figure(figsize=(16, 16), dpi=100)
 
@@ -94,23 +107,24 @@ def plotOLRPrecipLgtng(pstart, pend, data2plot, bbox, ofile, settings):
             ax.set_extent([x0, x1, y0, y1], crs=ccrs.PlateCarree())
 
             if i in obs_pos:
-                ocm = iplt.pcolormesh(data2plot[rowdt]['obs-olr'], cmap='Greys')
-                pcm = iplt.pcolormesh(data2plot[rowdt]['obs-gpm'], norm=norm, cmap=my_cmap)
+                ocm = iplt.pcolormesh(data2plot[rowdt]['obs']['olr'], cmap=olr_cmap, norm=olr_norm)
+                pcm = iplt.pcolormesh(data2plot[rowdt]['obs']['gpm'], norm=pr_norm, cmap=pr_cmap)
                 #TODO Add lightning obs points in here too
                 plt.title('Observations', fontsize=14)
 
             if i in reg_pos:
-                fclt = data2plot[rowdt]['um-regional-precip'].coord('forecast_period').bounds[0]
-                iplt.pcolormesh(data2plot[rowdt]['um-regional-olr'], cmap='Greys')
-                iplt.pcolormesh(data2plot[rowdt]['um-regional-precip'], norm=norm, cmap=my_cmap)
-                levs = np.arange(0, data2plot[rowdt]['um-regional-lightning'].data.max()+3, 10)
-                iplt.contour(data2plot[rowdt]['um-regional-lightning'], levels=levs)
+                fclt = data2plot[rowdt]['africa-prods']['precip'].coord('forecast_period').bounds[0]
+                iplt.pcolormesh(data2plot[rowdt]['africa-prods']['olr'], cmap=olr_cmap, norm=olr_norm)
+                iplt.pcolormesh(data2plot[rowdt]['africa-prods']['precip'], norm=pr_norm, cmap=pr_cmap)
+                # levs = np.arange(0, data2plot[rowdt]['africa-prods']['lightning'].data.max()+3, 10)
+                if not np.all(np.equal(lgt_contour_levels, 0)):
+                    lgtcm = iplt.contour(data2plot[rowdt]['africa-prods']['lightning'], cmap=lgt_cmap, levels=lgt_contour_levels)
                 plt.title('UM-TA4: T+' + str(int(fclt[0])) + ' to ' + 'T+' + str(int(fclt[1])), fontsize=14)
 
             if i in glo_pos:
-                fclt = data2plot[rowdt]['um-global-precip'].coord('forecast_period').bounds[0]
-                iplt.pcolormesh(data2plot[rowdt]['um-global-olr'], cmap='Greys')
-                iplt.pcolormesh(data2plot[rowdt]['um-global-precip'], norm=norm, cmap=my_cmap)
+                fclt = data2plot[rowdt]['global-prods']['precip'].coord('forecast_period').bounds[0]
+                iplt.pcolormesh(data2plot[rowdt]['global-prods']['olr'], cmap=olr_cmap, norm=olr_norm)
+                iplt.pcolormesh(data2plot[rowdt]['global-prods']['precip'], norm=pr_norm, cmap=pr_cmap)
                 plt.title('UM-Global: T+' + str(int(fclt[0])) + ' to ' + 'T+' + str(int(fclt[1])), fontsize=14)
 
             # Add Coastlines, Borders and Gridlines
@@ -155,7 +169,7 @@ def plotOLRPrecipLgtng(pstart, pend, data2plot, bbox, ofile, settings):
 
     # Make an axes to put the shared colorbar in
     try:
-        colorbar_axes = plt.gcf().add_axes([0.88, 0.5, 0.025, 0.35])  # left, bottom, width, height
+        colorbar_axes = plt.gcf().add_axes([0.88, 0.65, 0.025, 0.25])  # left, bottom, width, height
         colorbar = plt.colorbar(pcm, colorbar_axes, orientation='vertical', extend='max') # va='center',
         colorbar.set_label('Precipitation accumulation (mm/3-hr)')
     except:
@@ -163,11 +177,20 @@ def plotOLRPrecipLgtng(pstart, pend, data2plot, bbox, ofile, settings):
 
     # Make another axes for the OLR colour bar
     try:
-        ocolorbar_axes = plt.gcf().add_axes([0.88, 0.1, 0.025, 0.35])  # left, bottom, width, height
+        ocolorbar_axes = plt.gcf().add_axes([0.88, 0.35, 0.025, 0.25])  # left, bottom, width, height
         ocolorbar = plt.colorbar(ocm, ocolorbar_axes, orientation='vertical')
         ocolorbar.set_label('Outgoing Longwave Radiation (Wm-2)')
     except:
         pass
+
+    # Make another axes for the Lightning colour bar
+    if not np.all(np.equal(lgt_contour_levels, 0)):
+        try:
+            lcolorbar_axes = plt.gcf().add_axes([0.88, 0.15, 0.025, 0.15])  # left, bottom, width, height
+            lcolorbar = plt.colorbar(lgtcm, lcolorbar_axes, orientation='vertical')
+            lcolorbar.set_label('Lightning flash rate (flashes/3-hr)')
+        except:
+            pass
 
     # Use daterange in the title ...
     plt.suptitle('OLR, Precipitation and Lightning: Observations, UM-TA4 and UM-Global\n%s to %s (UTC)' % (pstart.strftime('%Y%m%d %H:%M'), pend.strftime('%Y%m%d %H:%M')), fontsize=18)
@@ -213,12 +236,15 @@ def plot_olr_pr_lgt(start, end, bbox, ofiles, settings):
         for rstart, rend in row_time_ranges:
 
             data2plot[rend] = {}
+            data2plot[rend]['obs'] = {}
+            data2plot[rend]['africa-prods'] = {}
+            data2plot[rend]['global-prods'] = {}
 
             # Load the GPM data
             # Aggregated for the period of the row (normally 3 hours)
             try:
                 print('Loading GPM')
-                data2plot[rend]['obs-gpm'] = load_data.gpm_imerg(rstart, rend, settings, bbox=bbox, aggregate=True)
+                data2plot[rend]['obs']['gpm'] = load_data.gpm_imerg(rstart, rend, settings, bbox=bbox, aggregate=True)
             except:
                 continue
 
@@ -228,24 +254,29 @@ def plot_olr_pr_lgt(start, end, bbox, ofiles, settings):
             # TODO Add the satellite OLR data to the FTP upload
             try:
                 print('Loading OLR obs')
-                data2plot[rend]['obs-olr'] = load_data.satellite_olr(rstart, rend, settings, bbox=bbox, aggregate=False, timeseries=False)
+                data2plot[rend]['obs']['olr'] = load_data.satellite_olr(rstart, rend, settings, bbox=bbox, aggregate=False, timeseries=False)
             except:
                 print("Problem loading satellite OLR data")
                 continue
 
             # TODO Load the lightning obs
-
+            try:
+                print('Loading Lightning obs')
+                data2plot[rend]['obs']['lightning'] = None
+            except:
+                print("Problem loading satellite Lightning data")
+                continue
             # Load the UM Regional Model data
             regmod = 'africa-prods'
             try:
                 print('Loading africa-prods')
-                data2plot[rend]['um-regional-olr'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
+                data2plot[rend][regmod]['olr'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
                                                   model_id=[regmod], var=['olr-toa'],
                                                   fclt_clip=fclt, aggregate=False, timeclip=True)[regmod]['olr-toa'][0][-1,...]
-                data2plot[rend]['um-regional-precip'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
+                data2plot[rend][regmod]['precip'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
                                                   model_id=[regmod], var=['precip'],
                                                   fclt_clip=fclt, aggregate=True, totals=True, timeclip=True)[regmod]['precip']
-                data2plot[rend]['um-regional-lightning'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
+                data2plot[rend][regmod]['lightning'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
                                                   model_id=[regmod], var=['num-of-lightning-flashes'],
                                                   fclt_clip=fclt, aggregate=True, totals=True, timeclip=True)[regmod]['num-of-lightning-flashes']
             except:
@@ -255,13 +286,13 @@ def plot_olr_pr_lgt(start, end, bbox, ofiles, settings):
             glomod = 'global-prods'
             try:
                 print("Loading global-prods")
-                data2plot[rend]['um-global-olr'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
+                data2plot[rend][glomod]['olr'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
                                                   model_id=[glomod], var=['olr-toa'],
                                                   fclt_clip=fclt, aggregate=False, timeclip=True)[glomod]['olr-toa'][0][-1,...]
-                data2plot[rend]['um-global-precip'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
+                data2plot[rend][glomod]['precip'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
                                                   model_id=[glomod], var=['precip'],
                                                   fclt_clip=fclt, aggregate=True, totals=True, timeclip=True)[glomod]['precip']
-                data2plot[rend]['um-global-lightning'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
+                data2plot[rend][glomod]['lightning'] = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event',
                                                   model_id=[glomod], var=['num-of-lightning-flashes'],
                                                   fclt_clip=fclt, aggregate=True, totals=True, timeclip=True)[glomod]['num-of-lightning-flashes']
             except:
@@ -269,12 +300,13 @@ def plot_olr_pr_lgt(start, end, bbox, ofiles, settings):
 
             print('Sorting out data2plot ...')
             for k in data2plot[rend].keys():
-                if data2plot[rend][k] == []:
-                    data2plot[rend][k] = None
-                if isinstance(data2plot[rend][k], list) or isinstance(data2plot[rend][k], iris.cube.CubeList):
-                    data2plot[rend][k] = data2plot[rend][k][0]
-                if 'precip' in k:
-                    data2plot[rend][k].data = ma.masked_less(data2plot[rend][k].data, 0.6)
+                for k2 in data2plot[rend][k].keys():
+                    if data2plot[rend][k][k2] == []:
+                        data2plot[rend][k][k2] = None
+                    if isinstance(data2plot[rend][k][k2], list) or isinstance(data2plot[rend][k][k2], iris.cube.CubeList):
+                        data2plot[rend][k][k2] = data2plot[rend][k][k2][0]
+                    if 'precip' in k2:
+                        data2plot[rend][k][k2].data = ma.masked_less(data2plot[rend][k][k2].data, 0.6)
 
         # Do the plotting for each
         # region_name, location_name, validtime, modelid, plot_location, timeagg, plottype, plotname, fclt, outtype='filesystem'
@@ -285,6 +317,7 @@ def plot_olr_pr_lgt(start, end, bbox, ofiles, settings):
             if os.path.isfile(pngfile):
                 ofiles.append(pngfile)
         except:
+            # pdb.set_trace()
             continue
 
     return ofiles
@@ -335,9 +368,12 @@ def plot_low_level(start, end, bbox, ofiles, settings):
                 data2plot[rend][fclt_name] = {}
                 for v in varlist:
                     print(rend, fclt, v)
-                    data2plot[rend][fclt_name][v] = load_data.unified_model(rstart, rend, settings, bbox=bbox,
+                    try:
+                        data2plot[rend][fclt_name][v] = load_data.unified_model(rstart, rend, settings, bbox=bbox,
                                                         region_type='event', model_id=[modid], var=v, fclt_clip=fclt,
                                                         aggregate=False, timeclip=True)[modid][v][0][-1, ...]
+                    except:
+                        pass
 
         # Do the plotting for each
         # region_name, location_name, validtime, modelid, plot_location, timeagg, plottype, plotname, fclt, outtype='filesystem'
@@ -350,7 +386,7 @@ def plot_low_level(start, end, bbox, ofiles, settings):
             if os.path.isfile(pngfile):
                 ofiles.append(pngfile)
         except:
-            pdb.set_trace()
+            # pdb.set_trace()
             continue
 
     return ofiles
@@ -368,29 +404,64 @@ def get_contour_levels(data2plot, fieldname, extend='neither', level_num=200):
 
     cubelist = iris.cube.CubeList([])
     for k1 in data2plot.keys():
-        for k2 in data2plot[k1].keys():
+        if fieldname in list(data2plot[k1].keys()):
             cube = data2plot[k1][k2][fieldname]
             cubelist.append(cube)
+        else:
+            for k2 in data2plot[k1].keys():
+                if fieldname in list(data2plot[k1][k2].keys()):
+                    cube = data2plot[k1][k2][fieldname]
+                    if cube:
+                        cubelist.append(cube)
+                else:
+                    # pdb.set_trace()
+                    print('Not able to find fieldname')
+                    continue
 
-    cubem = cubelist.merge_cube()
+    try:
+        cubem = cubelist.merge_cube()
 
-    if extend == 'neither':
-        fmin = cubem.data.min()
-        fmax = cubem.data.max()
-    elif extend == 'min':
-        fmin = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[1]).data.data[0]
-        fmax = cubem.data.max()
-    elif extend == 'max':
-        fmin = cubem.data.min()
-        fmax = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[99]).data.data[0]
-    elif extend == 'both':
-        fmin = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[1]).data.data[0]
-        fmax = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[99]).data.data[0]
-    else:
-        fmin = cubem.data.min()
-        fmax = cubem.data.max()
+        if extend == 'neither':
+            fmin = cubem.data.min()
+            fmax = cubem.data.max()
+        elif extend == 'min':
+            fmin = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[1]).data.data[0]
+            fmax = cubem.data.max()
+        elif extend == 'max':
+            fmin = cubem.data.min()
+            fmax = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[99]).data.data[0]
+        elif extend == 'both':
+            fmin = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[1]).data.data[0]
+            fmax = cubem.collapsed([c.name() for c in cubem.dim_coords], iris.analysis.PERCENTILE, percent=[99]).data.data[0]
+        else:
+            fmin = cubem.data.min()
+            fmax = cubem.data.max()
+    except:
+        # We can't merge into a cube if there are multiple models in data2plot
+        values = ma.masked_array([])
+        for cube in cubelist:
+            values = ma.append(values, cube.data)
+
+        if extend == 'neither':
+            fmin = values.min()
+            fmax = values.max()
+        elif extend == 'min':
+            fmin = np.percentile(values, 1)
+            fmax = values.max()
+        elif extend == 'max':
+            fmin = values.min()
+            fmax = np.percentile(values, 99)
+        elif extend == 'both':
+            fmin = np.percentile(values, 1)
+            fmax = np.percentile(values, 99)
+        else:
+            fmin = values.min()
+            fmax = values.max()
 
     contour_levels = np.linspace(fmin, fmax, level_num)
+
+    # if np.all(np.equal(contour_levels, 0)):
+    #     contour_levels = np.linspace(0, 1, level_num)
 
     return contour_levels
 
@@ -417,28 +488,10 @@ def plotLowLevel(pstart, pend, data2plot, bbox, modid, ofile, settings):
         cnt += ncols
 
     nrows = len(row_dict.keys())
-    fclt1_pos = np.arange(1, 20, 3) # [1, 4, 7, 10]
-    fclt2_pos = np.arange(2, 21, 3) # [2, 5, 8, 11]
-    fclt3_pos = np.arange(3, 22, 3) # [3, 6, 9, 12]
 
+    # Make nice model names for titles
     nice_models = {'africa-prods': 'UM-TA4',
                    'global-prods': 'UM-Global'}
-
-    # TODO fix the colour scale and levels
-    # contour_levels = {'3-hrs': [0.0, 0.3, 0.75, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 1000.0],
-    #                   '6-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-    #                   '12-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-    #                   '24-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-    #                   '48-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-    #                   '72-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-    #                   '96-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0]}
-    #
-    # my_rgb = ['#ffffff', '#87bbeb', '#6a9bde', '#2a6eb3', '#30ca28', '#e2d942', '#f49d1b', '#e2361d', '#f565f5',
-    #           '#ffffff']
-    #
-    # bounds = contour_levels['3-hrs']
-    # norm = colors.BoundaryNorm(boundaries=bounds, ncolors=len(my_rgb))
-    # my_cmap = colors.ListedColormap(my_rgb)
 
     tcontour_levels = get_contour_levels(data2plot, 'temp1.5m', extend='both', level_num=200)
     rhcontour_levels = get_contour_levels(data2plot, 'rh1.5m', extend='both', level_num=5)
@@ -470,13 +523,15 @@ def plotLowLevel(pstart, pend, data2plot, bbox, modid, ofile, settings):
 
             # Plot temperature
             tcm = iplt.pcolormesh(data[dk]['temp1.5m'], cmap=cmap, norm=norm)
+
             # Plot RH contours
-            rhcm = iplt.contour(data[dk]['rh1.5m'], colors=['green'], levels=rhcontour_levels)
+            # rhcm = iplt.contour(data[dk]['rh1.5m'], colors=['green'], levels=rhcontour_levels)
+
             # Use the RH line contours to place contour labels.
-            ax.clabel(rhcm, colors=['green'], manual=False, inline=True, fmt=' {:.0f} '.format)
-            u = data[dk]['Uwind10m']
-            v = data[dk]['Vwind10m']
-            plt.title(dk.replace('-', ' to '), fontsize=14)
+            # ax.clabel(rhcm, colors=['green'], manual=False, inline=True, fmt=' {:.0f} '.format)
+            fclt = data[dk]['temp1.5m'].coord('forecast_period').bounds[0]
+            plt.title('T+' + str(int(fclt[0])) + ' to ' + 'T+' + str(int(fclt[1])), fontsize=14)
+            # plt.title(dk.replace('-', ' to '), fontsize=14)
 
             # Add Coastlines, Borders and Gridlines
             lakelines = cfeature.NaturalEarthFeature(
@@ -498,8 +553,11 @@ def plotLowLevel(pstart, pend, data2plot, bbox, modid, ofile, settings):
             ax.add_feature(borderlines)
             ax.coastlines(resolution='50m', color='black')
 
+            # Plot wind streamlines
+            u = data[dk]['Uwind10m']
+            v = data[dk]['Vwind10m']
             Y, X, U, V, lw, speed_cube = uv_to_speed_dir(u, v)
-            ax.streamplot(X, Y, U, V, density=(2, 1), color='k', linewidth=lw)
+            ax.streamplot(X, Y, U, V, density=(1, 1), color='k', linewidth=lw)
 
             gl = ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
 
@@ -524,21 +582,23 @@ def plotLowLevel(pstart, pend, data2plot, bbox, modid, ofile, settings):
 
             i += 1
 
-    # Make an axes to put the shared colorbar in
+    # Make an axes to put the shared temperature colorbar in
     try:
         colorbar_axes = plt.gcf().add_axes([0.88, 0.5, 0.025, 0.35])  # left, bottom, width, height
-        colorbar = plt.colorbar(tcm, colorbar_axes, orientation='vertical', extend='max', format=' {:.0f} '.format) # va='center',
+        colorbar = plt.colorbar(tcm, colorbar_axes, orientation='vertical', extend='max', format="%d")
+        # colorbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in colorbar.ax.yaxis.get_ticklabels()])
         colorbar.set_label('Temperature (K)')
     except:
         pass
 
-    # Make another axes for the OLR colour bar
-    try:
-        ocolorbar_axes = plt.gcf().add_axes([0.88, 0.1, 0.025, 0.35])  # left, bottom, width, height
-        ocolorbar = plt.colorbar(rhcm, ocolorbar_axes, orientation='vertical', format=' {:.0f} '.format)
-        ocolorbar.set_label('Relative Humidity (%)')
-    except:
-        pass
+    # Make another axes for the RH colour bar
+    # try:
+    #     ocolorbar_axes = plt.gcf().add_axes([0.88, 0.1, 0.025, 0.35])  # left, bottom, width, height
+    #     ocolorbar = plt.colorbar(rhcm, ocolorbar_axes, orientation='vertical', format="%d")
+    #     # ocolorbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in ocolorbar.ax.yaxis.get_ticklabels()])
+    #     ocolorbar.set_label('Relative Humidity (%)')
+    # except:
+    #     pass
 
     # Use daterange in the title ...
     plt.suptitle(nice_models[modid] + ': 1.5m Temperature, RH and 10m Wind\n%s to %s (UTC)' % (pstart.strftime('%Y%m%d %H:%M'), pend.strftime('%Y%m%d %H:%M')), fontsize=18)
@@ -548,6 +608,26 @@ def plotLowLevel(pstart, pend, data2plot, bbox, modid, ofile, settings):
 
     return ofile
 
+
+def plot_indices(start, end, bbox, ofiles, settings):
+    '''
+    Calculate and plot some thermodynamic indices
+    :param start:
+    :param end:
+    :param bbox:
+    :param ofiles:
+    :param settings:
+    :return:
+    '''
+
+    import metpy
+
+    # For testing
+    rstart, rend = [dt.datetime(2019, 3, 6, 21), dt.datetime(2019, 3, 7, 0)]
+    data = load_data.unified_model(rstart, rend, settings, bbox=bbox, region_type='event', var=['temp-tgrid-levels',
+                'temp-levels', 'rh-wrt-water-levels', 'relative-humidity-levels'], model_id=['global'], aggregate=False)
+
+    return ofiles
 
 
 def main(start=None, end=None, region_name=None, location_name=None, bbox=None, model_ids=None):
@@ -565,29 +645,14 @@ def main(start=None, end=None, region_name=None, location_name=None, bbox=None, 
     if not bbox:
         bbox = settings['bbox']
 
-    # Get the region plot bbox
-    # NB: You can add to this by adding your own REGIONAL item to the dictionary in sf.getBBox_byRegionName
-    # region_bbox = sf.getBBox_byRegionName(sf.getModelDomain_bybox(bbox))
-
-    # Make the start at 0000UTC of the first day and the end 0000UTC the last day
-    # start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-    # if not end.hour == 0 and not end.minute == 0:
-    #     end = (end + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Time aggregation periods for all plots
-    # timeaggs = [3]  # 72, 96, 120
-
-    # Set model ids to plot (by checking the available data on disk)
-    # full_file_list = get_local_flist(start, end, settings, region_type='event')
-    # model_ids = list(set([os.path.basename(fn).split('_')[1] for fn in full_file_list])) # ['analysis', 'ga7', 'km4p4', 'km1p5']
-
     # Make an empty list for storing precip png plots
     ofiles = []
 
     # Run plotting functions
-    # 2x2 of model @24-hr fclt, @48-hr fclt, etc
-    # ofiles = plot_olr_pr_lgt(start, end, bbox, ofiles, settings)
+    # 4 (valid time) x 3 (model or fclt)
+    ofiles = plot_olr_pr_lgt(start, end, bbox, ofiles, settings)
     ofiles = plot_low_level(start, end, bbox, ofiles, settings)
+    # ofiles = plot_indices(start, end, bbox, ofiles, settings)
 
     html.create(ofiles)
 
