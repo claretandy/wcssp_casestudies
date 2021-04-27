@@ -54,12 +54,18 @@
                 // Change either the selected button or option in dropdown
                 // ani_state.current_image
 
+                // Guard clause to prevent run time exception
+                if (imgs.length === 0) {
+                    // Exit callback early to short-circuit TypeError
+                    return
+                }
+
                 pcs = ani_state.src.split('/')[1].split('.png')[0].split('_');
                 src_vars = {valid: pcs[0],
                             model: pcs[1],
                             region: pcs[2],
                             timeagg: pcs[3],
-                            plottype: imgs[0].split('/')[0],  // FIXME: empty list slice returns undefined
+                            plottype: imgs[0].split('/')[0],
                             plotname: pcs[4],
                             fclt: pcs[5]
                             };
