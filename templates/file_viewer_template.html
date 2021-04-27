@@ -128,78 +128,62 @@
                     fclt: app_state.fclt
                 }
                 if (app_state.selected == 'valid'){
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // model, region, timeagg, plottype, plotname, fclt
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.plotname) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter(function(elem) {
+                        let keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    })
                 } else if (app_state.selected == 'model') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // valid, region, timeagg, plottype, plotname, fclt
-                        elem.includes(tokens.valid) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.plotname) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 } else if (app_state.selected == 'region') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // valid, model, timeagg, plottype, plotname, fclt
-                        elem.includes(tokens.valid) &&
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.plotname) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 } else if (app_state.selected == 'timeagg') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // valid, model, region, plottype, plotname, fclt
-                        elem.includes(tokens.valid) &&
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.plotname) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["valid", "model", "region", "plottype", "plotname", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 } else if (app_state.selected == 'plottype') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // valid, model, region, timeagg, plotname, fclt
-                        elem.includes(tokens.valid) &&
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plotname) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["valid", "model", "region", "timeagg", "plotname", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 } else if (app_state.selected == 'plotname') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // valid, model, region, timeagg, plottype, fclt
-                        elem.includes(tokens.valid) &&
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["valid", "model", "region", "timeagg", "plottype", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 } else if (app_state.selected == 'fclt') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // valid, model, region, timeagg, plottype, plotname
-                        elem.includes(tokens.valid) &&
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.plotname)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["valid", "model", "region", "timeagg", "plottype", "plotname"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 } else {
                     // Otherwise, loop through the valid times
-                    imgs = imgs_all.filter( function(elem) { return (
-                        // model, region, timeagg, plottype, plotname, fclt
-                        elem.includes(tokens.model) &&
-                        elem.includes(tokens.region) &&
-                        elem.includes(tokens.timeagg) &&
-                        elem.includes(tokens.plottype) &&
-                        elem.includes(tokens.plotname) &&
-                        elem.includes(tokens.fclt)) } );
+                    imgs = imgs_all.filter( function(elem) {
+                        let keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                        return keys.reduce((flag, key) => {
+                            flag && elem.includes(tokens[key])
+                        }, true)
+                    });
                 }
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
