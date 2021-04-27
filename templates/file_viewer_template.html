@@ -120,37 +120,77 @@
                 // FIXME: Generalise filter to support flexible dimensions
                 if (app_state.selected == 'valid'){
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                        // model, region, timeagg, plottype, plotname, fclt
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.plotname) &&
+                        elem.includes(app_state.fclt)) } );
                 } else if (app_state.selected == 'model') {
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                        // valid, region, timeagg, plottype, plotname, fclt
+                        elem.includes(app_state.valid) &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.plotname) &&
+                        elem.includes(app_state.fclt)) } );
                 } else if (app_state.selected == 'region') {
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                        // valid, model, timeagg, plottype, plotname, fclt
+                        elem.includes(app_state.valid) &&
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.plotname) &&
+                        elem.includes(app_state.fclt)) } );
                 } else if (app_state.selected == 'timeagg') {
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                        // valid, model, region, plottype, plotname, fclt
+                        elem.includes(app_state.valid) &&
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.plotname) &&
+                        elem.includes(app_state.fclt)) } );
                 } else if (app_state.selected == 'plottype') {
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.timeagg) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                        // valid, model, region, timeagg, plotname, fclt
+                        elem.includes(app_state.valid) &&
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plotname) &&
+                        elem.includes(app_state.fclt)) } );
                 } else if (app_state.selected == 'plotname') {
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.timeagg) && elem.includes(app_state.plottype) && elem.includes(app_state.fclt)) } );
+                        // valid, model, region, timeagg, plottype, fclt
+                        elem.includes(app_state.valid) &&
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.fclt)) } );
                 } else if (app_state.selected == 'fclt') {
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.timeagg) && elem.includes(app_state.plottype) && elem.includes(app_state.plotname)) } );
+                        // valid, model, region, timeagg, plottype, plotname
+                        elem.includes(app_state.valid) &&
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.plotname)) } );
                 } else {
                     // Otherwise, loop through the valid times
                     imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+                        // model, region, timeagg, plottype, plotname, fclt
+                        elem.includes('_'+app_state.model+'_') &&
+                        elem.includes('_'+app_state.region+'_') &&
+                        elem.includes(app_state.timeagg) &&
+                        elem.includes(app_state.plottype) &&
+                        elem.includes(app_state.plotname) &&
+                        elem.includes(app_state.fclt)) } );
                 }
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
