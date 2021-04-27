@@ -118,79 +118,88 @@
                 //['valid', 'model', 'region', 'timeagg', 'plottype', 'plotname', 'fclt'];
 
                 // FIXME: Generalise filter to support flexible dimensions
+                let tokens = {
+                    valid: app_state.valid,
+                    model: '_'+app_state.model+'_',
+                    region: '_'+app_state.region+'_',
+                    timeagg: app_state.timeagg,
+                    plottype: app_state.plottype,
+                    plotname: app_state.plotname,
+                    fclt: app_state.fclt
+                }
                 if (app_state.selected == 'valid'){
                     imgs = imgs_all.filter( function(elem) { return (
                         // model, region, timeagg, plottype, plotname, fclt
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.plotname) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.plotname) &&
+                        elem.includes(tokens.fclt)) } );
                 } else if (app_state.selected == 'model') {
                     imgs = imgs_all.filter( function(elem) { return (
                         // valid, region, timeagg, plottype, plotname, fclt
-                        elem.includes(app_state.valid) &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.plotname) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.valid) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.plotname) &&
+                        elem.includes(tokens.fclt)) } );
                 } else if (app_state.selected == 'region') {
                     imgs = imgs_all.filter( function(elem) { return (
                         // valid, model, timeagg, plottype, plotname, fclt
-                        elem.includes(app_state.valid) &&
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.plotname) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.valid) &&
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.plotname) &&
+                        elem.includes(tokens.fclt)) } );
                 } else if (app_state.selected == 'timeagg') {
                     imgs = imgs_all.filter( function(elem) { return (
                         // valid, model, region, plottype, plotname, fclt
-                        elem.includes(app_state.valid) &&
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.plotname) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.valid) &&
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.plotname) &&
+                        elem.includes(tokens.fclt)) } );
                 } else if (app_state.selected == 'plottype') {
                     imgs = imgs_all.filter( function(elem) { return (
                         // valid, model, region, timeagg, plotname, fclt
-                        elem.includes(app_state.valid) &&
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plotname) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.valid) &&
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plotname) &&
+                        elem.includes(tokens.fclt)) } );
                 } else if (app_state.selected == 'plotname') {
                     imgs = imgs_all.filter( function(elem) { return (
                         // valid, model, region, timeagg, plottype, fclt
-                        elem.includes(app_state.valid) &&
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.valid) &&
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.fclt)) } );
                 } else if (app_state.selected == 'fclt') {
                     imgs = imgs_all.filter( function(elem) { return (
                         // valid, model, region, timeagg, plottype, plotname
-                        elem.includes(app_state.valid) &&
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.plotname)) } );
+                        elem.includes(tokens.valid) &&
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.plotname)) } );
                 } else {
                     // Otherwise, loop through the valid times
                     imgs = imgs_all.filter( function(elem) { return (
                         // model, region, timeagg, plottype, plotname, fclt
-                        elem.includes('_'+app_state.model+'_') &&
-                        elem.includes('_'+app_state.region+'_') &&
-                        elem.includes(app_state.timeagg) &&
-                        elem.includes(app_state.plottype) &&
-                        elem.includes(app_state.plotname) &&
-                        elem.includes(app_state.fclt)) } );
+                        elem.includes(tokens.model) &&
+                        elem.includes(tokens.region) &&
+                        elem.includes(tokens.timeagg) &&
+                        elem.includes(tokens.plottype) &&
+                        elem.includes(tokens.plotname) &&
+                        elem.includes(tokens.fclt)) } );
                 }
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
