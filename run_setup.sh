@@ -11,6 +11,7 @@ else
   conda create -n scitools python=3.8
 
   # Install some important packages
+  conda install -c conda-forge cftime
   conda install -c conda-forge -n scitools iris
   conda install -c conda-forge -n scitools mo_pack
   conda install -c conda-forge -n scitools h5py
@@ -18,6 +19,9 @@ else
   conda install -c conda-forge -n scitools PIL # Possibly not required anymore
   conda install -n scitools sphinx # For documentation
   conda install -c conda-forge -n scitools gdal
+  conda install -c conda-forge -n scitools geopandas
+  conda install -c conda-forge -n scitools rasterstats
+  conda install -c conda-forge -n scitools mapclassify
   conda install -c pyviz hvplot
   # conda install -n scitools flask # For creating web pages with jinja2
   # For access to ERA5 data

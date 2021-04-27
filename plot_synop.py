@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Nov 12 11:36:54 2019
-
-@author: hmiguel
+@author: hmiguel (PAGASA) and Andy Hartley (UKMO)
 """
 import sys, os
 import location_config as config
@@ -16,7 +15,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from downloadGPM import daterange
 # import seaborn as sns
-
 
 
 def formatValue(k, v):
@@ -279,7 +277,7 @@ def plotStationData(df, plotsettings):
 #     fig.xaxis.axis_label = 'Time'
 #     fig.line()
 
-def main(organisation, start_dt, end_dt, station_id):
+def main(start_dt=None, end_dt=None, station_id=None):
     '''
     This controls all the functions that we have written. It should be generic (i.e. works for all NMSs)
     :param start_dt: datetime object specifying the start of the period
@@ -292,8 +290,18 @@ def main(organisation, start_dt, end_dt, station_id):
     TODO: Create a web page of plots to allow easy viewing
     '''
 
-    # Set some location-specific defaults
-    settings = config.load_location_settings(organisation)
+    settings = config.load_location_settings()
+
+    settings = config.load_location_settings()
+    if not start_dt:
+        start_dt = settings['start']
+    if not end_dt:
+        end_dt = settings['end']
+
+    region_name = settings['region_name']
+    location_name = settings['location_name']
+    bbox = settings['bbox']
+
 
     # Get the obs data
     for st_id in station_id:

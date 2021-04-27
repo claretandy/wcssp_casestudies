@@ -119,13 +119,13 @@ def create_variable_page(ifiles):
 
 
 
-def main(organisation):
+def main():
 
-    settings = config.load_location_settings(organisation)
+    settings = config.load_location_settings()
     url = create_summary_html(settings)
 
     print('Created: ', url)
 
 if __name__ == '__main__':
-    organisation = sys.argv[1]
-    main(organisation)
+
+    main()

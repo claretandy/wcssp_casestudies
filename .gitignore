@@ -4,7 +4,8 @@
 .config
 .DS_Store
 *.RT-H5
+query*
 
-/tmp_extract_analysis.sh
-/tmp_extract_km4p4.sh
-/tmp_extract_ga7.sh
+/run_extract_realtime.sh
+/run_extract_event.sh
+/batch_output

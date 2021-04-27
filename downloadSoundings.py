@@ -66,10 +66,10 @@ def getUpperAirStations(event_domain):
         response = urllib.request.urlopen(url)
     except urllib.error.HTTPError:
         print('Unable to download due to an HTTP error')
-        return
+        return None
     except:
         print('Unknown error occurred while downloading')
-        return
+        return None
 
     data = json.load(response)
 
@@ -193,46 +193,49 @@ def main(start_dt, end_dt, bbox, settings, download=True):
     # Get a pandas dataframe of stations (plus some metadata) for this bounding box from the WMO OSCAR API
     station_list = getUpperAirStations(bbox)
 
-    # Create an empty pandas dataframe for storing the output
-    odf = pd.DataFrame()
+    if not isinstance(station_list, pd.DataFrame):
+        return {'data': None, 'metadata': None}
+    else:
 
-    # Loop through all the stations found
-    for i, row in station_list.iterrows():
-        print(row['name'], row['territory'], row['wigosStationIdentifier'])
-        stn_id = row['wigosStationIdentifier']
+        # Create an empty pandas dataframe for storing the output
+        odf = pd.DataFrame()
 
-        # Loop through all datetimes between start and end at a frequency of the increment
-        datetimes = sf.make_timeseries(start_dt, end_dt, incr)
-        # current_dt = start_dt
-        # while current_dt <= end_dt:
-        for current_dt in datetimes:
+        # Loop through all the stations found
+        for i, row in station_list.iterrows():
+            print(row['name'], row['territory'], row['wigosStationIdentifier'])
+            stn_id = row['wigosStationIdentifier']
 
-            # This actually gets the data ...
-            df = getWyomingData(current_dt, stn_id, odir, incr=incr, download=download)
-            if not df.empty:
-                odf = odf.append(df, ignore_index=True)
+            # Loop through all datetimes between start and end at a frequency of the increment
+            datetimes = sf.make_timeseries(start_dt, end_dt, incr)
+            # current_dt = start_dt
+            # while current_dt <= end_dt:
+            for current_dt in datetimes:
 
-            # current_dt += dt.timedelta(hours=incr)
+                # This actually gets the data ...
+                df = getWyomingData(current_dt, stn_id, odir, incr=incr, download=download)
+                if not df.empty:
+                    odf = odf.append(df, ignore_index=True)
 
     return {'data': odf, 'metadata': station_list}
 
 if __name__ == '__main__':
 
     now = dt.datetime.utcnow()
+    settings = config.load_location_settings()
 
     try:
-        start_dt = dt.datetime.strptime(sys.argv[1], '%Y%m%dT%H%MZ')
+        start_dt = settings['start']
     except:
         start_dt = now - dt.timedelta(days=10)
 
     try:
-        end_dt = dt.datetime.strptime(sys.argv[2], '%Y%m%dT%H%MZ')
+        end_dt = settings['end']
     except:
         end_dt = now
 
-    stn_id = sys.argv[3]
-    organisation = sys.argv[4]
+    try:
+        bbox = settings['bbox']
+    except:
+        bbox = [100, 0, 110, 10]
 
-    settings = config.load_location_settings(organisation)
-
-    main(start_dt, end_dt, stn_id, settings)
+    main(start_dt, end_dt, bbox, settings)

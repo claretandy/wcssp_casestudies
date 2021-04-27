@@ -88,7 +88,7 @@ def mergeGPM(ifiles, ofile, year, month, day, var, version, latency):
         f00.close()
 
     new_cube = gpm_cubelist.concatenate_cube()
-    iris.save(new_cube, ofile, zlib=True)
+    iris.save(new_cube, ofile, zlib=True, fill_value=-9999.9)
 
 
 def getGenericField(ifiles, var, year, month, day):
@@ -198,8 +198,8 @@ def get_file_list(single_date, url):
     '''
 
     cmd = 'curl -n ' + url
-    args = cmd.split()
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    args_list = cmd.split()
+    p = subprocess.Popen(args_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = p.communicate()[0].decode()
     if stdout[0] == '<':
         print('No imerg files for the given date')
@@ -224,19 +224,17 @@ def get_file(url, odir):
     p.wait() # wait so this program doesn't end before getting all files
 
 
-def main(latency, start_date, end_date, agency):
+def main(start_date, end_date, settings):
     '''
     Runs the GPM download code, using username and passwords from the config file
-    :param latency: String. Can be either 'production', 'NRTlate', or 'NRTearly'
     :param start_date: datetime object
     :param end_date: datetime object
-    :param agency: String. Can be 'PAGASA', or 'BMKG', or 'MMD', or 'UKMO', or 'Andy-MacBook'
+    :param settings: Dictionary. Contains all variables and paths etc
     :return: Creates daily netcdf files of GPM IMERG on the file system
     '''
 
     product = 'imerg'  # This shouldn't change
-    # change the accounts
-    settings = config.load_location_settings(agency)
+    latency = settings['gpm_latency']
     outdir = settings['gpm_path']
 
     server = {'production': ['https://arthurhouhttps.pps.eosdis.nasa.gov/text', settings['gpm_username'], '.HDF5'],
@@ -377,29 +375,33 @@ if __name__ == '__main__':
      Example:
      python downloadGPM.py auto 20191103 20191105 Andy-MacBook
     '''
+
+    agency = os.environ['organisation']  # UKMO or PAGASA or BMKG or MMD or Andy-MacBook
+
     now = dt.datetime.utcnow()
 
     #  NB: 'auto' latency means that the most scientifically robust dataset is chosen
     latency = 'auto'  # Can be either 'production', 'NRTlate' or 'NRTearly' or 'all' or 'auto'
 
+    settings = config.load_location_settings()
+
     try:
-        start_date = dt.datetime.strptime(os.environ['start'][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
+        start_date = settings['start']
     except IndexError:
         start_date = now.date() - dt.timedelta(days=7)
 
     try:
-        end_date = dt.datetime.strptime(os.environ['end'][:8], "%Y%m%d")  # Needs to be formatted YYYYMMDD
+        end_date = settings['end']
     except IndexError:
         end_date = now.date()
 
-    agency = os.environ['organisation']  # UKMO or PAGASA or BMKG or MMD or Andy-MacBook
-
     # Decide which latency to run the program with
-    if latency == 'all':
+    if settings['gpm_latency'] == 'all':
         for l in ['production', 'NRTlate', 'NRTearly']:
-            main(l, start_date, end_date, agency)
-    elif latency == 'auto':
-        best_latency = gpm_latency_decider(end_date)
-        main(best_latency, start_date, end_date, agency)
+            settings['gpm_latency'] = l
+            main(start_date, end_date, settings)
+    elif settings['gpm_latency'] == 'auto':
+        settings['gpm_latency'] = gpm_latency_decider(end_date)
+        main(start_date, end_date, settings)
     else:
-        main(latency, start_date, end_date, agency)
+        main(start_date, end_date, settings)
