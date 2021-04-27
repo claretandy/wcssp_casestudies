@@ -19,6 +19,9 @@ else
   conda install -c conda-forge -n scitools PIL # Possibly not required anymore
   conda install -n scitools sphinx # For documentation
   conda install -c conda-forge -n scitools gdal
+  conda install -c conda-forge -n scitools geopandas
+  conda install -c conda-forge -n scitools rasterstats
+  conda install -c conda-forge -n scitools mapclassify
   conda install -c pyviz hvplot
   # conda install -n scitools flask # For creating web pages with jinja2
   # For access to ERA5 data

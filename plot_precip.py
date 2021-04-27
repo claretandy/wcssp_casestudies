@@ -21,6 +21,7 @@ import std_functions as sf
 import run_html as html
 import itertools
 from downloadUM import get_local_flist
+import pdb
 if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
@@ -333,8 +334,11 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
     :return:
     '''
 
-    cubex850_alltime = analysis_data['Uwind-levels'].extract(iris.Constraint(pressure=850.))
-    cubey850_alltime = analysis_data['Vwind-levels'].extract(iris.Constraint(pressure=850.))
+    try:
+        cubex850_alltime = analysis_data['Uwind-levels'].extract(iris.Constraint(pressure=850.))
+        cubey850_alltime = analysis_data['Vwind-levels'].extract(iris.Constraint(pressure=850.))
+    except:
+        return ofiles
 
     # First, make sure that we have data for the last of the 4 plots
     last_start, last_end = time_tups[-1]
@@ -353,15 +357,15 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
         return ofiles
 
     # Create a figure
-    contour_levels = {'3-hrs': [0.0, 0.3, 0.75, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 1000.0],
-                      '6-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-                      '12-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-                      '24-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-                      '48-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-                      '72-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
-                      '96-hrs': [0.0, 0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0]}
+    contour_levels = {'3-hrs': [0.3, 0.75, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 1000.0],
+                      '6-hrs': [0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
+                      '12-hrs': [0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
+                      '24-hrs': [0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
+                      '48-hrs': [0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
+                      '72-hrs': [0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0],
+                      '96-hrs': [0.6, 1.5, 3.0, 6.0, 12.0, 24.0, 48.0, 96.0, 192.0, 1000.0]}
 
-    my_rgb = ['#ffffff', '#87bbeb', '#6a9bde', '#2a6eb3', '#30ca28', '#e2d942', '#f49d1b', '#e2361d', '#f565f5', '#ffffff']
+    my_rgb = ['#87bbeb', '#6a9bde', '#2a6eb3', '#30ca28', '#e2d942', '#f49d1b', '#e2361d', '#f565f5', '#ffffff']
 
     diff = time_tups[0][1] - time_tups[0][0]
     timeagg = int(diff.seconds / (60 * 60))
@@ -369,12 +373,20 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
     norm = colors.BoundaryNorm(boundaries=bounds, ncolors=len(my_rgb))
     my_cmap = colors.ListedColormap(my_rgb)
 
+    # Temporarily build a data2plot dictionary so that we can get contour levels
+    data2plot = {}
+    myu = cubex850_alltime.coord('time').units
+    for tpt in myu.num2date(cubex850_alltime.coord('time').points):
+        data2plot[tpt] = {'analysis': {'Uwind': cubex850_alltime.extract(iris.Constraint(time=lambda t: t.point == tpt)),
+                          'Vwind': cubey850_alltime.extract(iris.Constraint(time=lambda t: t.point == tpt))}}
+    wspdcontour_levels = sf.get_contour_levels(data2plot, 'wind', extend='both', level_num=4)
+
     # Create a wider than normal figure to support our many plots (width, height)
     # fig = plt.figure(figsize=(8, 12), dpi=100)
-    fig = plt.figure(figsize=(14.5, 12), dpi=100)
+    fig = plt.figure(figsize=(15, 12), dpi=100)
 
     # Also manually adjust the spacings which are used when creating subplots
-    plt.gcf().subplots_adjust(hspace=0.07, wspace=0.05, top=0.92, bottom=0.15, left=0.075, right=0.925)
+    plt.gcf().subplots_adjust(hspace=0.07, wspace=0.05, top=0.91, bottom=0.075, left=0.075, right=0.8)
 
     # Set the map projection
     crs_latlon = ccrs.PlateCarree()
@@ -403,15 +415,8 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
             print('Error getting analysis data')
             continue
 
-        Y = np.repeat(cubex850.coord('latitude').points[..., np.newaxis], cubex850.shape[1], axis=1)
-        X = np.repeat(cubex850.coord('longitude').points[np.newaxis, ...], cubex850.shape[0], axis=0)
-        U = cubex850.data
-        V = cubey850.data
-        speed = np.sqrt(U * U + V * V)
-        lw = 5 * speed / speed.max()
-
         plt.subplot(2, 2, i)
-        pcm = iplt.pcolormesh(gpmdata_ss, norm=norm, cmap=my_cmap)
+        pcm = iplt.pcolormesh(gpmdata_ss, norm=norm, cmap=my_cmap, zorder=2)
 
         # Set the plot extent
         ax = plt.gca()
@@ -422,14 +427,30 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
         plt.title(tt[1].strftime('%Y%m%d %H:%M'))
 
         # Add Coastlines, Borders and Gridlines
+        lakefill = cfeature.NaturalEarthFeature(
+            category='physical',
+            name='lakes',
+            scale='50m',
+            edgecolor='none',
+            facecolor='lightgrey')
+        ax.add_feature(lakefill, zorder=1)
+
+        oceanfill = cfeature.NaturalEarthFeature(
+            category='physical',
+            name='ocean',
+            scale='50m',
+            edgecolor='none',
+            facecolor='lightgrey')
+        ax.add_feature(oceanfill, zorder=1)
+
         lakelines = cfeature.NaturalEarthFeature(
             category='physical',
             name='lakes',
-            scale='10m',
+            scale='50m',
             edgecolor='black',
-            alpha=0.5,
             facecolor='none')
-        ax.add_feature(lakelines)
+        ax.add_feature(lakelines, zorder=3)
+
         borderlines = cfeature.NaturalEarthFeature(
             category='cultural',
             name='admin_0_boundary_lines_land',
@@ -438,10 +459,10 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
             linestyle=(0, (3, 1, 1, 1, 1, 1)),
             edgecolor='black',
             facecolor='none')
-        ax.add_feature(borderlines)
-        # borderlines = cfeature.NaturalEarthFeature(category='cultural', name='admin_0_boundary_lines_land', scale='50m', facecolor='none')
-        # ax.add_feature(borderlines, edgecolor='black', alpha=0.5)
+        ax.add_feature(borderlines, zorder=4)
+
         ax.coastlines(resolution='50m', color='black')
+
         gl = ax.gridlines(color="gray", alpha=0.2, draw_labels=True)
         gl.top_labels = False
         if i == 1:
@@ -458,14 +479,23 @@ def plotRegionalPrecipWind(analysis_data, gpm_data, region_bbox, region_bbox_nam
         gl.yformatter = LATITUDE_FORMATTER
         gl.xlabel_style = {'size': 8}
         gl.ylabel_style = {'size': 8}
-        # pdb.set_trace()
+
         # Overlay wind field
-        ax.streamplot(X, Y, U, V, density=1.5, color='k', linewidth=lw)
+        Y, X, U, V, spd, dir, lw = sf.compute_allwind(cubex850, cubey850, spd_levels=wspdcontour_levels)
+        ax.streamplot(X, Y, U, V, density=1.5, color='k', linewidth=lw, zorder=5)
 
     # make an axes to put the shared colorbar in
-    colorbar_axes = plt.gcf().add_axes([0.175, 0.1, 0.65, 0.022])  # left, bottom, width, height
-    colorbar = plt.colorbar(pcm, colorbar_axes, orientation='horizontal', extend='max')
+    # colorbar_axes = plt.gcf().add_axes([0.175, 0.1, 0.65, 0.022])  # left, bottom, width, height
+    colorbar_axes = plt.gcf().add_axes([0.85, 0.2, 0.022, 0.45])  # left, bottom, width, height
+    colorbar = plt.colorbar(pcm, colorbar_axes, orientation='vertical', extend='max')
     colorbar.set_label('6-hr Precipitation Total (mm)')
+
+    # make an axes to put the streamlines legend in
+    strax = plt.gcf().add_axes([0.85, 0.7, 0.022, 0.15])  # left, bottom, width, height
+    # colorbar = plt.colorbar(pcm, colorbar_axes, orientation='horizontal', extend='max')
+    # colorbar.set_label('6-hr Precipitation Total (mm)')
+
+    sf.makeStreamLegend(strax, wspdcontour_levels)
 
     # Use daterange in the title ...
     plt.suptitle('UM Analysis 850hPa winds and GPM IMERG Precipitation\n%s to %s' %

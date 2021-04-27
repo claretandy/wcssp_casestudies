@@ -33,7 +33,7 @@ def wyoming_soundings(start_dt, end_dt, bbox, settings):
     return data
 
 
-def satellite_olr(start, end, settings, bbox=None, timeclip=True, aggregate=False, timeseries=False):
+def satellite_olr(start, end, settings, bbox=None, timeclip=True, aggregate=False, timeseries=True):
     '''
     Gets satellite obs from local data store
     :param start: datetime.
@@ -71,12 +71,77 @@ def satellite_olr(start, end, settings, bbox=None, timeclip=True, aggregate=Fals
         cube = cube.collapsed('time', iris.analysis.MEAN)
     else:
         if not timeseries:
-            cube = cube[-1,...]
+            # Take the last time slice in the time series
+            cube = cube[-1, ...]
 
     return cube
 
 
-def unified_model(start, end, settings, bbox=None, region_type='event', model_id=['all'], var='all', checkftp=False, fclt_clip=None, timeclip=False, aggregate=True, totals=True):
+def lightning_earthnetworks(start, end, grid, settings):
+    '''
+    Loads Earth Networks lightning data from the HIGHWAY project for Lake Victoria, and produces a strike density map for each grid cell. For comparison with lightning forecasts, it is best to us the 4.4km Tropical Africa model as teh grid.
+    :param start: datetime
+    :param end: datetime
+    :param grid: iris.cube.Cube containing latitude and longitude coordinates
+    :return: 2D cube of lightning flash rate within the given period
+    '''
+
+    import pandas as pd
+    import pytz
+    import itertools
+
+    # Set the data directory
+    lght_datadir = settings['datadir'].rstrip('/') + '/lightning_earthnetworks/'
+
+    # Load the data
+    df = pd.read_csv(lght_datadir + 'ENGLN_LV_lightning_20190306.txt', parse_dates=['time (UTC)'])
+    df.columns = ['time', 'latitude', 'longitude', 'flash_type', 'peak_current']
+
+    # Subset to the start and end datetimes
+    ## Make start and end timezone aware
+    if not start.tzinfo == pytz.UTC:
+        start = pytz.utc.localize(start)
+    if not end.tzinfo == pytz.UTC:
+        end = pytz.utc.localize(end)
+    ## Then subset the dataframe
+    dft = df[(df.time > start) & (df.time <= end)]
+
+    # Make the grid 2D
+    if len(grid.shape) > 2:
+        grid = grid[0, :, :]
+
+    # Iterate over each cell, and count the data
+    ocube = grid.copy(np.zeros(grid.shape))
+    for (yi, (ymin, ymax)), (xi, (xmin, xmax)) in itertools.product(enumerate(grid.coord('latitude').bounds), enumerate(grid.coord('longitude').bounds)):
+
+        # Create a pandas Series where True if the lightning strike is within the grid cell
+        mask = (dft.latitude > ymin) & (dft.latitude <= ymax) & (dft.longitude > xmin) & (dft.longitude <= xmax)
+        count = mask.sum()
+
+        # Put the value into the ocube
+        ocube.data[yi, xi] = count
+
+    # Set zero to nodata for plotting
+    ocube.data = ma.masked_equal(ocube.data, 0)
+
+    # Tidy up metadata in ocube
+    ## Rename the cube
+    ocube.rename('lightning_flashes')
+    ocube.units = cf_units.Unit('1')
+    ocube.attributes['STASH'] = iris.fileformats.pp.STASH(1, 21, 104)
+    ocube.attributes['aggregated'] = True
+    ocube.attributes['title'] = 'observed_accumulated-lightning-flashes'
+    ocube.attributes['um_version'] = None
+    for delcoord in ['forecast_period', 'forecast_reference_time', 'pressure']:
+        try:
+            ocube.remove_coord(delcoord)
+        except:
+            pass
+
+    return ocube
+
+
+def unified_model(start, end, settings, bbox=None, region_type='event', model_id=['all'], var='all', level=None, checkftp=False, fc_init_time=None, fclt_clip=None, timeclip=False, aggregate=True, totals=True):
     '''
     Loads *already downloaded* UM data for the specified period, model_id, variables and subsets by bbox
     :param start: datetime object
@@ -90,7 +155,8 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
             sf.get_default_stash_proc_codes()['name']
     :param checkftp: boolean. If True, the script will check on the ftp site for files not currently in the local
             filelist
-    :param fclt_clip: tuple. If declared, this gives a forecast lead time range to clip to. E.g. (12, 24)
+    :param fc_init_time: datetime object. If set, this selects a single model initialisation (i.e. model run) for the given time period defined by start and end. If this is set, fclt_clip will be ignored
+    :param fclt_clip: tuple. If declared, this gives a forecast lead time range to clip to. E.g. (12, 24). If fc_init_time is set, this will be ignored
     :param timeclip: boolean. If True, uses the start and end datetimes to subset the model data by time.
             If False, it returns the full cube
     :param aggregate: boolean. Return a collapsed cube aggregated between start and end (True), or return all available timesteps within the period (False)
@@ -100,6 +166,10 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
     full_file_list = get_local_flist(start, end, settings, region_type=region_type)
     file_vars = list(set([os.path.basename(fn).split('_')[2] for fn in full_file_list]))
     file_model_ids = list(set([os.path.basename(fn).split('_')[1] for fn in full_file_list]))
+
+    if fc_init_time and fclt_clip:
+        print('Both fc_init_time and fclt_clip are set, so ignoring fclt_clip')
+        fclt_clip = None
 
     if isinstance(var, str):
         var = [var]
@@ -125,6 +195,9 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
 
     cube_dict = {}
 
+    if fclt_clip:
+        fclt_orig = fclt_clip
+
     for mod in model_ids:
 
         mod_dict = {}
@@ -132,6 +205,9 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
 
             print('   Loading:', mod, v)
             these_files = [x for x in full_file_list if v in x and mod in x]
+
+            if fc_init_time:
+                these_files = [x for x in these_files if fc_init_time.strftime('%Y%m%dT%H%MZ') in x]
 
             try:
                 cubes = iris.load(these_files)
@@ -167,14 +243,17 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
                 else:
                     cube.attributes['bboxclipped'] = 'False'
 
-                if fclt_clip:
-                    ltcon = iris.Constraint(forecast_period= lambda fp: fclt_clip[0] <= fp < fclt_clip[1])
+                if fclt_clip and (not model_id == 'analysis'):
+                    fclts = fclt_orig if not v == 'olr-toa' else (fclt_orig[0] + 0.5, fclt_orig[1] + 0.5)
+                    ltcon = iris.Constraint(forecast_period=lambda fp: fclts[0] < fp.point <= fclts[1])
                     cube = cube.extract(ltcon)
 
                 if timeclip:
                     # Clip the model output to the given time bounds
                     try:
-                        cube = sf.periodConstraint(cube, start, end)
+                        startbnd = start if not v == 'olr-toa' else end - dt.timedelta(minutes=15)
+                        endbnd = end if not v == 'olr-toa' else end + dt.timedelta(minutes=15)
+                        cube = sf.periodConstraint(cube, startbnd, endbnd)
                         cube.attributes['timeclipped'] = 'True'
                     except:
                         continue
@@ -186,6 +265,18 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
 
                 else:
                     cube.attributes['timeclipped'] = 'False'
+
+                if 'levels' in v and 'pressure' not in [coord.name() for coord in cube.dim_coords]:
+                    # In the global model, the order of the pressure coordinates is irregular
+                    try:
+                        cube = sf.sort_pressure(cube)
+                    except:
+                        pass
+
+                if level and 'pressure' in [coord.name() for coord in cube.dim_coords]:
+                    # Constrain by pressure level
+                    ic = iris.Constraint(pressure=level)
+                    cube = cube.extract(ic)
 
                 if aggregate:
                     # Aggregate the model output for the time bounds given
@@ -203,7 +294,10 @@ def unified_model(start, end, settings, bbox=None, region_type='event', model_id
                     else:
                         cube.attributes['units_note'] = 'Values represent mean rate over the aggregation period'
                 else:
-                    cube.attributes['aggregated'] = 'False'
+                    try:
+                        cube.attributes['aggregated'] = 'False'
+                    except:
+                        pass
 
                 cube.attributes['title'] = mod + '_' + v
 

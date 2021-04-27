@@ -9,8 +9,10 @@ def main():
 
     # Reads the std_domains file and creates extract jobs for each domain (realtime and case study)
     df = pd.read_csv('std_domains.csv')
+    # Subset the dataframe to only extract locations where 'run_extract' is True
+    df2extract = df.loc[df['run_extract'], :]
 
-    for row in df.itertuples():
+    for row in df2extract.itertuples():
 
         model_ids = row.model_ids.split(',')
 

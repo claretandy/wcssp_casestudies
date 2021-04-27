@@ -2,9 +2,11 @@ import os, sys
 import datetime as dt
 import location_config as config
 import std_functions as sf
+import glob
 import shutil
 import pandas as pd
 import iris
+import numpy as np
 import pdb
 
 '''
@@ -32,6 +34,7 @@ def post_process(start, end, bboxes, scratchfile, row, settings):
     ofile = sf.make_nice_filename(os.path.basename(scratchfile))
     init_dt = dt.datetime.strptime(ofile.split('_')[0], '%Y%m%dT%H%MZ')
     model_id = os.path.basename(scratchfile).split('_')[1]
+    var_name = os.path.basename(scratchfile).split('_')[2]
     ofilepath = odir + '/' + init_dt.strftime('%Y%m/') + ofile
 
     if not os.path.isdir(os.path.dirname(ofilepath)):
@@ -63,6 +66,14 @@ def post_process(start, end, bboxes, scratchfile, row, settings):
                 ofilelist.append(ofile)
             else:
                 print('Saving:',ofile)
+
+                if 'levels' in var_name and 'pressure' not in [coord.name() for coord in cube.dim_coords]:
+                    # In the global model, the order of the pressure coordinates is irregular, so we need to fix this
+                    try:
+                        cube = sf.sort_pressure(cube)
+                    except:
+                        pass
+
                 if k == 'region':
                     if row.levels:
                         cube = cube.extract(iris.Constraint(pressure=[925., 850., 700., 500., 200.]))
@@ -77,6 +88,7 @@ def post_process(start, end, bboxes, scratchfile, row, settings):
                     print('   File either outside bbox or time constraints')
 
     return ofilelist
+
 
 def domain_size_decider(row, model_id, regbbox, eventbbox):
     '''
@@ -110,17 +122,28 @@ def domain_size_decider(row, model_id, regbbox, eventbbox):
     return {'tropics': tropics, 'region': region, 'event': event}
 
 
-def check_ofiles(init_times, stash, lbproc, bboxes, model_id, settings):
-    # Does the output file exist?
-    # If yes, add [init_time, stash, lbproc, region_name and location_name] to 'remove_from_scratch'
-    # If no, and scratch file exists, add [init_time, stash, lbproc, region_name and location_name] to 'postprocess'
-    # If no, and scratch file doesn't exist, add [init_time, stash, lbproc, region_name and location_name]
-    #   to 'extract_to_scratch' AND 'postprocess'
+def check_ofiles(init_times, stash, lbproc, bboxes, model_id, ftp_list, settings):
+    '''
+    Does the output file exist?
+    If yes, add [init_time, stash, lbproc, region_name and location_name] to 'remove_from_scratch'
+    If no, and scratch file exists, add [init_time, stash, lbproc, region_name and location_name] to 'postprocess'
+    If no, and scratch file doesn't exist, add [init_time, stash, lbproc, region_name and location_name]
+      to 'extract_to_scratch' AND 'postprocess'
+    :param init_times:
+    :param stash:
+    :param lbproc:
+    :param bboxes:
+    :param model_id:
+    :param ftp_list:
+    :param settings:
+    :return:
+    '''
+
 
     extract_to_scratch = []
     postprocess = []
     remove_from_scratch = []
-    to_ftp = []
+    to_ftp = ftp_list
 
     stashdf = sf.get_default_stash_proc_codes()
     record = stashdf[(stashdf['stash'] == int(stash)) & (stashdf['lbproc'] == int(lbproc))]
@@ -128,15 +151,17 @@ def check_ofiles(init_times, stash, lbproc, bboxes, model_id, settings):
 
     for it in init_times:
 
-        jobid = sf.getJobID_byDateTime(it, domain=sf.getModelDomain_bybox(settings['bbox']))
         if model_id == 'analysis':
+            jobid = 'um_analysis'
             full_model_id = 'analysis'
         else:
-            full_model_id = sf.getModelID_byDatetime(it, domain=sf.getModelDomain_bybox(settings['bbox']), searchtxt=model_id)['modellist'][0]
-        scratchfile = settings['scratchdir'] + 'ModelData/' + \
-                      jobid + '/' + it.strftime('%Y%m%dT%H%MZ') + '_' + \
+            jobid = sf.getJobID_byDateTime(it, domain=sf.getModelDomain_bybox(settings['bbox']))
+            full_model_id = sf.getModelID_byDatetime_and_bbox(it, settings['bbox'], searchtxt=model_id)['model_list'][0]
+
+        scratchfile = settings['scratchdir'] + 'ModelData/' + jobid + '/' + it.strftime('%Y%m%dT%H%MZ') + '_' + \
                       full_model_id + '_' + str(stash) + '_' + str(lbproc) + '.nc'
-        umdir = settings['um_path'].rstrip('/') + '/' + settings['region_name'] + '/' + settings['location_name'] + '/' + it.strftime('%Y%m')
+        umdir = settings['um_path'].rstrip('/') + '/' + settings['region_name'] + '/' + settings['location_name'] + \
+                    '/' + it.strftime('%Y%m')
 
         to_process = []
         for bk in these_boxes:
@@ -155,21 +180,113 @@ def check_ofiles(init_times, stash, lbproc, bboxes, model_id, settings):
         # Do the output files exist?
         if not to_process:
             # If yes, add [init_time, stash, lbproc, region_name and location_name] to 'remove_from_scratch'
-            if os.path.isfile(scratchfile):
+            if os.path.isfile(scratchfile) and not full_model_id == 'analysis':
                 remove_from_scratch.append(scratchfile)
         else:
             if os.path.isfile(scratchfile):
                 # If no, and scratch file exists, add [init_time, stash, lbproc, region_name and location_name] to 'postprocess'
                 postprocess.append(scratchfile)
-                remove_from_scratch.append(scratchfile)
+                if not full_model_id == 'analysis':
+                    remove_from_scratch.append(scratchfile)
             else:
                 # If no, and scratch file doesn't exist, add [init_time, stash, lbproc, region_name and location_name]
                 #   to 'extract_to_scratch' AND 'postprocess'
                 extract_to_scratch.append(details)
                 postprocess.append(scratchfile)
-                remove_from_scratch.append(scratchfile)
+                if not full_model_id == 'analysis':
+                    remove_from_scratch.append(scratchfile)
 
     return extract_to_scratch, postprocess, remove_from_scratch, to_ftp
+
+
+def check_indices(init_times, model_id, settings):
+    '''
+    Checks the available fields for this location and time period, and if we have suitable variables, run the code to calculate various thermodynamic indices
+    :param init_times: list of datetimes of model initiation times
+    :param model_id: string of the model id to process
+    :param settings: dictionary created by config.load_location_settings()
+    :return: list of files created
+    '''
+
+    umdir = settings['um_path']
+    region_name = settings['region_name']
+    location_name = settings['location_name']
+
+    # Different models have different stash codes available, so we need to consider different sources (in particular) for humidity data
+    # The first match in the list will be taken
+    temp_fields = ['temp-levels']
+    humy_fields = ['rh-wrt-water-levels', 'rh-wrt-ice-levels', 'relative-humidity-levels', 'specific-humidity-levels']
+
+    # List of indices to calculate (check sf.calc_lifted_index for what has been implemented)
+    indices_to_calc = ['k-index', 'total-totals'] # ['total-totals', 'k-index', 'lifted-index', 'showalter-index']
+
+    ofilelist = []
+
+    for indx in indices_to_calc:
+
+        print(indx)
+
+        for it in init_times:
+
+            print(it.strftime('%Y%m%dT%H%MZ'))
+            file_path = umdir.rstrip('/') + '/' + region_name + '/' + location_name + '/' + it.strftime('%Y%m')
+            ofile = file_path + '/' + it.strftime('%Y%m%dT%H%MZ') + '_' + model_id + '_' + indx + '_inst_event.nc'
+            print('... ' + ofile)
+            # pdb.set_trace()
+            if os.path.isfile(ofile):
+                ofilelist.append(ofile)
+            else:
+                temp_file = None
+                humy_file = None
+
+                for tf in temp_fields:
+                    if not temp_file:
+                        search_str = file_path + '/' + it.strftime('%Y%m%dT%H%MZ') + '_*' + model_id + '*_' + tf + '_inst_event.nc'
+                        try:
+                            temp_file, = glob.glob(search_str)
+                        except:
+                            continue
+
+                for hf in humy_fields:
+                    if not humy_file:
+                        search_str = file_path + '/' + it.strftime('%Y%m%dT%H%MZ') + '_*' + model_id + '*_' + hf + '_inst_event.nc'
+                        try:
+                            humy_file, = glob.glob(search_str)
+                        except:
+                            continue
+
+                if not temp_file or not humy_file:
+                    continue
+
+                if 'specific-humidity' in humy_file:
+                    # TODO calculate RH from temperature and specific humidity
+                    print('Calculating RH from Q')
+
+                tcube = iris.load_cube(temp_file)
+                hcube = iris.load_cube(humy_file)
+
+                if 'pressure' not in [coord.name() for coord in tcube.dim_coords]:
+                    try:
+                        tcube = sf.sort_pressure(tcube)
+                        iris.save(tcube, temp_file)
+                        ofilelist.append(temp_file)
+                    except:
+                        pass
+
+                if 'pressure' not in [coord.name() for coord in hcube.dim_coords]:
+                    try:
+                        hcube = sf.sort_pressure(hcube)
+                        iris.save(hcube, humy_file)
+                        ofilelist.append(humy_file)
+                    except:
+                        pass
+
+                index_file = sf.calc_thermo_indices(tcube, hcube, index=indx, returncube=False, ofile=ofile)
+
+                if index_file:
+                    ofilelist.append(index_file)
+
+    return ofilelist
 
 
 def main(start=None, end=None, region_name=None, location_name=None, bbox=None, model_ids=None, ftp_upload=None):
@@ -204,45 +321,30 @@ def main(start=None, end=None, region_name=None, location_name=None, bbox=None, 
     # Gets all the stash codes tagged as share
     stashdf = sf.get_default_stash_proc_codes(list_type='long')
 
-    # Gets the large scale bbox name (either 'SEAsia', 'Africa', or 'global')
-    domain = sf.getModelDomain_bybox(bbox)
-    regbbox = sf.getBBox_byRegionName(domain)
+    # Expand the bbox slightly to account for wind plots needing a larger area
+    bbox = (bbox + np.array([-2, -2, 2, 2])).tolist()
+
+    # In case no model_ids are specified in the csv table (unlikely!)
     if not model_ids:
         model_ids = sf.getModels_bybox(bbox)['model_list']
 
+    # Gets the large scale bbox name (either 'SEAsia', 'Africa', or 'global')
+    domain = sf.getModelDomain_bybox(bbox)
+    full_model_ids_avail = sf.getModelID_byJobID(sf.getJobID_byDateTime(start, domain=domain, searchtxt=model_ids), searchtxt=model_ids)
+
+    regbbox = sf.getBBox_byRegionName(domain)
+
     # Set ftp path etc
+    ftp_list = []
     ftp_path = '/WCSSP/'+region_name+'/'+location_name+'/'
     remove_old = True
     # km1p5 data is too big to send in realtime
-    model_ids = [mi for mi in model_ids if not 'km1p5' in mi]
+    full_model_ids_avail = [mi for mi in full_model_ids_avail if not 'km1p5' in mi]
 
-    for row in stashdf.itertuples(index=False):
+    for model_id in full_model_ids_avail:
 
-        # Get the UM analysis data
-        # bboxes = domain_size_decider(row, 'analysis', regbbox, bbox)
-        # ana_start = start.replace(hour=0, minute=0) - dt.timedelta(days=1)
-        # ana_times = sf.make_timeseries(ana_start, end, 6)
-        # # Checks whether files exist for this combination of region / location / init_time / model_id / stash / lbproc
-        # extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(ana_times, row.stash, row.lbproc,
-        #                                                                               bboxes, 'analysis', settings)
-        # for e2s in extract_to_scratch:
-        #     filelist_analysis = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash, lbproc=row.lbproc, lblev=row.levels)
+        for row in stashdf.itertuples(index=False):
 
-        # for scratchfile in postprocess:
-        #     if os.path.isfile(scratchfile):
-        #         ofilelist = post_process(start, end, bboxes, scratchfile, row, settings)
-        #         ftp_list.extend(ofilelist)
-        #
-        # for scratchfile in remove_from_scratch:
-        #     if os.path.isfile(scratchfile):
-        #         print('   Removing:', scratchfile)
-        #         os.remove(scratchfile)
-        #
-        # if ftp_upload and ftp_list:
-        #     sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
-
-        # Get the UM model data
-        for model_id in model_ids:
             print(model_id, row.stash, row.lbproc)
 
             # For this model, get all the available start and end datetimes
@@ -256,29 +358,42 @@ def main(start=None, end=None, region_name=None, location_name=None, bbox=None, 
             bboxes = domain_size_decider(row, model_id, regbbox, bbox)
 
             # Checks whether files exist for this combination of region / location / init_time / model_id / stash / lbproc
-            extract_to_scratch, postprocess, remove_from_scratch, ftp_list = check_ofiles(init_times, row.stash, row.lbproc, bboxes, model_id, settings)
+            extract_to_scratch, to_postprocess, remove_from_scratch, ftp_list = check_ofiles(init_times, row.stash, row.lbproc, bboxes, model_id, ftp_list, settings)
 
             for e2s in extract_to_scratch:
-                if model_id == 'analysis':
-                    filelist_models = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash,
+                try:
+                    if model_id == 'analysis':
+                        filelist_models = sf.selectAnalysisDataFromMass(e2s['it'], e2s['it'], row.stash,
                                                                       lbproc=row.lbproc, lblev=row.levels)
-                else:
-                    filelist_models = sf.selectModelDataFromMASS([e2s['it']], e2s['stash'], lbproc=e2s['lbproc'], lblev=row.levels,
+                    else:
+                        filelist_models = sf.selectModelDataFromMASS([e2s['it']], e2s['stash'], lbproc=e2s['lbproc'], lblev=row.levels,
                                                              domain=sf.getModelDomain_bybox(bbox), plotdomain=bbox,
                                                              modelid_searchtxt=model_id)
+                except:
+                    pass
 
-            for scratchfile in postprocess:
+            for scratchfile in to_postprocess:
                 if os.path.isfile(scratchfile):
                     ofilelist = post_process(start, end, bboxes, scratchfile, row, settings)
-                    ftp_list.extend(ofilelist)
+                    if ofilelist:
+                        ftp_list.extend(ofilelist)
 
             for scratchfile in remove_from_scratch:
                 if os.path.isfile(scratchfile):
                     print('   Removing:', scratchfile)
                     os.remove(scratchfile)
 
-            if ftp_upload and ftp_list:
-                sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
+        try:
+            # For this model_id, check for temp and RH files in the output dir, and if present,
+            #   calculate thermodynamic indices, and add to ftp_list
+            indices_list = check_indices(init_times, model_id, settings)
+            if indices_list:
+                ftp_list.extend(indices_list)
+        except:
+            pass
+
+    if ftp_upload and ftp_list:
+        sf.send_to_ftp(ftp_list, ftp_path, settings, removeold=remove_old)
 
 
 if __name__ == '__main__':

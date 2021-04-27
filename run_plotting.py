@@ -8,13 +8,14 @@ import location_config as config
 
 def main():
 
-    plot_scripts = ['plot_precip.py', 'plot_tephi.py', 'plot_walkercirculation.py']
+    plot_scripts = ['plot_walkercirculation.py']  # 'plot_thermodynamics.py', 'plot_precip.py', 'plot_tephi.py', 'plot_walkercirculation.py']
     code_dir = os.getcwd()
 
     # Reads the std_domains file and creates extract jobs for each domain (realtime and case study)
     df = pd.read_csv('std_domains.csv')
+    df2plot = df.loc[df['run_plotting'], :]
 
-    for row in df.itertuples():
+    for row in df2plot.itertuples():
 
         for plt_script in plot_scripts:
 

@@ -3,6 +3,7 @@ import std_functions as sf
 import datetime as dt
 import location_config as config
 import iris
+import cf_units
 from osgeo import osr, ogr, gdal
 import pandas as pd
 import numpy as np
@@ -119,36 +120,49 @@ def getOLR(start, end, satellite, area, productid, sat_scratch):
 
     ofilelist = []
 
+    print('   Getting OLR filenames for ' + start.strftime("%Y-%m-%d") + ' to ' + end.strftime("%Y-%m-%d"))
     delta = dt.timedelta(days=1)
     this_dt = start
-    while this_dt <= end:
+    while this_dt < end:
 
-        print (this_dt.strftime("%Y-%m-%d"))
+        print('   ' + this_dt.strftime("%Y-%m-%d"))
 
         scratch_tarfile = sat_scratch + '/' + productid + '_' + this_dt.strftime('%Y%m%d') + '.tar'
 
         if not os.path.exists(scratch_tarfile):
-            print('Extracting from MASS ...')
+            print('   ... Extracting from MASS ...')
             mootarfile = 'moose:/adhoc/projects/autosatarchive/' + satellite + '/' + area + '/'+this_dt.strftime('%Y%m%d')+'.tar'
             try:
                 getresult = subprocess.run(['moo', 'get', '-q', '-f', mootarfile, scratch_tarfile])
             except:
                 continue
 
-        print('Extracting from the tar file to scratch')
+        print('   ... Extracting from the tar file to scratch')
         getresult = subprocess.check_output(['tar', '-C', sat_scratch, '-xvf', scratch_tarfile])
 
-        # Move files into the big directory
-        print('Tidying up files ...')
-        for fn in glob.glob(sat_scratch + '/' + satellite + '/' + area + '/'+this_dt.strftime('%Y%m%d') + '/' + '*.png'):
-            if not os.path.basename(fn).startswith(productid):
+        # Select files we want to keep
+        print('   ... Tidying up files ...')
+        files = glob.glob(sat_scratch + '/' + satellite + '/' + area + '/'+this_dt.strftime('%Y%m%d') + '/' + '*')
+        ncfiles = [fn for fn in files if os.path.basename(fn).startswith(productid) and fn.endswith('.nc')]
+        pngfiles = [fn for fn in files if os.path.basename(fn).startswith(productid) and fn.endswith('.png')]
+        jpgfiles = [fn for fn in files if os.path.basename(fn).startswith(productid) and fn.endswith('.jpg')]
+
+        if any(ncfiles):
+            ofilelist.extend(ncfiles)
+        elif any(pngfiles):
+            ofilelist.extend(pngfiles)
+        elif any(jpgfiles):
+            ofilelist.extend(jpgfiles)
+        else:
+            ofilelist = ofilelist
+
+        for fn in files:
+            if not fn in ofilelist:
                 os.remove(fn)
-            else:
-                ofilelist.append(fn)
 
         this_dt += delta
 
-    return ofilelist
+    return sorted(ofilelist)
 
 
 def getAutoSatDetails(bbox):
@@ -227,55 +241,70 @@ def main(start=None, end=None, region_name=None, location_name=None, bbox=None, 
     sat_scratch = settings['scratchdir'].rstrip('/') + '/ModelData/autosat'
     sat_datadir = settings['datadir'].rstrip('/') + '/satellite_olr/' + region_name + '/' + location_name
 
-    # Extract the data ...
-    pngfilelist = getOLR(start, end, satellite, area, productid, sat_scratch)
-    pngfilelist = sorted(pngfilelist)
-
+    # Loop through dates
     delta = dt.timedelta(days=1)
     this_dt = start
 
     while this_dt <= end:
 
         print(this_dt.strftime('%Y-%m-%d'))
-
-        ifiles = [fn for fn in pngfilelist if productid + '_' + this_dt.strftime('%Y%m%d') in os.path.basename(fn)]
         ocube_fn = sat_datadir + '/' + this_dt.strftime('%Y%m') + '/' + productid + '_' + this_dt.strftime('%Y%m%d') + '.nc'
 
         if not os.path.isdir(os.path.dirname(ocube_fn)):
             os.makedirs(os.path.dirname(ocube_fn))
 
-        if (not os.path.isfile(ocube_fn)) and (len(ifiles) > 0):
+        if (not os.path.isfile(ocube_fn)):  # and (len(ifiles) > 0):
 
+            print('   Create a daily netcdf file for ', this_dt.strftime('%Y-%m-%d'))
+
+            # Extract the data from the MASS archive, and return a sorted list of files ...
+            ifiles = getOLR(this_dt, this_dt + delta, satellite, area, productid, sat_scratch)
+
+            # Now loop through ifiles
             cubes = iris.cube.CubeList([])
             for file in ifiles:
 
                 outtiff = os.path.splitext(file)[0] + '_ll.tif'
 
-                if not os.path.exists(outtiff) or overwrite:
-                    # print('    Doing stuff')
+                if file.endswith('.nc'):
+                    # For SE Asia, netcdf files are already archived in lat/lon
+                    cubetmp = iris.load_cube(file)
+                    u = cf_units.Unit('hours since 1970-01-01 00:00:00', calendar=cf_units.CALENDAR_STANDARD)
+                    timecoord = iris.coords.DimCoord(cubetmp.coord('time').points[0], standard_name='time', units=u)
+                    array = cubetmp.data[np.newaxis, ...]
+                    cubell = iris.cube.Cube(array, dim_coords_and_dims=[(timecoord, 0), (cubetmp.coord('latitude'), 1), (cubetmp.coord('longitude'), 2)])
+
+                elif not os.path.exists(outtiff) or overwrite:
+                    # Projects and converts png or jpg to geotiff
                     cubell = projectToLatLong(file, outtiff, img_bnd_coords, proj4string)
+
                 else:
-                    # print('    Converting geotiff to cube')
+                    # If the projection and conversion are already done, convert to a cube
                     timestamp = os.path.basename(outtiff).split('.')[0].split('_')[1]
-                    cubell = sf.geotiff2cube(outtiff, timestamp)
+                    cubell = sf.gdalds2cube(outtiff, timestamp)
+
+                # Add the resulting cube to a list of cubes for this day
                 cubes.append(cubell)
 
+            # Concatenate everything together into a cube
             cube = cubes.concatenate_cube()
 
-            print('    Saving netcdf file')
+            print('   ... Saving netcdf file')
             # The following saves as int16 (rather than float), which cuts the filesize by 50%, and means it saves much more quickly
             # cube.data = (cube * 10).data.astype(np.int16)
             iris.save(cube, ocube_fn, zlib=True)
 
-            # Remove all non-netcdf files
-            print('    Removing files')
-            for pngfile in ifiles:
-                os.remove(pngfile) # PNG files
-                os.remove(pngfile.replace('.png','_ll.tif')) # TIF files
+            # Remove all  files
+            if os.path.isfile(ocube_fn):
+                print('    ... Removing temporary files')
+                for fn in ifiles:
+                    os.remove(fn)  # png, jpg or nc files
+                    try:
+                        os.remove(os.path.splitext(os.path.basename(fn))[0] + '_ll.tif')
+                    except:
+                        continue
 
         this_dt += delta
-
-
 
 
 if __name__ == '__main__':

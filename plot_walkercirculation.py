@@ -186,7 +186,13 @@ def make_symlinks(ofiles):
     :return: creates symbolic links in the same location as the files
     '''
 
-    ofiles = sorted(ofiles)
+    all_ofiles = sorted(ofiles)
+
+    # Subset ofiles to include only the 5S-to-5N files, if possible
+    ofiles = [x for x in all_ofiles if '5S-to-5N' in x]
+    if not ofiles:
+        ofiles = all_ofiles
+
     latestdt = dt.datetime.strptime(os.path.basename(ofiles[0]).split('_')[0], '%Y%m%dT%H%MZ')
     latestfile = ofiles[0]
 
@@ -197,10 +203,13 @@ def make_symlinks(ofiles):
             latestfile = cf
 
     symfile = latestfile.replace(latestdt.strftime('%Y%m%dT%H%MZ'), 'current')
+    symfile = symfile.replace(latestdt.strftime('/%Y%m/'), '/')
+
     try:
         os.remove(symfile)
     except:
         pass
+
     os.symlink(latestfile, symfile)
 
 

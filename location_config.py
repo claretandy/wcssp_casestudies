@@ -56,7 +56,7 @@ def load_location_settings():
     settings['gpm_path'] = settings['datadir'].rstrip('/') + '/gpm/'
     settings['um_path'] = settings['datadir'].rstrip('/') + '/UM/'
 
-    # Make sure all the directory paths exist
+    # Make sure all the directory paths exist
     for k in settings.keys():
         if ('path' in k) or ('dir' in k):
             if not os.path.isdir(settings[k]):
@@ -68,31 +68,33 @@ def load_location_settings():
     except:
         # For realtime
         settings['start'] = dt.datetime.utcnow() - dt.timedelta(days=10)
+        # settings['start'] = dt.datetime(2018, 1, 27)
 
     try:
         settings['end'] = dt.datetime.strptime(os.environ['end'], '%Y%m%d%H%M')
     except:
         # For realtime
         settings['end'] = dt.datetime.utcnow()
+        # settings['end'] = dt.datetime(2018, 1, 29)
 
     try:
         settings['region_name'] = os.environ['region_name']
     except:
         # For testing
-        settings['region_name'] = 'East-Africa'
+        settings['region_name'] = 'SE-Asia' # 'East-Africa'
 
     try:
         settings['location_name'] = os.environ['location_name']
     except:
         # For testing
-        settings['location_name'] = 'Lake-Victoria' # 'Peninsular-Malaysia'
+        settings['location_name'] = 'Northern-Vietnam' # 'Lake-Victoria' # 'Peninsular-Malaysia'
 
     try:
         domain_str = os.environ['bbox']
         settings['bbox'] = [float(x) for x in domain_str.split(',')]
     except:
         # For testing
-        settings['bbox'] = [30.7, -3.5, 35.3, 1.1] # [102.5, 16.0, 110.5, 24.0] # [100, 0, 110, 10]
+        settings['bbox'] = [102.5, 16.0, 110.5, 24.0] # [30.7, -3.5, 35.3, 1.1] # [100, 0, 110, 10]
 
     try:
         model_ids = os.environ['model_ids']
@@ -102,7 +104,7 @@ def load_location_settings():
             settings['model_ids'] = [model_ids]
     except:
         # For testing
-        settings['model_ids'] = ['analysis', 'global', 'africa'] # ['analysis', 'ga7', 'km4p4']
+        settings['model_ids'] = ['analysis', 'ga6', 'km4p4'] # ['analysis', 'global', 'africa'] # ['analysis', 'ga7', 'km4p4']
 
     try:
         settings['ftp_upload'] = True if os.environ['ftp_upload'] == 'True' else False
