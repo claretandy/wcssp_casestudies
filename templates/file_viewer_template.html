@@ -59,7 +59,7 @@
                             model: pcs[1],
                             region: pcs[2],
                             timeagg: pcs[3],
-                            plottype: imgs[0].split('/')[0],
+                            plottype: imgs[0].split('/')[0],  // FIXME: empty list slice returns undefined
                             plotname: pcs[4],
                             fclt: pcs[5]
                             };
@@ -110,6 +110,8 @@
                 //var selected_value = e.options[e.selectedIndex].value;
 
                 //['valid', 'model', 'region', 'timeagg', 'plottype', 'plotname', 'fclt'];
+
+                // FIXME: Generalise filter to support flexible dimensions
                 if (app_state.selected == 'valid'){
                     imgs = imgs_all.filter( function(elem) { return (
                             elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
