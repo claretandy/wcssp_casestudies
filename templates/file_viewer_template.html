@@ -127,64 +127,30 @@
                     plotname: app_state.plotname,
                     fclt: app_state.fclt
                 }
+                let keys = []
                 if (app_state.selected == 'valid'){
-                    imgs = imgs_all.filter(function(elem) {
-                        let keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    })
+                    keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
                 } else if (app_state.selected == 'model') {
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
                 } else if (app_state.selected == 'region') {
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
                 } else if (app_state.selected == 'timeagg') {
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["valid", "model", "region", "plottype", "plotname", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["valid", "model", "region", "plottype", "plotname", "fclt"]
                 } else if (app_state.selected == 'plottype') {
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["valid", "model", "region", "timeagg", "plotname", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["valid", "model", "region", "timeagg", "plotname", "fclt"]
                 } else if (app_state.selected == 'plotname') {
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["valid", "model", "region", "timeagg", "plottype", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["valid", "model", "region", "timeagg", "plottype", "fclt"]
                 } else if (app_state.selected == 'fclt') {
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["valid", "model", "region", "timeagg", "plottype", "plotname"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["valid", "model", "region", "timeagg", "plottype", "plotname"]
                 } else {
                     // Otherwise, loop through the valid times
-                    imgs = imgs_all.filter( function(elem) {
-                        let keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
-                        return keys.reduce((flag, key) => {
-                            flag && elem.includes(tokens[key])
-                        }, true)
-                    });
+                    keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
                 }
+                imgs = imgs_all.filter( function(elem) {
+                    return keys.reduce((flag, key) => {
+                        flag && elem.includes(tokens[key])
+                    }, true)
+                });
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
                 return imgs.sort(collator.compare);
