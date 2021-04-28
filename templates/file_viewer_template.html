@@ -54,6 +54,12 @@
                 // Change either the selected button or option in dropdown
                 // ani_state.current_image
 
+                if (imgs.length === 0) {
+                    viewWarning(true)
+                } else {
+                    viewWarning(false)
+                }
+
                 pcs = ani_state.src.split('/')[1].split('.png')[0].split('_');
                 src_vars = {valid: pcs[0],
                             model: pcs[1],
@@ -199,6 +205,21 @@
                 var i = document.getElementById("validtimes_dropdown").value;
                 go2image(parseInt(i)-1);
             }
+
+            // Error handling
+            function viewWarning(show) {
+                let el = document.getElementById("warn")
+                if (show) {
+                    // Add display: block
+                    el.classList.add("db")
+                    el.classList.remove("dn")
+                } else {
+                    // Add display: none
+                    el.classList.add("dn")
+                    el.classList.remove("db")
+                }
+            }
+
         </script>
         <script src="animation.js"></script>
 
@@ -261,6 +282,12 @@
             SPEED:<INPUT TYPE="button" Value="  -  " onClick="change_speed(delay_step)">
             <INPUT TYPE="submit" Value="  +  " onClick="change_speed(-delay_step)\;return false">
             </FORM>
+            <div id="user-warning" class="toast dn">
+                <div class="admonition failure">
+                    <p class="admonition-title">Fail</p>
+                    <p>No images found</p>
+                </div>
+            </div>
 <!--            <div class="imgdiv">-->
             <IMG class="center-fit" NAME="animation" SRC="{{ imgs[params["model"][0]] | last }}" ALT="[jsMoviePlayer]"> <!--style="float:center;width:60%;height:60%;object-fit:cover;"-->
 <!--            </div>-->
