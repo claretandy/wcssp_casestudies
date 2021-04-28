@@ -31,13 +31,15 @@ def get_site_by_ip():
     except:
         return 'generic'
 
-def load_location_settings():
+def load_location_settings(config_file=None):
     '''
     This loads settings depending on the NMS that we're in
     '''
+    if config_file is None:
+        config_file = "../.config"
 
     settings = {}
-    with open('../.config', 'r') as f:
+    with open(config_file, 'r') as f:
         data = f.readlines()
         for line in data:
             if line == '\n' or line[0] == '#':
