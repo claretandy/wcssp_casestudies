@@ -130,30 +130,24 @@
 
                 // Define which keys to filter imgs_all with
                 let defineKeys = selected => {
+                    let all_dims = ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
                     if (selected == 'valid'){
-                        // All except valid
-                        return ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                        return all_dims.filter(dim => dim !== "valid")
                     } else if (selected == 'model') {
-                        // All except model
-                        return ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
+                        return all_dims.filter(dim => dim !== "model")
                     } else if (selected == 'region') {
-                        // All except region
-                        return ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
+                        return all_dims.filter(dim => dim !== "region")
                     } else if (selected == 'timeagg') {
-                        // All except timeagg
-                        return ["valid", "model", "region", "plottype", "plotname", "fclt"]
+                        return all_dims.filter(dim => dim !== "timeagg")
                     } else if (selected == 'plottype') {
-                        // All except plottype
-                        return ["valid", "model", "region", "timeagg", "plotname", "fclt"]
+                        return all_dims.filter(dim => dim !== "plottype")
                     } else if (selected == 'plotname') {
-                        // All except plotname
-                        return ["valid", "model", "region", "timeagg", "plottype", "fclt"]
+                        return all_dims.filter(dim => dim !== "plotname")
                     } else if (selected == 'fclt') {
-                        // All except fclt
-                        return ["valid", "model", "region", "timeagg", "plottype", "plotname"]
+                        return all_dims.filter(dim => dim !== "fclt")
                     } else {
                         // Otherwise, loop through the valid times
-                        return ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                        return all_dims.filter(dim => dim !== "valid")
                     }
                 }
                 let keys = defineKeys(app_state.selected)
