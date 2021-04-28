@@ -54,6 +54,12 @@
                 // Change either the selected button or option in dropdown
                 // ani_state.current_image
 
+                // Guard clause to prevent run time exception
+                if (imgs.length === 0) {
+                    // Exit callback early to short-circuit TypeError
+                    return
+                }
+
                 pcs = ani_state.src.split('/')[1].split('.png')[0].split('_');
                 src_vars = {valid: pcs[0],
                             model: pcs[1],
@@ -110,40 +116,51 @@
                 //var selected_value = e.options[e.selectedIndex].value;
 
                 //['valid', 'model', 'region', 'timeagg', 'plottype', 'plotname', 'fclt'];
-                if (app_state.selected == 'valid'){
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
-                } else if (app_state.selected == 'model') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
-                } else if (app_state.selected == 'region') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
-                } else if (app_state.selected == 'timeagg') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
-                } else if (app_state.selected == 'plottype') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.timeagg) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
-                } else if (app_state.selected == 'plotname') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.timeagg) && elem.includes(app_state.plottype) && elem.includes(app_state.fclt)) } );
-                } else if (app_state.selected == 'fclt') {
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes(app_state.valid) && elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') &&
-                            elem.includes(app_state.timeagg) && elem.includes(app_state.plottype) && elem.includes(app_state.plotname)) } );
-                } else {
-                    // Otherwise, loop through the valid times
-                    imgs = imgs_all.filter( function(elem) { return (
-                            elem.includes('_'+app_state.model+'_') && elem.includes('_'+app_state.region+'_') && elem.includes(app_state.timeagg) &&
-                            elem.includes(app_state.plottype) && elem.includes(app_state.plotname) && elem.includes(app_state.fclt)) } );
+
+                // Normalise search criteria by mapping dimension to pattern
+                let tokens = {
+                    valid: app_state.valid,
+                    model: '_'+app_state.model+'_',
+                    region: '_'+app_state.region+'_',
+                    timeagg: app_state.timeagg,
+                    plottype: app_state.plottype,
+                    plotname: app_state.plotname,
+                    fclt: app_state.fclt
                 }
+
+                // Choose dimensions by plot name
+                let getImageDimensions = plotname => {
+                    // TODO: Add dimension logic here or use Jinja2??
+                    let nameToDims = {
+                        Foo: ["valid", "model", "region", "timeagg", "plottype", "plotname"],
+                        Bar: ["valid", "region", "timeagg", "plottype", "plotname"],
+                        Baz: ["valid", "model", "region", "plottype", "plotname"]
+                    }
+                    return nameToDims[plotname] || (
+                         ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                    )
+                }
+                let all_dims = getImageDimensions(app_state.plotname)
+
+                // Remove loop dimension from filter patterns
+                let getLoopDimension = (all_dims, selected) => {
+                    if (all_dims.indexOf(selected) !== -1) {
+                        return selected
+                    } else {
+                        // Otherwise, loop through the valid times
+                        return "valid"
+                    }
+                }
+                let loopDim = getLoopDimension(all_dims, app_state.selected)
+                let dims = all_dims.filter(dim => dim !== loopDim)
+
+                // Apply filters to master list of images
+                imgs = imgs_all.filter((img) => {
+                    return dims.reduce((flag, dim) => {
+                        return flag && img.includes(tokens[dim])
+                    }, true)
+                });
+
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
                 return imgs.sort(collator.compare);
