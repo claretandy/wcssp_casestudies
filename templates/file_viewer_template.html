@@ -56,6 +56,8 @@
 
                 if (imgs.length === 0) {
                     viewWarning(true)
+                    // Exit early to prevent TypeError
+                    return
                 } else {
                     viewWarning(false)
                 }
@@ -208,7 +210,7 @@
 
             // Error handling
             function viewWarning(show) {
-                let el = document.getElementById("warn")
+                let el = document.getElementById("user-warning")
                 if (show) {
                     // Add display: block
                     el.classList.add("db")
