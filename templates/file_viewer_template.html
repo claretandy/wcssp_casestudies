@@ -45,7 +45,7 @@
             doThingsOnChange = function(){
                 subset_img_list();
                 set_active_button();
-                run_settings(imgs);
+                run_settings(imgs, loopIndex);
                 launch();
                 //set_noactive_buttons();
             };
@@ -121,7 +121,7 @@
 
                 // Normalise search criteria by mapping dimension to pattern
                 let tokens = {
-                    valid: app_state.valid,
+                    valid: app_state.valid,  // CHECK if this updates
                     model: '_'+app_state.model+'_',
                     region: '_'+app_state.region+'_',
                     timeagg: app_state.timeagg,
@@ -131,18 +131,7 @@
                 }
 
                 // Choose dimensions by plot name
-                let getImageDimensions = plotname => {
-                    // TODO: Add dimension logic here or use Jinja2??
-                    let nameToDims = {
-                        Foo: ["valid", "model", "region", "timeagg", "plottype", "plotname"],
-                        Bar: ["valid", "region", "timeagg", "plottype", "plotname"],
-                        Baz: ["valid", "model", "region", "plottype", "plotname"]
-                    }
-                    return nameToDims[plotname] || (
-                         ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
-                    )
-                }
-                let all_dims = getImageDimensions(app_state.plotname)
+                let all_dims = ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
 
                 // Remove loop dimension from filter patterns
                 let getLoopDimension = (all_dims, selected) => {
@@ -162,6 +151,18 @@
                         return flag && img.includes(tokens[dim])
                     }, true)
                 });
+
+                // All images related to app state
+
+                // Single image related to app state
+                let loopIndex
+                let maybeSingleImg = imgs.filter(img => img.includes(tokens[loopDim]))
+                if (maybeSingleImg.length === 0) {
+                    // No compatible image
+                    loopIndex = -1
+                } else {
+                    loopIndex = imgs.indexOf(maybeSingleImage[0])
+                }
 
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
