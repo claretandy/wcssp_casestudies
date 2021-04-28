@@ -43,7 +43,7 @@
 
             // Things to do when the app state changes on button clicks
             doThingsOnChange = function(){
-                subset_img_list();
+                let { loopIndex } = subset_img_list();
                 set_active_button();
                 run_settings(imgs, loopIndex);
                 launch();
@@ -166,11 +166,15 @@
 
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
-                return imgs.sort(collator.compare);
+                return {
+                    imgs: imgs.sort(collator.compare),
+                    loopIndex: loopIndex
+                }
             };
 
             // Sets the initial state of the application
-            imgs = subset_img_list();
+            let obj = subset_img_list();
+            imgs = obj.imgs
             function load_startup(imgs) {
                 run_settings(imgs);
                 set_active_button();
