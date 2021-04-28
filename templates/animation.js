@@ -1,10 +1,15 @@
 
-function run_settings(imgs) {
+function run_settings(imgs, i) {
     //********* SET UP THESE VARIABLES - MUST BE CORRECT!!!*********************
     // The only input to this script should be a list of images
     first_image=0;
     // imgs = subset_img_list();
     last_image = imgs.length-1;
+    if (typeof i === 'undefined'){
+        current_image = last_image
+    } else {
+        current_image = i
+    }
 //    animation_height=777;
 //    animation_width=692;
     //animation_startimg=imgs[imgs.length-1];
@@ -19,7 +24,6 @@ function run_settings(imgs) {
     delay_step = 100;
     delay_max = 4000;
     delay_min = 10;
-    current_image = last_image;     //number of the current image
     timeID = null;
     status = 0;            // 0-stopped, 1-playing
     play_mode = 0;         // 0-continuous, 1-normal,  2-swing
