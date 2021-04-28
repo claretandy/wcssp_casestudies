@@ -131,18 +131,25 @@
                 // Define which keys to filter imgs_all with
                 let defineKeys = selected => {
                     if (selected == 'valid'){
+                        // All except valid
                         return ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
                     } else if (selected == 'model') {
+                        // All except model
                         return ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
                     } else if (selected == 'region') {
+                        // All except region
                         return ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
                     } else if (selected == 'timeagg') {
+                        // All except timeagg
                         return ["valid", "model", "region", "plottype", "plotname", "fclt"]
                     } else if (selected == 'plottype') {
+                        // All except plottype
                         return ["valid", "model", "region", "timeagg", "plotname", "fclt"]
                     } else if (selected == 'plotname') {
+                        // All except plotname
                         return ["valid", "model", "region", "timeagg", "plottype", "fclt"]
                     } else if (selected == 'fclt') {
+                        // All except fclt
                         return ["valid", "model", "region", "timeagg", "plottype", "plotname"]
                     } else {
                         // Otherwise, loop through the valid times
@@ -151,11 +158,13 @@
                 }
                 let keys = defineKeys(app_state.selected)
 
-                imgs = imgs_all.filter( function(elem) {
+                // Apply filters to master list of images
+                imgs = imgs_all.filter((img) => {
                     return keys.reduce((flag, key) => {
-                        return flag && elem.includes(tokens[key])
+                        return flag && img.includes(tokens[key])
                     }, true)
                 });
+
                 // Sort the list
                 var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
                 return imgs.sort(collator.compare);
