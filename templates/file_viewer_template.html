@@ -148,7 +148,7 @@
                 }
                 imgs = imgs_all.filter( function(elem) {
                     return keys.reduce((flag, key) => {
-                        flag && elem.includes(tokens[key])
+                        return flag && elem.includes(tokens[key])
                     }, true)
                 });
                 // Sort the list
