@@ -127,25 +127,30 @@
                     plotname: app_state.plotname,
                     fclt: app_state.fclt
                 }
-                let keys = []
-                if (app_state.selected == 'valid'){
-                    keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
-                } else if (app_state.selected == 'model') {
-                    keys = ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
-                } else if (app_state.selected == 'region') {
-                    keys = ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
-                } else if (app_state.selected == 'timeagg') {
-                    keys = ["valid", "model", "region", "plottype", "plotname", "fclt"]
-                } else if (app_state.selected == 'plottype') {
-                    keys = ["valid", "model", "region", "timeagg", "plotname", "fclt"]
-                } else if (app_state.selected == 'plotname') {
-                    keys = ["valid", "model", "region", "timeagg", "plottype", "fclt"]
-                } else if (app_state.selected == 'fclt') {
-                    keys = ["valid", "model", "region", "timeagg", "plottype", "plotname"]
-                } else {
-                    // Otherwise, loop through the valid times
-                    keys = ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+
+                // Define which keys to filter imgs_all with
+                let defineKeys = selected => {
+                    if (selected == 'valid'){
+                        return ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                    } else if (selected == 'model') {
+                        return ["valid", "region", "timeagg", "plottype", "plotname", "fclt"]
+                    } else if (selected == 'region') {
+                        return ["valid", "model", "timeagg", "plottype", "plotname", "fclt"]
+                    } else if (selected == 'timeagg') {
+                        return ["valid", "model", "region", "plottype", "plotname", "fclt"]
+                    } else if (selected == 'plottype') {
+                        return ["valid", "model", "region", "timeagg", "plotname", "fclt"]
+                    } else if (selected == 'plotname') {
+                        return ["valid", "model", "region", "timeagg", "plottype", "fclt"]
+                    } else if (selected == 'fclt') {
+                        return ["valid", "model", "region", "timeagg", "plottype", "plotname"]
+                    } else {
+                        // Otherwise, loop through the valid times
+                        return ["model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                    }
                 }
+                let keys = defineKeys(app_state.selected)
+
                 imgs = imgs_all.filter( function(elem) {
                     return keys.reduce((flag, key) => {
                         return flag && elem.includes(tokens[key])
