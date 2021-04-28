@@ -128,14 +128,17 @@
                     fclt: app_state.fclt
                 }
 
-                // Choose dimensions related to plot type
-                let getImageDimensions = plottype => {
-                    // TODO: Add correct dimension logic here
-                    if (plottype === "Foo") {
-                        return ["valid", "model", "region", "timeagg", "plottype", "plotname"]
-                    } else {
-                        return ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                // Choose dimensions by plot name
+                let getImageDimensions = plotname => {
+                    // TODO: Add dimension logic here or use Jinja2??
+                    let nameToDims = {
+                        Foo: ["valid", "model", "region", "timeagg", "plottype", "plotname"],
+                        Bar: ["valid", "region", "timeagg", "plottype", "plotname"],
+                        Baz: ["valid", "model", "region", "plottype", "plotname"]
                     }
+                    return nameToDims[plotname] || (
+                         ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                    )
                 }
                 let all_dims = getImageDimensions(app_state.plottype)
 
