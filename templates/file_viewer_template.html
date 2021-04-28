@@ -128,20 +128,21 @@
                     fclt: app_state.fclt
                 }
 
-                // Define which keys to filter imgs_all with
-                let defineKeys = selected => {
-                    // FIXME: Support possible dimensions as a function of plottype
-                    let all_dims = ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                // FIXME: Support dimensions as a function of plottype
+                let all_dims = ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
+
+                // Define which dimensins to filter imgs_all with
+                let excludeLoopDimension = (all_dims, loopDim) => {
                     let excludeDim
-                    if (all_dims.indexOf(selected) !== -1) {
-                        excludeDim = selected
+                    if (all_dims.indexOf(loopDim) !== -1) {
+                        excludeDim = loopDim
                     } else {
                         // Otherwise, loop through the valid times
                         excludeDim = "valid"
                     }
                     return all_dims.filter(dim => dim !== excludeDim)
                 }
-                let keys = defineKeys(app_state.selected)
+                let keys = excludeLoopDimension(all_dims, app_state.selected)
 
                 // Apply filters to master list of images
                 imgs = imgs_all.filter((img) => {
