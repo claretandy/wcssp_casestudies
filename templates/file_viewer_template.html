@@ -132,22 +132,21 @@
                 let all_dims = ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
 
                 // Define which dimensins to filter imgs_all with
-                let excludeLoopDimension = (all_dims, loopDim) => {
-                    let excludeDim
-                    if (all_dims.indexOf(loopDim) !== -1) {
-                        excludeDim = loopDim
+                let getLoopDimension = (all_dims, selected) => {
+                    if (all_dims.indexOf(selected) !== -1) {
+                        return selected
                     } else {
                         // Otherwise, loop through the valid times
-                        excludeDim = "valid"
+                        return "valid"
                     }
-                    return all_dims.filter(dim => dim !== excludeDim)
                 }
-                let keys = excludeLoopDimension(all_dims, app_state.selected)
+                let loopDim = getLoopDimension(all_dims, app_state.selected)
+                let dims = all_dims.filter(dim => dim !== loopDim)
 
                 // Apply filters to master list of images
                 imgs = imgs_all.filter((img) => {
-                    return keys.reduce((flag, key) => {
-                        return flag && img.includes(tokens[key])
+                    return dims.reduce((flag, dim) => {
+                        return flag && img.includes(tokens[dim])
                     }, true)
                 });
 
