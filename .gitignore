@@ -9,3 +9,4 @@ query*
 /run_extract_realtime.sh
 /run_extract_event.sh
 /batch_output
+/std_domains.ods

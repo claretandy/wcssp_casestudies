@@ -21,7 +21,8 @@ def parse_filename(ifiles):
     # dict['location_nice'] = sorted(list(set([f.split('_')[2].replace('-', ' ').replace('|', '/') for f in fnames])))
     dict['region'] = sorted(list(set([f.split('_')[2] for f in fnames])))
     dict['timeagg'] = sorted(list(set([f.split('_')[3] for f in fnames])))
-    dict['plottype'] = sorted(list(set([os.path.dirname(f).split(os.sep)[-1] for f in ifiles])))
+    dict['plottype'] = sorted(list(set([os.path.dirname(f).split(os.sep)[-2] for f in ifiles])))
+    dict['yearmon'] = sorted(list(set([os.path.dirname(f).split(os.sep)[-1] for f in ifiles])))
     dict['plotname'] = sorted(list(set([f.split('_')[4] for f in fnames])))
     dict['fclt'] = list(set([f.split('_')[5].replace('.png', '') for f in fnames]))
 
@@ -31,10 +32,12 @@ def parse_filename(ifiles):
     dict['fclt'] = sorted(dict['fclt'], key=alphanum_key)
 
     # Build a page title
-    # Monitoring | Realtime Peninsula Malaysia | Upper Air
-    region_name = list(set([os.path.dirname(f).split('/')[-3] for f in ifiles]))[0].title()
-    location_name = list(set([os.path.dirname(f).split('/')[-2] for f in ifiles]))[0].title().replace('_', ', ').replace('-', ' ')
-    page_title = region_name + ' | ' + location_name + ' | ' + dict['plottype'][0]
+    # Region | Location | Upper Air
+    istart = os.path.dirname(ifiles[0]).split(os.sep).index('Plots')
+    region_name = os.path.dirname(ifiles[0]).split(os.sep)[istart + 1].replace('-', ' ')
+    location_name = os.path.dirname(ifiles[0]).split(os.sep)[istart + 2].replace('_', ', ').replace('-', ' ').title()
+    plot_type = dict['plottype'][0].replace('-', ' ').title()
+    page_title = region_name + ' | ' + location_name + ' | ' + plot_type
 
     return dict, page_title
 
@@ -47,6 +50,7 @@ def nicenameLUT(keys):
            'timeagg': 'Time Aggregation',
            'plottype': 'Plot Type',
            'plotname': 'Plot Name',
+           'yearmon': 'Month',
            'fclt': 'Lead Time'}
 
     olist = []
@@ -83,15 +87,17 @@ def create(ifiles):
     # The rendered file goes in the directory above the plotted png files
     rendered_dirs = sorted(list(set([os.path.dirname(f).replace(os.path.dirname(f).split(os.sep)[-1], '') for f in ifiles])))
     rendered_dir = rendered_dirs[0] # Let's assume we only have 1 plottype (and therefore one dir) at the moment (but possibly multiple plotnames within it)
-    rendered_filename = rendered_dir +  plottype + ".html"
+    rendered_filename = rendered_dir + plottype + "_latest.html"
 
     # Get the relative path to the files (relative to the location of the rendered html page)
-    ifiles_rel = [plottype + '/' + os.path.basename(f) for f in ifiles]
+    ifiles_rel = [os.path.dirname(f).split(os.sep)[-1] + '/' + os.path.basename(f) for f in ifiles] # plottype + '/' +
+
+    # pdb.set_trace()
 
     # Create a dictionary from ifiles_rel that has keys that will be used for the top header (usually modelid)
     imgdict = {}
     for m in dict['model']:
-        imgdict.update({m : [f for f in ifiles_rel if m == f.split('_')[1]]})
+        imgdict.update({m: [f for f in ifiles_rel if m == f.split('_')[1]]})
 
     render_vars = {
         "imgs": ifiles_rel,
