@@ -125,13 +125,13 @@
                     model: '_'+app_state.model+'_',
                     region: '_'+app_state.region+'_',
                     timeagg: app_state.timeagg,
-                    plottype: app_state.plottype,
+                    //plottype: app_state.plottype,
                     plotname: app_state.plotname,
                     fclt: app_state.fclt
                 }
 
                 // Choose dimensions by plot name
-                let all_dims = ["valid", "model", "region", "timeagg", "plottype", "plotname", "fclt"]
+                let all_dims = Object.keys(tokens)  // ["valid", "model", "region", "timeagg", "plotname", "fclt"]
 
                 // Remove loop dimension from filter patterns
                 let getLoopDimension = (all_dims, selected) => {
@@ -182,25 +182,40 @@
             };
 
             function set_active_button() {
-
-                // Loop through each div name
-                divnames.forEach(function(div){
-
-                    var header = document.getElementById(div);
-                    var current = header.getElementsByClassName("button active");
-                    if (current[0] != null) {
-                        current[0].className = "button";
-                    };
-
-                    btns = header.getElementsByTagName("button")
-                    // Loop through all the buttons in the div
+				divs = document.getElementsByTagName("div")
+				Object.keys(divs).forEach( function(div){
+					btns = divs[div].getElementsByTagName("button")
+					// Loop through all the buttons in the div
                     var i;
                     for (i = 0; i < btns.length; i++) {
                         btn = btns[i];
                         id = btn.getAttribute('id');
-                        Object.keys(app_state).forEach(function(key){ if (id == app_state[key]){ btn.setAttribute('class', 'button active') } } );
+                        Object.keys(app_state).forEach(function(key){
+							if (id == app_state[key]){
+								btn.setAttribute('class', 'button active')
+							};
+						});
                     };
-                }); // end of forEach
+				});
+
+                // Loop through each div name
+//                 divnames.forEach(function(div){
+
+//                     var header = document.getElementById(div);
+//                     var current = document.getElementsByClassName("button active");
+//                     if (current[0] != null) {
+//                         current[0].className = "button";
+//                     };
+
+//                     btns = document.getElementsByTagName("button")
+//                     // Loop through all the buttons in the div
+//                     var i;
+//                     for (i = 0; i < btns.length; i++) {
+//                         btn = btns[i];
+//                         id = btn.getAttribute('id');
+//                         Object.keys(app_state).forEach(function(key){ if (id == app_state[key]){ btn.setAttribute('class', 'button active') } } );
+//                     };
+//                 }); // end of forEach
 
             };
 
