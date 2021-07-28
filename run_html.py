@@ -60,10 +60,11 @@ def nicenameLUT(keys):
     return olist
 
 
-def create(ifiles):
+def create(ifiles, rendered_filename=None):
     '''
     Uses a jinja2 template file and variables derived from the filenames in ifiles to create a web page
     :param ifiles: a list of files with local paths
+    :param rendered_filename: (optional) an html filename and path
     :return: html, css and js files in the directory above the ifiles
     '''
     # The template file has jinja2 code in it to allow page-specific features to be set by this script
@@ -86,13 +87,12 @@ def create(ifiles):
 
     # The rendered file goes in the directory above the plotted png files
     rendered_dirs = sorted(list(set([os.path.dirname(f).replace(os.path.dirname(f).split(os.sep)[-1], '') for f in ifiles])))
-    rendered_dir = rendered_dirs[0] # Let's assume we only have 1 plottype (and therefore one dir) at the moment (but possibly multiple plotnames within it)
-    rendered_filename = rendered_dir + plottype + "_latest.html"
+    rendered_dir = rendered_dirs[0]  # Let's assume we only have 1 plottype (and therefore one dir) at the moment (but possibly multiple plotnames within it)
+    if not rendered_filename:
+        rendered_filename = rendered_dir + plottype + "_latest.html"
 
     # Get the relative path to the files (relative to the location of the rendered html page)
     ifiles_rel = [os.path.dirname(f).split(os.sep)[-1] + '/' + os.path.basename(f) for f in ifiles] # plottype + '/' +
-
-    # pdb.set_trace()
 
     # Create a dictionary from ifiles_rel that has keys that will be used for the top header (usually modelid)
     imgdict = {}
