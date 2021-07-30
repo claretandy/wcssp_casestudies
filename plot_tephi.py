@@ -556,6 +556,7 @@ def main(start_dt=None, end_dt=None, region_name=None, location_name=None, bbox=
                 if os.path.isfile(plot_fname):
                     ofiles.append(plot_fname)
 
+    # pdb.set_trace()
     html.create(ofiles)
 
 if __name__ == '__main__':

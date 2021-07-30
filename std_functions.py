@@ -2423,6 +2423,7 @@ def make_outputplot_filename(region_name, location_name, validtime, modelid, plo
     settings = config.load_location_settings()
     region_name = region_name.replace(' ', '-').replace('_', '-').replace('/', '-')
     location_name = location_name.replace(' ', '-').replace('_', '-').replace('/', '-')
+    plot_location = plot_location.replace(' ', '-').replace('_', '-').replace('/', '-')
     timedir = validtime.strftime('%Y%m')
     timestamp = validtime.strftime('%Y%m%dT%H%MZ')
     # 20210114T0600Z_analysis_Tropics-5S-to-5N_Instantaneous_walker-circulation_T+0.png

@@ -182,41 +182,37 @@
             };
 
             function set_active_button() {
-				divs = document.getElementsByTagName("div")
+                // Get all the divs
+				divs = document.getElementsByTagName("div");
+				// Get keys and values for app_state
+				appstate_keys = Object.keys(app_state);
+				appstate_vals = Object.values(app_state);
+
+				// Loop through all divs
 				Object.keys(divs).forEach( function(div){
-					btns = divs[div].getElementsByTagName("button")
-					// Loop through all the buttons in the div
-                    var i;
-                    for (i = 0; i < btns.length; i++) {
-                        btn = btns[i];
-                        id = btn.getAttribute('id');
-                        Object.keys(app_state).forEach(function(key){
-							if (id == app_state[key]){
-								btn.setAttribute('class', 'button active')
-							};
-						});
+				    div_id = divs[div].getAttribute('id');
+
+				    // If the div is in the appstate_keys
+                    if (appstate_keys.includes(div_id)) {
+                        i = appstate_keys.indexOf(div_id);
+                        // Get the value of the button that we want to be selected
+                        button_to_set = appstate_vals[i];
+                        // Get the buttons in the div
+                        btns = divs[div].getElementsByClassName("button")
+                        // Loop through all the buttons in the div
+                        var i;
+                        for (i = 0; i < btns.length; i++) {
+                            btn = btns[i];
+                            // The id of the button
+                            btn_id = btn.getAttribute('id');
+                            if (btn_id == button_to_set) {
+                                btn.setAttribute('class', 'button active')
+                            } else {
+                                btn.setAttribute('class', 'button')
+                            };
+                        };
                     };
 				});
-
-                // Loop through each div name
-//                 divnames.forEach(function(div){
-
-//                     var header = document.getElementById(div);
-//                     var current = document.getElementsByClassName("button active");
-//                     if (current[0] != null) {
-//                         current[0].className = "button";
-//                     };
-
-//                     btns = document.getElementsByTagName("button")
-//                     // Loop through all the buttons in the div
-//                     var i;
-//                     for (i = 0; i < btns.length; i++) {
-//                         btn = btns[i];
-//                         id = btn.getAttribute('id');
-//                         Object.keys(app_state).forEach(function(key){ if (id == app_state[key]){ btn.setAttribute('class', 'button active') } } );
-//                     };
-//                 }); // end of forEach
-
             };
 
             function set_noactive_buttons(){

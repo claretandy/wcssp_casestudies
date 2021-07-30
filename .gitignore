@@ -10,3 +10,6 @@ query*
 /run_extract_event.sh
 /batch_output
 /std_domains.ods
+/large-scale_latest.html
+/large-scale_temp.html
+/animation.js
