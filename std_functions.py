@@ -591,7 +591,10 @@ def cube2gdalds(cube, empty=False, dtype=gdal.GDT_Byte):
             data2write = cube.data
             ndval = 0
         band.WriteArray(data2write)
-        band.SetNoDataValue(ndval)
+        try:
+            band.SetNoDataValue(ndval)
+        except:
+            print('Unable to set no data value')
 
     # band.FlushCache()
 
